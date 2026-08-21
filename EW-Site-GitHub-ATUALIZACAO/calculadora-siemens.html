@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self' https://ew-dropbox-proxy.ew-fotos.workers.dev; object-src 'none'; base-uri 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Extreme Wind — Calculadora de Reparos Siemens Gamesa (sistema poliéster)">
+<meta name="theme-color" content="#0098A2">
+<title>Extreme Wind | Calculadora Siemens Gamesa</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="EW Calc">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --petrol:#0098a2;      /* petrol OFICIAL Siemens Gamesa (Pantone 320C) */
+    --petrol-dark:#00727a;
+    --petrol-deep:#043b40;
+    --accent:#00c1b6;      /* light-petrol de acento (token Siemens) */
+    --accent-soft:#cdf3f0;
+    --amber:#f59e0b;
+    --red:#ef4444;
+    --green:#16a34a;
+    --ink:#0f172a;
+    --muted:#64748b;
+    --line:#e2e8f0;
+    --bg:#eef2f4;
+    --card:#ffffff;
+    --card-soft:#f6f9f9;
+    --shadow:0 6px 24px rgba(6,39,38,.10);
+    --shadow-sm:0 2px 8px rgba(6,39,38,.07);
+    --radius:16px;
+    --radius-sm:10px;
+    --ff:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  }
+  :root[data-theme="dark"]{
+    --ink:#e6edf0; --muted:#93a4ad; --line:#243233; --bg:#0a1516;
+    --card:#0f2021; --card-soft:#0c1a1b; --accent-soft:#0c3b38;
+    --shadow:0 6px 24px rgba(0,0,0,.45); --shadow-sm:0 2px 8px rgba(0,0,0,.4);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ink:#e6edf0; --muted:#93a4ad; --line:#243233; --bg:#0a1516;
+      --card:#0f2021; --card-soft:#0c1a1b; --accent-soft:#0c3b38;
+      --shadow:0 6px 24px rgba(0,0,0,.45); --shadow-sm:0 2px 8px rgba(0,0,0,.4);
+    }
+  }
+  html{overflow-x:hidden}
+  body{font-family:var(--ff);background:var(--bg);color:var(--ink);line-height:1.55;min-height:100vh;
+    overflow-x:hidden;padding-bottom:70px;-webkit-tap-highlight-color:transparent}
+
+  /* ── TOP BAR ── */
+  .topbar{position:sticky;top:0;z-index:50;background:linear-gradient(120deg,var(--petrol-deep),var(--petrol));
+    color:#fff;box-shadow:var(--shadow-sm)}
+  .topbar-inner{max-width:960px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:14px}
+  .brand{display:flex;align-items:center;gap:12px;min-width:0}
+  .brand-logo{height:34px;width:auto;display:block;filter:brightness(0) invert(1)}
+  .brand-fallback{font-weight:800;letter-spacing:.5px;font-size:1.05rem;white-space:nowrap}
+  .brand-fallback span{color:var(--accent-soft)}
+  .brand-sub{font-size:.72rem;opacity:.85;font-weight:500;line-height:1.1}
+  .topbar-spacer{flex:1}
+  .oem-chip{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right}
+  .oem-logo{height:30px;width:auto;max-width:180px;display:block;background:#fff;padding:5px 10px;border-radius:8px;object-fit:contain}
+  .oem-chip .oem-name{font-weight:700;font-size:.92rem;line-height:1}
+  .oem-chip .oem-tag{font-size:.66rem;opacity:.8;letter-spacing:1px;text-transform:uppercase}
+  .theme-btn{background:rgba(255,255,255,.15);border:none;color:#fff;width:38px;height:38px;border-radius:50%;
+    cursor:pointer;font-size:1rem;transition:background .2s;flex-shrink:0}
+  .theme-btn:hover{background:rgba(255,255,255,.28)}
+  .nav-back{background:rgba(255,255,255,.15);border:none;color:#fff;width:38px;height:38px;border-radius:50%;
+    cursor:pointer;font-size:1rem;transition:background .2s;flex-shrink:0}
+  .nav-back:hover{background:rgba(255,255,255,.28)}
+
+  .wrap{max-width:960px;margin:0 auto;padding:16px}
+
+  /* ── ID BANNER ── */
+  .id-banner{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;
+    gap:10px;box-shadow:var(--shadow-sm);flex-wrap:wrap}
+  .id-banner .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.85rem}
+  .pill{background:var(--card-soft);border:1px solid var(--line);padding:3px 10px;border-radius:20px;
+    font-size:.8rem;font-weight:600;color:var(--ink)}
+  .pill.accent{background:var(--accent-soft);border-color:transparent;color:var(--petrol-dark)}
+  :root[data-theme="dark"] .pill.accent{color:var(--accent)}
+  .ghost-btn{background:transparent;border:1px solid var(--line);color:var(--petrol);padding:6px 12px;
+    border-radius:var(--radius-sm);cursor:pointer;font-weight:600;font-size:.85rem;display:inline-flex;
+    align-items:center;gap:6px;transition:all .2s}
+  .ghost-btn:hover{background:var(--petrol);color:#fff;border-color:var(--petrol)}
+
+  /* ── NAV TABS ── */
+  .nav{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 12px;margin-bottom:6px;scrollbar-width:thin}
+  .nav::-webkit-scrollbar{height:6px}
+  .nav::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .tab{flex:0 0 auto;background:var(--card);border:1px solid var(--line);border-radius:999px;
+    padding:9px 16px;cursor:pointer;font-weight:600;font-size:.88rem;color:var(--muted);
+    display:flex;align-items:center;gap:8px;transition:all .2s;white-space:nowrap}
+  .tab:hover{border-color:var(--petrol);color:var(--petrol)}
+  .tab.active{background:var(--petrol);border-color:var(--petrol);color:#fff;box-shadow:var(--shadow-sm)}
+  .tab.hidden{display:none}
+  .tab i{font-size:.9rem}
+
+  /* ── PANELS ── */
+  .panel{display:none;animation:fade .25s ease}
+  .panel.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px;margin-bottom:16px;box-shadow:var(--shadow-sm)}
+  .card-title{display:flex;align-items:center;gap:10px;font-size:1.12rem;font-weight:700;margin-bottom:4px}
+  .card-title .ico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;
+    background:linear-gradient(135deg,var(--petrol),var(--accent));font-size:1rem;flex-shrink:0}
+  .card-desc{color:var(--muted);font-size:.9rem;margin-bottom:16px}
+
+  /* ── FORM ── */
+  .field{margin-bottom:14px}
+  .field label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
+  .hint{font-size:.78rem;color:var(--muted);font-weight:400;margin-left:2px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  input[type=text],input[type=number],input[type=date],select{width:100%;padding:12px 14px;
+    border:2px solid var(--line);border-radius:var(--radius-sm);font-size:.97rem;font-family:inherit;
+    background:var(--card);color:var(--ink);transition:border-color .2s}
+  input:focus,select:focus{outline:none;border-color:var(--petrol)}
+  .seg{display:flex;flex-wrap:wrap;gap:8px}
+  .seg label{display:flex;align-items:center;gap:7px;padding:10px 14px;border:2px solid var(--line);
+    border-radius:var(--radius-sm);cursor:pointer;font-weight:600;font-size:.88rem;margin:0;transition:all .2s;flex:1;min-width:140px;justify-content:center}
+  .seg input{display:none}
+  .seg label:hover{border-color:var(--petrol)}
+  .seg input:checked + span{color:#fff}
+  .seg label.sel{background:var(--petrol);border-color:var(--petrol);color:#fff}
+  .seg label:has(input:checked){background:var(--petrol);border-color:var(--petrol);color:#fff}
+  .check{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card-soft);
+    border:1px solid var(--line);border-radius:var(--radius-sm);cursor:pointer;font-weight:600;font-size:.9rem}
+  .check input{width:20px;height:20px;accent-color:var(--petrol);cursor:pointer;flex-shrink:0}
+
+  /* ── INFO / SPEC BOX ── */
+  .spec{background:var(--card-soft);border:1px solid var(--line);border-left:4px solid var(--petrol);
+    border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:16px;font-size:.9rem}
+  .spec b{color:var(--petrol)}
+  :root[data-theme="dark"] .spec b{color:var(--accent)}
+  .spec .row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
+  .spec.warn{border-left-color:var(--amber);background:var(--card-soft)}
+  .spec.warn .head{color:var(--amber)}
+  .note{font-size:.82rem;color:var(--muted);margin-top:8px}
+  .src{font-size:.74rem;color:var(--muted);font-style:italic;margin-top:8px;display:block}
+
+  /* ── REFERENCE TABLES ── */
+  .tbl-wrap{overflow-x:auto;margin:12px 0;border:1px solid var(--line);border-radius:var(--radius-sm)}
+  table.ref{width:100%;border-collapse:collapse;font-size:.85rem;min-width:340px}
+  table.ref th{background:var(--petrol);color:#fff;padding:9px 12px;text-align:left;font-weight:600;white-space:nowrap}
+  table.ref td{padding:8px 12px;border-top:1px solid var(--line)}
+  table.ref tr:nth-child(even) td{background:var(--card-soft)}
+
+  /* ── BUTTONS ── */
+  .btn{border:none;border-radius:var(--radius-sm);padding:13px 18px;font-weight:700;font-size:.95rem;
+    cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:9px;transition:all .2s;width:100%}
+  .btn-primary{background:var(--petrol);color:#fff}
+  .btn-primary:hover{background:var(--petrol-dark);transform:translateY(-1px)}
+  .btn-accent{background:var(--accent);color:#052e2c}
+  .btn-accent:hover{filter:brightness(1.05)}
+  .btn-ghost{background:transparent;border:2px solid var(--line);color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--petrol);color:var(--petrol)}
+  .btn-row{display:flex;gap:10px;margin-top:10px}
+  .btn-row .btn{width:auto;flex:1}
+
+  /* ── RESULTS ── */
+  .result{margin-top:16px;padding:18px;background:var(--card-soft);border:1px solid var(--line);
+    border-left:4px solid var(--green);border-radius:var(--radius-sm);display:none}
+  .result.show{display:block;animation:fade .25s ease}
+  .result-head{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--green);margin-bottom:14px;font-size:1rem}
+  .result-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
+  .rItem{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);padding:13px}
+  .rItem .k{font-size:.78rem;color:var(--muted);font-weight:600;display:block}
+  .rItem .val{font-size:1.35rem;font-weight:800;margin-top:3px}
+  .rItem .u{font-size:.8rem;color:var(--muted);font-weight:600;margin-left:2px}
+  .rItem.total{grid-column:1/-1;border-left:4px solid var(--petrol)}
+
+  /* ── HISTORY ── */
+  #hist-list{max-height:60vh;overflow-y:auto}
+  .hitem{background:var(--card-soft);border:1px solid var(--line);border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:13px;margin-bottom:10px}
+  .hitem-top{display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+  .hitem-type{font-weight:700;color:var(--petrol);font-size:.9rem}
+  :root[data-theme="dark"] .hitem-type{color:var(--accent)}
+  .hitem-date{font-size:.78rem;color:var(--muted)}
+  .hitem-det{font-size:.85rem}
+  .hitem-actions{display:flex;gap:8px;margin-top:10px}
+  .hitem-actions button{flex:1;border:none;border-radius:6px;padding:7px;font-size:.78rem;font-weight:700;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+  .hi-reuse{background:var(--accent-soft);color:var(--petrol-dark)}
+  .hi-del{background:#fdecea;color:#c0392b}
+  .sync-badge{font-size:.74rem;font-weight:700;padding:3px 10px;border-radius:20px}
+  .sync-badge.ok{background:var(--accent-soft);color:var(--petrol-dark)}
+  .sync-badge.pending{background:#fef3c7;color:#92400e}
+
+  /* ── NOTIFICATION ── */
+  .toast{position:fixed;top:16px;left:50%;transform:translate(-50%,-140%);background:var(--petrol);color:#fff;
+    padding:13px 20px;border-radius:var(--radius-sm);box-shadow:var(--shadow);z-index:1000;font-size:.9rem;
+    font-weight:600;transition:transform .3s ease;max-width:90vw}
+  .toast.show{transform:translate(-50%,0)}
+  .toast.error{background:var(--red)} .toast.success{background:var(--green)}
+
+  /* ── STEP DOTS (identificação) ── */
+  .steps{display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+  .step{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted)}
+  .step .n{width:22px;height:22px;border-radius:50%;background:var(--line);color:var(--muted);
+    display:grid;place-items:center;font-weight:700;font-size:.72rem}
+  .step.active .n{background:var(--petrol);color:#fff}
+  .step.done .n{background:var(--green);color:#fff}
+  .step .arw{color:var(--line)}
+
+  footer{text-align:center;color:var(--muted);font-size:.82rem;padding:20px 16px}
+  footer .doc{font-size:.75rem;margin-top:4px}
+
+  @media(max-width:600px){
+    .grid2{grid-template-columns:1fr}
+    .result-grid{grid-template-columns:1fr 1fr}
+    .brand-sub{display:none}
+    .step span:not(.n){display:none}
+    .seg label{min-width:0}
+    .topbar-inner{gap:8px}
+    .oem-logo{max-width:112px;height:26px}
+    .theme-btn,.nav-back{width:36px;height:36px}
+  }
+</style>
+</head>
+<body>
+
+<div id="toast" class="toast"></div>
+
+<!-- ══ TOP BAR ══ -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <button class="nav-back" id="btn-back" title="Voltar" onclick="voltar()"><i class="fas fa-arrow-left"></i></button>
+    <div class="brand">
+      <img src="logo-ew.png" alt="Extreme Wind" class="brand-logo"
+           onerror="this.style.display='none';document.getElementById('brand-fb').style.display='block'">
+      <div>
+        <div id="brand-fb" class="brand-fallback" style="display:none">EXTREME<span>WIND</span></div>
+        <div class="brand-sub">Calculadora de Reparos em Pás Eólicas</div>
+      </div>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="oem-chip">
+      <img src="logo-oem-siemens.png" alt="Siemens Gamesa" class="oem-logo"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="oem-text" style="display:none;flex-direction:column;align-items:flex-end;gap:2px">
+        <span class="oem-name">Siemens Gamesa</span>
+        <span class="oem-tag">Cliente</span>
+      </div>
+    </div>
+    <button class="theme-btn" id="theme-btn" title="Alternar tema"><i class="fas fa-moon"></i></button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ══ IDENTIFICAÇÃO BANNER (aparece após preencher) ══ -->
+  <div class="id-banner" id="id-banner" style="display:none">
+    <div class="chips">
+      <span class="pill accent" id="b-tipo"></span>
+      <span class="pill"><i class="fas fa-wind"></i> <span id="b-projeto"></span></span>
+      <span class="pill">WTG <span id="b-wtg"></span></span>
+      <span class="pill">Pá <span id="b-blade"></span></span>
+      <span class="pill" id="b-nucleo" style="display:none"></span>
+    </div>
+    <button class="ghost-btn" onclick="goTab('id')"><i class="fas fa-pen"></i> Editar</button>
+  </div>
+
+  <!-- ══ NAV ══ -->
+  <nav class="nav" id="nav">
+    <button class="tab active" data-tab="id"      onclick="goTab('id')"><i class="fas fa-clipboard-list"></i> Identificação</button>
+    <button class="tab"        data-tab="lam"     onclick="goTab('lam')"><i class="fas fa-layer-group"></i> Laminação</button>
+    <button class="tab"        data-tab="massa"   onclick="goTab('massa')"><i class="fas fa-fill-drip"></i> Massa (Putty)</button>
+    <button class="tab"        data-tab="gel"     onclick="goTab('gel')"><i class="fas fa-paint-roller"></i> Gel Coat</button>
+    <button class="tab"        data-tab="topcoat" onclick="goTab('topcoat')"><i class="fas fa-spray-can"></i> Top Coat 12</button>
+    <button class="tab"        data-tab="adesivo" onclick="goTab('adesivo')"><i class="fas fa-droplet"></i> Adesivo</button>
+    <button class="tab"        data-tab="pbu"     onclick="goTab('pbu')"><i class="fas fa-ruler-combined"></i> Fita PBU</button>
+    <button class="tab"        data-tab="hist"    onclick="goTab('hist')"><i class="fas fa-clock-rotate-left"></i> Histórico</button>
+  </nav>
+
+  <!-- ══════════════════ PAINEL: IDENTIFICAÇÃO ══════════════════ -->
+  <section class="panel active" id="panel-id">
+    <div class="steps">
+      <div class="step active"><span class="n">1</span><span>Identificação</span></div>
+      <span class="arw">›</span>
+      <div class="step"><span class="n">2</span><span>Cálculo do reparo</span></div>
+      <span class="arw">›</span>
+      <div class="step"><span class="n">3</span><span>Registro / Histórico</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-clipboard-list"></i></span> Identificação do Reparo</div>
+      <div class="card-desc">Preencha os dados da pá antes de calcular. Cliente fixo: <b>Siemens Gamesa</b>.</div>
+
+      <div class="field">
+        <label for="i-projeto">Projeto / Parque Eólico</label>
+        <input type="text" id="i-projeto" list="lista-parques" autocomplete="off" placeholder="Ex: Ventos de São Miguel">
+        <datalist id="lista-parques"></datalist>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="i-wtg">WTG (Aerogerador)</label><input type="text" id="i-wtg" placeholder="Ex: WTG-14"></div>
+        <div class="field"><label for="i-blade">N° da Pá (Blade)</label><input type="text" id="i-blade" placeholder="Ex: 3-2207"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="i-tecnico">Técnico Responsável</label><input type="text" id="i-tecnico" placeholder="Ex: João Silva"></div>
+        <div class="field"><label for="i-data">Data</label><input type="date" id="i-data"></div>
+      </div>
+
+      <div class="field">
+        <label>Tipo de Reparo <span class="hint">(define os módulos disponíveis)</span></label>
+        <div class="seg" id="seg-tipo">
+          <label class="sel"><input type="radio" name="tipo" value="Reforço Externo BA" checked><span>Reforço Ext. BA</span></label>
+          <label><input type="radio" name="tipo" value="Reparo Externo"><span>Reparo Externo</span></label>
+          <label><input type="radio" name="tipo" value="Aplicação Fita PBU"><span>Fita PBU</span></label>
+          <label><input type="radio" name="tipo" value="Reparo Interno"><span>Reparo Interno</span></label>
+        </div>
+        <p class="note" id="tipo-note"></p>
+      </div>
+
+      <!-- Núcleo -->
+      <div class="field">
+        <label>O núcleo foi afetado?</label>
+        <div class="seg" id="seg-nucleo">
+          <label class="sel"><input type="radio" name="nucleo" value="nao" checked><span>Não</span></label>
+          <label><input type="radio" name="nucleo" value="sim"><span>Sim — núcleo afetado</span></label>
+        </div>
+      </div>
+      <div id="nucleo-box" style="display:none">
+        <div class="field">
+          <label for="i-mat-nucleo">Material do núcleo</label>
+          <select id="i-mat-nucleo">
+            <option value="">— Selecione —</option>
+            <option value="BALSA CORE 15mm">BALSA CORE 15 mm</option>
+            <option value="BALSA CORE 20mm">BALSA CORE 20 mm</option>
+            <option value="BALSA CORE 32mm">BALSA CORE 32 mm</option>
+            <option value="BALSA CORE 45mm">BALSA CORE 45 mm</option>
+            <option value="ESPUMA PVC 20mm">ESPUMA PVC 20 mm</option>
+            <option value="ESPUMA FLEX BRANCA 50mm">ESPUMA FLEXÍVEL BRANCA 50 mm</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="i-peso-nucleo">Peso do núcleo utilizado <span class="hint">(g)</span></label>
+          <input type="text" id="i-peso-nucleo" inputmode="decimal" placeholder="Ex: 350">
+        </div>
+        <div class="spec warn"><p class="note" style="margin:0"><i class="fas fa-triangle-exclamation"></i> Registre o material e o peso do núcleo utilizado (consumo / rastreabilidade).</p></div>
+      </div>
+
+      <button class="btn btn-primary" onclick="continuarId()">Continuar <i class="fas fa-arrow-right"></i></button>
+    </div>
+  </section>
+
+  <!-- ══════════════════ PAINEL: LAMINAÇÃO ══════════════════ -->
+  <section class="panel" id="panel-lam">
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-layer-group"></i></span> Laminação — Resina Poliéster</div>
+      <div class="card-desc">Reforço externo BA. Proporção resina : tecido = <b>1 : 1</b> em peso.</div>
+
+      <div class="spec">
+        <div class="row"><span><b>Resina:</b> POLYLITE M413 (Polynt)</span><span class="hint">alt.: Aropol 70452</span></div>
+        <div class="row"><span><b>Catalisador:</b> MEKP — Butanox M-50</span><span id="lam-mekp-lbl"></span></div>
+        <div class="row"><span><b>Parafina</b> (última camada, cura tack-free)</span><span id="lam-par-lbl"></span></div>
+        <span class="src" id="lam-src"></span>
+        <p class="note"><i class="fas fa-temperature-half"></i> Ajustar o MEKP pela temperatura: mais frio → ~2%; mais quente (&gt;30 °C) → ~1,5%. Nunca ultrapassar 2%. Segurança: jamais adicionar MEKP direto no acelerador de cobalto.</p>
+      </div>
+
+      <details style="margin-bottom:16px">
+        <summary style="cursor:pointer;font-weight:700;color:var(--petrol)">Tabelas de referência (escalonamento &amp; laminação)</summary>
+        <div class="tbl-wrap">
+          <table class="ref">
+            <thead><tr><th>Escalonamento</th><th>Z (envergadura)</th><th>Corda</th></tr></thead>
+            <tbody><tr><td>BIAX</td><td>50 mm</td><td>50 mm</td></tr></tbody>
+          </table>
+        </div>
+        <div class="tbl-wrap">
+          <table class="ref">
+            <thead><tr><th>Sequência de laminação</th><th>Passo por casca (SS e PS)</th></tr></thead>
+            <tbody>
+              <tr><td>1ª — CSM 100</td><td>60 mm</td></tr>
+              <tr><td>2ª — BIAX 450</td><td>60 mm</td></tr>
+              <tr><td>3ª — BIAX 450</td><td>45 mm</td></tr>
+              <tr><td>4ª — CSM 300</td><td>80 mm</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note"><i class="fas fa-circle-info"></i> Dureza final: <b>mínimo 60 Shore D</b> (medir em pontos a cada 150 mm). Ambiente: 15–35 °C, umidade máx. 80%.</p>
+      </details>
+
+      <div class="field">
+        <label for="lam-fibra">Peso total do tecido / fibra <span class="hint">(g)</span></label>
+        <input type="text" id="lam-fibra" inputmode="decimal" placeholder="Ex: 1200">
+      </div>
+      <label class="check" style="margin-bottom:14px">
+        <input type="checkbox" id="lam-parafina"> Adicionar parafina (somente na última camada laminada ao ar)
+      </label>
+      <button class="btn btn-primary" onclick="calcLam()"><i class="fas fa-calculator"></i> Calcular resina</button>
+      <div class="result" id="res-lam"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ PAINEL: MASSA / PUTTY ══════════════════ -->
+  <section class="panel" id="panel-massa">
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-fill-drip"></i></span> Massa de Acabamento (Putty)</div>
+      <div class="card-desc">Preenchimento e correção de superfície antes do gel coat.</div>
+      <div class="spec">
+        <div class="row"><span><b>Produto:</b> Crystic X401 — Scott Bader</span><span class="hint">RAL 7035</span></div>
+        <div class="row"><span><b>Catalisador:</b> MEKP</span><span id="massa-mekp-lbl"></span></div>
+        <span class="src" id="massa-src"></span>
+      </div>
+      <div class="field">
+        <label for="massa-base">Peso da base (massa) <span class="hint">(g)</span></label>
+        <input type="text" id="massa-base" inputmode="decimal" placeholder="Ex: 500">
+      </div>
+      <button class="btn btn-primary" onclick="calcMassa()"><i class="fas fa-calculator"></i> Calcular</button>
+      <div class="result" id="res-massa"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ PAINEL: GEL COAT ══════════════════ -->
+  <section class="panel" id="panel-gel">
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-paint-roller"></i></span> Gel Coat (Pintura)</div>
+      <div class="card-desc">Acabamento final aplicado a trincha.</div>
+      <div class="spec">
+        <div class="row"><span><b>Produto:</b> Crystic Gel Coat — Scott Bader</span><span class="hint">RAL 7035</span></div>
+        <div class="row"><span><b>Catalisador:</b> MEKP</span><span id="gel-mekp-lbl"></span></div>
+        <span class="src" id="gel-src"></span>
+      </div>
+      <div class="spec warn">
+        <div class="head" style="font-weight:700"><i class="fas fa-triangle-exclamation"></i> Aplicação</div>
+        <p class="note" style="margin-top:6px">Espessura úmida <b>200–275 µm</b> (usar pente de camada úmida). <b>3 demãos</b>: 1ª a −45° (sentido tip), 2ª a +45° (sentido raiz), 3ª a 90° (sentido BA). Intervalo mín. 20 min entre demãos. Cura total ~1 h; polir com lixa P220.</p>
+      </div>
+      <div class="field">
+        <label for="gel-base">Peso do gel coat (base) <span class="hint">(g)</span></label>
+        <input type="text" id="gel-base" inputmode="decimal" placeholder="Ex: 800">
+      </div>
+      <button class="btn btn-primary" onclick="calcGel()"><i class="fas fa-calculator"></i> Calcular</button>
+      <div class="result" id="res-gel"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ PAINEL: TOP COAT 12 ══════════════════ -->
+  <section class="panel" id="panel-topcoat">
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-spray-can"></i></span> Pintura — Top Coat 12 (Alexit)</div>
+      <div class="card-desc">Pintura de acabamento poliuretano (Mankiewicz Alexit).</div>
+      <div class="spec">
+        <div class="row"><span><b>Base:</b> Top Coat 12 — Alexit</span><span id="tc-ratio-lbl"></span></div>
+        <div class="row"><span><b>Endurecedor:</b> Hardener 12 — Alexit</span><span class="hint">1 parte p/ 4 de base</span></div>
+        <div class="row"><span><b>Diluente (opcional):</b> Thinner — Mankiewicz</span><span id="tc-thinner-lbl"></span></div>
+        <span class="src" id="tc-src"></span>
+      </div>
+      <div class="field">
+        <label for="tc-base">Peso da base (Top Coat 12) <span class="hint">(g)</span></label>
+        <input type="text" id="tc-base" inputmode="decimal" placeholder="Ex: 4000">
+      </div>
+      <label class="check" style="margin-bottom:14px">
+        <input type="checkbox" id="tc-thinner"> Adicionar Thinner (diluente — % sobre a mistura base + endurecedor)
+      </label>
+      <button class="btn btn-primary" onclick="calcTopcoat()"><i class="fas fa-calculator"></i> Calcular</button>
+      <div class="result" id="res-tc"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ PAINEL: ADESIVO ══════════════════ -->
+  <section class="panel" id="panel-adesivo">
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-droplet"></i></span> Adesivo — SIKA 818</div>
+      <div class="card-desc">Correção de imperfeições no bordo antes da laminação.</div>
+      <div class="spec" id="adesivo-spec">
+        <div class="row"><span><b>Produto:</b> SIKA 818 (SikaForce‑818 L07)</span><span id="adesivo-ratio-lbl"></span></div>
+        <span class="src" id="adesivo-src"></span>
+      </div>
+      <div class="spec warn">
+        <div class="head" style="font-weight:700"><i class="fas fa-triangle-exclamation"></i> Atenção</div>
+        <p class="note" style="margin-top:6px">É um adesivo de <b>poliuretano bicomponente (2K PU)</b> — diferente do sistema poliéster. A razão <b>100:45</b> é <b>fixa</b> (não é % de MEKP): dosar exatamente. Pot life curto (~7 min).</p>
+      </div>
+      <div class="field">
+        <label for="adesivo-base">Peso da base <span class="hint">(g)</span></label>
+        <input type="text" id="adesivo-base" inputmode="decimal" placeholder="Ex: 300">
+      </div>
+      <button class="btn btn-primary" onclick="calcAdesivo()"><i class="fas fa-calculator"></i> Calcular</button>
+      <div class="result" id="res-adesivo"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ PAINEL: FITA PBU ══════════════════ -->
+  <section class="panel" id="panel-pbu">
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-ruler-combined"></i></span> Fita PBU — Fluido de Limpeza</div>
+      <div class="card-desc">Fluido de limpeza da superfície antes da fita PBU.</div>
+      <div class="spec">
+        <div class="row"><span><b>Água destilada</b></span><span><b id="pbu-agua-pct"></b></span></div>
+        <div class="row"><span><b>Álcool isopropílico (IPA)</b></span><span><b id="pbu-ipa-pct"></b></span></div>
+        <p class="note"><i class="fas fa-triangle-exclamation"></i> Preparar o fluido <b>fora do parque</b> (acesso com IPA não é permitido). Aplicar a fita PBU com superfície limpa/seca, temperatura da pá 8–38 °C; adesivo PROMOTE somente acima de 16 °C.</p>
+      </div>
+      <div class="field">
+        <label for="pbu-fluido">Volume total de fluido desejado <span class="hint">(ml)</span></label>
+        <input type="text" id="pbu-fluido" inputmode="decimal" placeholder="Ex: 1000">
+      </div>
+      <button class="btn btn-primary" onclick="calcFluido()"><i class="fas fa-flask"></i> Calcular fluido</button>
+      <div class="result" id="res-fluido"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-scissors"></i></span> Fita PBU — Segmentos &amp; PROMOTE</div>
+      <div class="card-desc">Aplicação em peças de <b>1000 mm × 400 mm</b>, com adesivo PROMOTE nas extremidades.</div>
+      <div class="spec">
+        <div class="row"><span>Faixa conjunta (sobreposição de emendas)</span><span>40 mm (20 mm/segmento)</span></div>
+        <div class="row"><span>PROMOTE por emenda (raiz + tip)</span><span>100 mm cada</span></div>
+        <p class="note">Referência de posição: TIP em Z:0 → início a 15000 mm sentido raiz. Medir a cada 1000 mm: 345 mm sentido casca e 65 mm na outra casca (conforme croqui do procedimento).</p>
+      </div>
+      <div class="field">
+        <label for="pbu-comp">Comprimento a proteger <span class="hint">(mm)</span></label>
+        <input type="text" id="pbu-comp" inputmode="decimal" placeholder="Ex: 15000">
+      </div>
+      <button class="btn btn-primary" onclick="calcSegmentos()"><i class="fas fa-calculator"></i> Calcular segmentos</button>
+      <div class="result" id="res-seg"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ PAINEL: HISTÓRICO ══════════════════ -->
+  <section class="panel" id="panel-hist">
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between">
+        <span style="display:flex;align-items:center;gap:10px"><span class="ico"><i class="fas fa-clock-rotate-left"></i></span> Histórico</span>
+        <span id="sync-badge" class="sync-badge"></span>
+      </div>
+      <div class="card-desc">Últimos 30 cálculos salvos neste dispositivo. Sincroniza com a planilha quando online.</div>
+      <div id="hist-list"></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="exportarCSV()"><i class="fas fa-download"></i> Exportar CSV</button>
+        <button class="btn btn-ghost" onclick="limparHist()" style="color:var(--red);border-color:#f3c2c2"><i class="fas fa-trash"></i> Limpar</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <p>Extreme Wind Blade Services &copy; <span id="year"></span> · Uso interno</p>
+  <p class="doc">Base: PR-56-ENG&amp;CQ (Fita PBU) · PR-57-ENG&amp;CQ (Reforço Ext. BA) · Guia de Químicos INF02-ENG&amp;CQ</p>
+</footer>
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════
+   CONFIG DE PROPORÇÕES — Siemens Gamesa (sistema POLIÉSTER)
+   Fontes: PR-57 / PR-56 (procedimentos) + guia de químicos (imagem).
+   Valores marcados [pesquisa] foram complementados por pesquisa técnica
+   e devem ser validados pela Engenharia antes do uso definitivo.
+   ═══════════════════════════════════════════════════════════════ */
+const CFG = {
+  cliente: 'Siemens',
+  // Laminação (PR-57) — resina POLYLITE M413 / alt. Aropol 70452
+  resinaFibra: 1.0,          // resina : tecido = 1:1 (PR-57)
+  mekpPct: 2.0,              // MEKP (Butanox M-50) — % sobre a resina  [guia: 1–2%]
+  mekpRange: '1–2%',
+  parafinaPct: 2.0,          // parafina — % sobre a resina (última camada) [guia: 1–2%]
+  parafinaRange: '1–2%',
+  // Massa Crystic X401
+  massaMekpPct: 2.0,         // % sobre a base [guia Putting Pro Filler 3: 1–2,5%]
+  massaRange: '1–2,5%',
+  // Gel Coat Crystic RAL 7035
+  gelMekpPct: 2.0,           // % sobre a base [poliéster: 1–3%]
+  gelRange: '1–3%',
+  // Top Coat 12 (Alexit / Mankiewicz) — pintura PU de acabamento
+  topcoatRatio: 4,           // base : endurecedor = 4 : 1
+  thinnerPct: 10,            // Thinner — % sobre a mistura (guia: 5–10%)
+  thinnerRange: '5–10% da mistura',
+  // Adesivo SIKA 818 = SikaForce-818 L07 (2K POLIURETANO — NÃO é poliéster)
+  // Comp. A (base) : Comp. B SikaForce-050 (endurecedor) = 100 : 45. Razão FIXA
+  // de fábrica (estequiométrica) — não ajustar. Fonte: TDS Sika v.05.01 (11/2024).
+  adesivoRatioBase: 100,     // base (comp. A)
+  adesivoRatioEnd: 45,       // endurecedor (comp. B)
+  adesivoRatioTxt: '100 : 45 (base : endurecedor)',
+  adesivoSrc: 'SikaForce-818 L07 (2K poliuretano) + comp. B SikaForce-050. Razão fixa 100:45 — não ajustar. Pot life ~7 min; aplicar 10–35 °C. Fonte: TDS Sika.',
+  // Fita PBU (PR-56)
+  fluidoAgua: 80,            // % água destilada
+  fluidoIpa: 20,             // % IPA
+  pbuPeca: 1000,             // mm por segmento
+  pbuLarg: 400,              // mm largura
+  promoteMm: 100,            // mm de PROMOTE por extremidade
+  fontesGerais: 'Guia de Químicos INF02-ENG&CQ · procedimentos PR-56/PR-57 · TDS dos fabricantes.'
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   ESTADO
+   ═══════════════════════════════════════════════════════════════ */
+function safeParse(k){ try{ return JSON.parse(localStorage.getItem(k)||'[]'); }catch(e){ return []; } }
+let HIST      = safeParse('siemens_history');
+let SYNC      = safeParse('siemens_sync_queue');
+let ID = {};   // dados da identificação atual
+let nucleoRegistrado = false;   // dedup do consumo de núcleo na planilha
+/* Endpoint único do app (Cloudflare Worker). NÃO é segredo: é só um endereço.
+   Quem guarda segredo é o Worker (URL do Apps Script, GAS_SECRET, credenciais
+   do Dropbox) — nada disso chega ao navegador. Ver ew-dropbox-proxy/worker.js.
+   Antes a URL do Apps Script vinha escrita aqui, e como este arquivo é público
+   no GitHub Pages, qualquer pessoa podia gravar na planilha de produção. */
+const API = 'https://ew-dropbox-proxy.ew-fotos.workers.dev';
+
+/* Módulos visíveis por tipo de reparo */
+const MODULOS_POR_TIPO = {
+  'Reforço Externo BA': ['lam','massa','gel','topcoat','adesivo','hist'],
+  'Reparo Externo':     ['lam','massa','gel','topcoat','adesivo','hist'],
+  'Aplicação Fita PBU': ['massa','gel','topcoat','pbu','hist'],
+  'Reparo Interno':     ['lam','adesivo','hist']
+};
+const NOTAS_TIPO = {
+  'Reforço Externo BA': 'Reforço externo do bordo de ataque (PR-57): laminação poliéster + acabamento. Ao final, aplicar a fita PBU (ver aba Fita PBU).',
+  'Reparo Externo':     'Reparo externo geral: laminação poliéster + acabamento (massa / gel coat / top coat) + adesivo, com os mesmos químicos do sistema.',
+  'Aplicação Fita PBU': 'Preparação de superfície, correção de pintura (massa/gel coat/top coat) e aplicação da fita PBU.',
+  'Reparo Interno':     'Reparo interno: laminação estrutural + adesivo, sem acabamento externo (massa/gel/pintura) — mesmo padrão dos reparos internos das calculadoras GE e Nordex.'
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════════ */
+const $  = id => document.getElementById(id);
+const v  = id => ($(id)||{}).value || '';
+const num = s => parseFloat(String(s||'').replace(',','.')) || 0;
+const fmt = n => (isNaN(n)?0:n).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:2});
+function onlyNum(el){ el.value = el.value.replace(/[^0-9.,]/g,''); }
+
+function toast(msg,type){
+  const t=$('toast'); t.className='toast '+(type||''); t.textContent=msg;
+  requestAnimationFrame(()=>t.classList.add('show'));
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3200);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded',()=>{
+  $('year').textContent = new Date().getFullYear();
+  /* Data já vem com hoje: o campo virou obrigatório, e obrigar a abrir o
+     seletor de data para digitar a data de hoje só atrasa quem está na torre.
+     Montada em hora LOCAL — toISOString() é UTC e viraria o dia depois das 21h. */
+  (function(){ const e=$('i-data'); if(e && !e.value){ const h=new Date(), z=n=>String(n).padStart(2,'0');
+    e.value = h.getFullYear()+'-'+z(h.getMonth()+1)+'-'+z(h.getDate()); } })();
+  aplicarTema(localStorage.getItem('siemens_theme'));
+  preencherSpecs();
+  atualizarNotaTipo();
+  ['lam-fibra','massa-base','gel-base','tc-base','adesivo-base','pbu-fluido','pbu-comp','i-peso-nucleo']
+    .forEach(id=>{ const e=$(id); if(e) e.addEventListener('input',()=>onlyNum(e)); });
+  document.querySelectorAll('input[name="tipo"]').forEach(r=>r.addEventListener('change',atualizarNotaTipo));
+  document.querySelectorAll('.seg').forEach(seg=>{ seg.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>syncSeg(seg))); syncSeg(seg); });
+  document.querySelectorAll('input[name="nucleo"]').forEach(r=>r.addEventListener('change',()=>{
+    $('nucleo-box').style.display = (getRadio('nucleo')==='sim') ? 'block' : 'none'; nucleoRegistrado=false;
+  }));
+  const nm=$('i-mat-nucleo'); if(nm) nm.addEventListener('change',()=>nucleoRegistrado=false);
+  updateSyncBadge();
+  carregarHist();
+  carregarParquesCache();
+  tentarSincronizar();
+  sincronizarParques();
+  window.addEventListener('online',()=>{ if(SYNC.length){ toast('Reconectado — sincronizando…','success'); tentarSincronizar(); }});
+});
+
+/* Preenche os rótulos de proporção a partir do CFG (fonte única de verdade) */
+function preencherSpecs(){
+  $('lam-mekp-lbl').innerHTML  = `<b>${fmtPct(CFG.mekpPct)}</b> <span class="hint">(${CFG.mekpRange})</span>`;
+  $('lam-par-lbl').innerHTML   = `<b>${fmtPct(CFG.parafinaPct)}</b> <span class="hint">(${CFG.parafinaRange})</span>`;
+  $('lam-src').textContent     = 'Resina:tecido 1:1 e MEKP conforme PR-57 / guia de químicos.';
+  $('massa-mekp-lbl').innerHTML= `<b>${fmtPct(CFG.massaMekpPct)}</b> <span class="hint">(${CFG.massaRange})</span>`;
+  $('massa-src').textContent   = 'Catalisar conforme TDS do Crystic X401 / guia de químicos.';
+  $('gel-mekp-lbl').innerHTML  = `<b>${fmtPct(CFG.gelMekpPct)}</b> <span class="hint">(${CFG.gelRange})</span>`;
+  $('gel-src').textContent     = 'Catalisar conforme TDS do gel coat Crystic.';
+  $('tc-ratio-lbl').innerHTML  = `<b>${CFG.topcoatRatio} : 1</b>`;
+  $('tc-thinner-lbl').innerHTML= `<b>${CFG.thinnerPct}%</b> <span class="hint">(${CFG.thinnerRange})</span>`;
+  $('tc-src').textContent      = 'Top Coat 12 4:1 + Hardener 12; Thinner 5–10% da mistura (guia de químicos).';
+  $('adesivo-ratio-lbl').innerHTML = `<b>${CFG.adesivoRatioTxt}</b>`;
+  $('adesivo-src').textContent = CFG.adesivoSrc;
+  $('pbu-agua-pct').textContent= CFG.fluidoAgua+'%';
+  $('pbu-ipa-pct').textContent = CFG.fluidoIpa+'%';
+}
+function fmtPct(n){ return String(n).replace('.',',')+'%'; }
+
+function atualizarNotaTipo(){ $('tipo-note').textContent = NOTAS_TIPO[getTipo()] || ''; }
+function getTipo(){ const el=document.querySelector('input[name="tipo"]:checked'); return el?el.value:'Reforço Externo BA'; }
+function getRadio(name){ const el=document.querySelector('input[name="'+name+'"]:checked'); return el?el.value:''; }
+function syncSeg(seg){ seg.querySelectorAll('label').forEach(l=>l.classList.toggle('sel', l.querySelector('input').checked)); }
+
+/* ═══════════════════════════════════════════════════════════════
+   TEMA (claro / escuro)
+   ═══════════════════════════════════════════════════════════════ */
+function aplicarTema(t){
+  if(t==='light'||t==='dark'){ document.documentElement.setAttribute('data-theme',t); }
+  else { document.documentElement.removeAttribute('data-theme'); t=null; }
+  const dark = t==='dark' || (!t && window.matchMedia('(prefers-color-scheme:dark)').matches);
+  $('theme-btn').innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+}
+$('theme-btn').addEventListener('click',()=>{
+  const cur = document.documentElement.getAttribute('data-theme');
+  const dark = cur==='dark' || (!cur && window.matchMedia('(prefers-color-scheme:dark)').matches);
+  const next = dark ? 'light' : 'dark';
+  localStorage.setItem('siemens_theme',next); aplicarTema(next);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   NAVEGAÇÃO
+   ═══════════════════════════════════════════════════════════════ */
+let navHist=[];
+function goTab(tab, fromBack){
+  const act=document.querySelector('.tab.active'); const cur=act?act.dataset.tab:null;
+  if(!fromBack && cur && cur!==tab) navHist.push(cur);
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  $('panel-'+tab).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  if(tab==='hist') carregarHist();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+/* Botão Voltar: retorna à aba anterior; sem histórico, volta ao seletor de cliente */
+function voltar(){
+  if(navHist.length){ goTab(navHist.pop(), true); }
+  else { window.location.href='calculadora.html'; }
+}
+
+/* Aponta o campo que falta: aviso, moldura vermelha, foco e rolagem até ele.
+   Devolve undefined de propósito, para poder ser usado como
+   `if(!x) return faltaCampo(...)` e encerrar a função na mesma linha. */
+function faltaCampo(id,msg){
+  toast(msg,'error');
+  const e=$(id); if(!e) return;
+  e.style.borderColor='#d1495b';
+  try{ e.focus({preventScroll:true}); }catch(err){ try{ e.focus(); }catch(err2){} }
+  try{ e.scrollIntoView({block:'center',behavior:'smooth'}); }catch(err){ e.scrollIntoView(); }
+  setTimeout(function(){ e.style.borderColor=''; },2600);
+}
+
+function continuarId(){
+  /* Nenhum campo da Identificação é opcional. O registro vai para a planilha e
+     alimenta a análise semanal: linha sem técnico ou sem data não serve para
+     nada lá na frente, e em campo ninguém volta para completar. */
+  const p=v('i-projeto').trim(), w=v('i-wtg').trim(), b=v('i-blade').trim();
+  const tec=v('i-tecnico').trim(), dt=v('i-data').trim();
+  if(!p)  return faltaCampo('i-projeto','Informe o Projeto / Parque');
+  if(!w)  return faltaCampo('i-wtg','Informe a WTG');
+  if(!b)  return faltaCampo('i-blade','Informe o N° da Pá');
+  if(!tec)return faltaCampo('i-tecnico','Informe o Técnico Responsável');
+  if(!dt) return faltaCampo('i-data','Informe a Data');
+  const nucleo = getRadio('nucleo')==='sim';
+  if(nucleo && !v('i-mat-nucleo'))  return faltaCampo('i-mat-nucleo','Selecione o material do núcleo');
+  if(nucleo && !v('i-peso-nucleo')) return faltaCampo('i-peso-nucleo','Informe o peso do núcleo (g)');
+  ID = { cliente:CFG.cliente, projeto:p, wtg:w, blade:b,
+    tecnico:v('i-tecnico'), data:v('i-data'), tipo:getTipo(),
+    nucleo, matNucleo:v('i-mat-nucleo'), pesoNucleoG:v('i-peso-nucleo') };
+  nucleoRegistrado=false;
+  // banner
+  $('b-tipo').textContent = ID.tipo;
+  $('b-projeto').textContent = p; $('b-wtg').textContent = w; $('b-blade').textContent = b;
+  $('b-nucleo').style.display = nucleo?'inline-block':'none';
+  $('b-nucleo').textContent = nucleo?('Núcleo: '+ID.matNucleo):'';
+  $('id-banner').style.display='flex';
+  aplicarModulos();
+  const primeiro = MODULOS_POR_TIPO[ID.tipo][0];
+  goTab(primeiro);
+  toast('Identificação salva','success');
+}
+
+/* Mostra apenas as abas relevantes ao tipo de reparo */
+function aplicarModulos(){
+  const permitidos = new Set(MODULOS_POR_TIPO[ID.tipo] || []);
+  permitidos.add('id');
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.classList.toggle('hidden', !permitidos.has(t.dataset.tab));
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CÁLCULOS
+   ═══════════════════════════════════════════════════════════════ */
+function calcLam(){
+  const fibra = num(v('lam-fibra'));
+  if(fibra<=0){ toast('Informe o peso do tecido (g)','error'); return; }
+  const resina = fibra * CFG.resinaFibra;             // 1:1
+  const mekp   = resina * CFG.mekpPct/100;
+  const usaPar = $('lam-parafina').checked;
+  const parafina = usaPar ? resina * CFG.parafinaPct/100 : 0;
+  const total = resina + mekp + parafina;
+  renderResult('res-lam','Laminação (Resina Poliéster)',[
+    ['Tecido (ref.)',fibra,'g'], ['Resina',resina,'g'], ['MEKP (Butanox M-50)',mekp,'g'],
+    ...(usaPar?[['Parafina',parafina,'g']]:[]), ['Mistura total',total,'g',true]
+  ], {tipo:'Laminação',base:resina,endur:mekp,adicional:parafina,total});
+}
+
+function calcMassa(){
+  const base = num(v('massa-base'));
+  if(base<=0){ toast('Informe o peso da base (g)','error'); return; }
+  const cat = base * CFG.massaMekpPct/100;
+  renderResult('res-massa','Massa Crystic X401',[
+    ['Base (massa)',base,'g'], ['Catalisador (MEKP)',cat,'g'], ['Mistura total',base+cat,'g',true]
+  ], {tipo:'Massa Putty',base,endur:cat,adicional:0,total:base+cat});
+}
+
+function calcGel(){
+  const base = num(v('gel-base'));
+  if(base<=0){ toast('Informe o peso do gel coat (g)','error'); return; }
+  const cat = base * CFG.gelMekpPct/100;
+  renderResult('res-gel','Gel Coat Crystic',[
+    ['Gel coat (base)',base,'g'], ['Catalisador (MEKP)',cat,'g'], ['Mistura total',base+cat,'g',true]
+  ], {tipo:'Gel Coat',base,endur:cat,adicional:0,total:base+cat});
+}
+
+function calcAdesivo(){
+  const base = num(v('adesivo-base'));
+  if(base<=0){ toast('Informe o peso da base (g)','error'); return; }
+  const endur = base * CFG.adesivoRatioEnd / CFG.adesivoRatioBase;
+  renderResult('res-adesivo','Adesivo SIKA 818',[
+    ['Base',base,'g'], ['Endurecedor',endur,'g'], ['Mistura total',base+endur,'g',true]
+  ], {tipo:'Adesivo SIKA 818',base,endur,adicional:0,total:base+endur});
+}
+
+function calcTopcoat(){
+  const base = num(v('tc-base'));
+  if(base<=0){ toast('Informe o peso da base (g)','error'); return; }
+  const endur   = base / CFG.topcoatRatio;              // 4:1
+  const mistura = base + endur;
+  const usaThinner = $('tc-thinner').checked;
+  const thinner = usaThinner ? mistura * CFG.thinnerPct/100 : 0;  // % da mistura
+  const total = mistura + thinner;
+  renderResult('res-tc','Top Coat 12 (Alexit)',[
+    ['Base',base,'g'], ['Endurecedor (Hardener 12)',endur,'g'],
+    ...(usaThinner?[['Thinner',thinner,'g']]:[]), ['Mistura total',total,'g',true]
+  ], {tipo:'Top Coat 12',base,endur,adicional:thinner,total});
+}
+
+function calcFluido(){
+  const vol = num(v('pbu-fluido'));
+  if(vol<=0){ toast('Informe o volume total (ml)','error'); return; }
+  const agua = vol * CFG.fluidoAgua/100;
+  const ipa  = vol * CFG.fluidoIpa/100;
+  renderResult('res-fluido','Fluido de Limpeza (PBU)',[
+    ['Água destilada',agua,'ml'], ['Álcool isopropílico',ipa,'ml'], ['Volume total',vol,'ml',true]
+  ], {tipo:'Fluido PBU',base:agua,endur:ipa,adicional:0,total:vol}, 'ml');
+}
+
+function calcSegmentos(){
+  const comp = num(v('pbu-comp'));
+  if(comp<=0){ toast('Informe o comprimento (mm)','error'); return; }
+  const pecas = Math.ceil(comp / CFG.pbuPeca);
+  const emendas = Math.max(0, pecas-1);
+  const promote = pecas * 2 * CFG.promoteMm;   // raiz + tip de cada peça
+  renderResult('res-seg','Segmentos de Fita PBU',[
+    ['Comprimento',comp,'mm'], ['Peças (1000 mm)',pecas,'un'],
+    ['Emendas',emendas,'un'], ['PROMOTE (extremidades)',promote,'mm',true]
+  ], null);
+}
+
+/* Renderiza o resultado + botão salvar (quando houver dados de consumo) */
+function renderResult(elId,titulo,itens,consumo,unidade){
+  const u = unidade || 'g';
+  const cells = itens.map(([k,val,un,isTotal])=>`
+    <div class="rItem${isTotal?' total':''}">
+      <span class="k">${k}</span>
+      <div class="val">${typeof val==='number'?fmt(val):val}<span class="u">${un||''}</span></div>
+    </div>`).join('');
+  let saveBtn='';
+  if(consumo){
+    const arg = encodeURIComponent(JSON.stringify(consumo));
+    saveBtn = `<button class="btn btn-accent" style="margin-top:14px" onclick="salvar('${arg}')">
+        <i class="fas fa-save"></i> Salvar e sincronizar</button>`;
+  }
+  const el=$(elId);
+  el.innerHTML = `<div class="result-head"><i class="fas fa-circle-check"></i> ${titulo}</div>
+    <div class="result-grid">${cells}</div>${saveBtn}`;
+  el.classList.add('show');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HISTÓRICO + SINCRONIZAÇÃO (mesma planilha das outras calculadoras;
+   o campo "cliente=Siemens" diferencia a origem)
+   ═══════════════════════════════════════════════════════════════ */
+function salvar(arg){
+  /* Não envia nada com a Identificação pela metade */
+  if(!ID.projeto || !ID.wtg || !ID.blade || !ID.tecnico || !ID.data){
+    toast('Complete a Identificação antes de salvar','error'); goTab('id'); return; }
+  const c = JSON.parse(decodeURIComponent(arg));
+  const registro = {
+    id: Date.now(),
+    cliente: CFG.cliente, projeto: ID.projeto, wtg: ID.wtg, blade: ID.blade,
+    tecnico: ID.tecnico||'', dataPesagem: ID.data||'', tipoReparo: ID.tipo,
+    nucleo: !!ID.nucleo, matNucleo: ID.matNucleo||'', pesoNucleoKg:(num(ID.pesoNucleoG)||0)/1000,
+    incluirNucleo: !nucleoRegistrado,
+    tipo: c.tipo, base:(c.base||0)/1000, endurecedor:(c.endur||0)/1000,
+    adicional:(c.adicional||0)/1000, total:(c.total||0)/1000,
+    data: new Date().toLocaleString('pt-BR')
+  };
+  nucleoRegistrado = true;
+  HIST.unshift(registro);
+  if(HIST.length>30) HIST=HIST.slice(0,30);
+  localStorage.setItem('siemens_history',JSON.stringify(HIST));
+  SYNC.push(registro);
+  localStorage.setItem('siemens_sync_queue',JSON.stringify(SYNC));
+  toast('Cálculo salvo!','success');
+  updateSyncBadge(); tentarSincronizar();
+}
+
+const CATALOGO = {
+  'Laminação':     { base:['Resina Laminação','POLYLITE M413'], endur:['Catalisador','MEKP Butanox M-50'], adicional:['Aditivo','Parafina'] },
+  'Massa Putty':   { base:['Base Massa','Crystic X401'],         endur:['Catalisador Massa','MEKP'] },
+  'Gel Coat':      { base:['Base Gel Coat','Crystic RAL 7035'],  endur:['Catalisador Gel Coat','MEKP'] },
+  'Adesivo SIKA 818':{ base:['Base Adesivo','SikaForce-818 L07'], endur:['Endurecedor Adesivo','SikaForce-050 (comp. B)'] },
+  'Top Coat 12':   { base:['Base Pintura','Top Coat 12 - Alexit'], endur:['Endurecedor Pintura','Hardener 12 - Alexit'], adicional:['Diluente','Thinner Mankiewicz'] },
+  'Fluido PBU':    { base:['Água destilada','Água destilada'],   endur:['Álcool isopropílico','IPA'] }
+};
+function linhasDoRegistro(r){
+  const out=[]; const add=(cat,mat,kg)=>{ if(kg>0) out.push({categoria:cat,material:mat,quantidade_kg:Number(kg.toFixed(3))}); };
+  const cfg=CATALOGO[r.tipo];
+  if(cfg){
+    add(cfg.base[0],cfg.base[1],r.base);
+    add(cfg.endur[0],cfg.endur[1],r.endurecedor);
+    if(cfg.adicional) add(cfg.adicional[0],cfg.adicional[1],r.adicional);
+  }
+  if(r.incluirNucleo && r.nucleo) add('Núcleo', r.matNucleo||'Núcleo', r.pesoNucleoKg);
+  return out;
+}
+async function tentarSincronizar(){
+  if(!navigator.onLine||!SYNC.length||!API){ updateSyncBadge(); return; }
+  try{
+    const linhas = SYNC.flatMap(r=>linhasDoRegistro(r).map(m=>({
+      id:r.id, data:r.data, cliente:r.cliente, projeto:r.projeto, wtg:r.wtg, blade:r.blade,
+      tecnico:r.tecnico, dataPesagem:r.dataPesagem, tipoReparo:r.tipoReparo,
+      categoria:m.categoria, material:m.material, quantidade_kg:m.quantidade_kg
+    })));
+    await fetch(API+'/sheets',{method:'POST',body:JSON.stringify(linhas),headers:{'Content-Type':'text/plain;charset=utf-8'}});
+    SYNC=[]; localStorage.setItem('siemens_sync_queue',JSON.stringify(SYNC));
+    toast('Enviado para a planilha!','success');
+  }catch(e){ console.log('Offline — envio pendente.'); }
+  updateSyncBadge();
+}
+function updateSyncBadge(){
+  const b=$('sync-badge'); if(!b) return; const n=SYNC.length;
+  if(n>0){ b.textContent=`⏳ ${n} pendente${n>1?'s':''}`; b.className='sync-badge pending'; }
+  else   { b.textContent='✓ sincronizado'; b.className='sync-badge ok'; }
+}
+
+function carregarHist(){
+  const list=$('hist-list');
+  if(!HIST.length){ list.innerHTML='<p style="text-align:center;color:var(--muted);padding:16px">Nenhum cálculo salvo</p>'; return; }
+  list.innerHTML = HIST.map(it=>`
+    <div class="hitem">
+      <div class="hitem-top">
+        <span class="hitem-type">${it.tipo}</span>
+        <span class="hitem-date">${it.data}</span>
+      </div>
+      <div class="hitem-det">
+        <strong>${it.projeto||'—'}</strong> · WTG ${it.wtg||'—'} · Pá ${it.blade||'—'} · ${it.tipoReparo||''}
+        <br>Base: ${fmt(it.base)} kg · Endur./Cat.: ${fmt(it.endurecedor)} kg${it.adicional>0?` · Adic.: ${fmt(it.adicional)} kg`:''}
+        · <strong style="color:var(--petrol)">Total: ${fmt(it.total)} kg</strong>
+        ${it.nucleo?`<br><span style="font-size:.78rem;color:var(--amber)"><i class="fas fa-cube"></i> ${it.matNucleo||'Núcleo'}${it.pesoNucleoKg?' — '+fmt(it.pesoNucleoKg)+' kg':''}</span>`:''}
+        ${it.tecnico?`<br><span style="font-size:.78rem;color:var(--muted)"><i class="fas fa-user"></i> ${it.tecnico}</span>`:''}
+      </div>
+      <div class="hitem-actions">
+        <button class="hi-del" onclick="excluir(${it.id})"><i class="fas fa-trash"></i> Excluir</button>
+      </div>
+    </div>`).join('');
+}
+function excluir(id){
+  if(!confirm('Excluir este cálculo?')) return;
+  HIST=HIST.filter(h=>h.id!==id); localStorage.setItem('siemens_history',JSON.stringify(HIST));
+  carregarHist(); toast('Excluído','success');
+}
+function limparHist(){
+  if(!confirm('Apagar todo o histórico?')) return;
+  HIST=[]; localStorage.removeItem('siemens_history'); carregarHist(); toast('Histórico apagado','success');
+}
+function exportarCSV(){
+  if(!HIST.length){ toast('Sem dados para exportar','error'); return; }
+  const cab='Cliente;Projeto;WTG;Pá;Técnico;Data;TipoReparo;Núcleo;MatNúcleo;PesoNúcleo(kg);Tipo;Base(kg);Endur/Cat(kg);Adicional(kg);Total(kg);DataHora\n';
+  const linhas=HIST.map(i=>`"${i.cliente}";"${i.projeto}";"${i.wtg}";"${i.blade}";"${i.tecnico||''}";"${i.dataPesagem||''}";"${i.tipoReparo||''}";"${i.nucleo?'Sim':'Não'}";"${i.matNucleo||''}";"${fmt(i.pesoNucleoKg||0)}";"${i.tipo}";"${fmt(i.base)}";"${fmt(i.endurecedor)}";"${fmt(i.adicional)}";"${fmt(i.total)}";"${i.data}"`).join('\n');
+  const blob=new Blob(['﻿'+cab+linhas],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`siemens_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+  toast('Download iniciado','success');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LISTA DE PARQUES (datalist) — vem da planilha; funciona offline
+   ═══════════════════════════════════════════════════════════════ */
+const PARQUES_KEY='siemens_parques_cache';
+function popularParques(nomes){
+  const dl=$('lista-parques'); if(!dl||!Array.isArray(nomes)) return;
+  /* Monta via DOM, não via innerHTML: nome de parque vem da planilha e não
+     pode virar HTML executável dentro do app. */
+  dl.textContent='';
+  nomes.slice(0,3000).forEach(function(n){ const o=document.createElement('option'); o.value=String(n); dl.appendChild(o); });
+}
+function carregarParquesCache(){ try{ const c=JSON.parse(localStorage.getItem(PARQUES_KEY)||'[]'); if(c.length) popularParques(c); }catch(e){} }
+async function sincronizarParques(){
+  if(!navigator.onLine||!API) return;
+  try{
+    const r=await fetch(API+'/parques'); const d=await r.json();
+    if(d&&Array.isArray(d.parques)){ popularParques(d.parques); localStorage.setItem(PARQUES_KEY,JSON.stringify(d.parques)); }
+  }catch(e){ console.log('Parques: sem sincronização',e); }
+}
+</script>
+<script>
+/* PWA — registra o service worker (uso offline) */
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}
+</script>
+</body>
+</html>

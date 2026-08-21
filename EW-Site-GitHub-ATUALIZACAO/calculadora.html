@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Extreme Wind — Calculadoras de Reparo em Pás Eólicas por cliente">
+<meta name="theme-color" content="#2b7fd0">
+<title>Extreme Wind | Calculadora de Reparos</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="EW Calc">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --ink:#0e2033; --muted:#4f6273;
+    --panel:rgba(255,255,255,.80); --panel-border:rgba(255,255,255,.65);
+    --card:#ffffff; --card-line:#e2e8f0;
+    --sky-1:#6db3ef; --sky-2:#eaf6ff;
+    --hill-1:#bfe3b5; --hill-2:#a1d597; --hill-3:#83c67b;
+    --turbine:#f9fdff; --turbine-edge:#c7d8ea; --tower:#eef5fb;
+    --sun:#ffd76a; --sun-glow:rgba(255,215,106,.55);
+    --cloud:rgba(255,255,255,.9); --star:transparent;
+    --ff:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    --shadow:0 18px 50px rgba(9,34,64,.18);
+  }
+  :root[data-theme="dark"]{
+    --ink:#e8eff8; --muted:#9fb2c6;
+    --panel:rgba(15,29,48,.74); --panel-border:rgba(120,150,185,.22);
+    --card:#f3f7fb; --card-line:#2a3c52;
+    --sky-1:#081525; --sky-2:#173251;
+    --hill-1:#123049; --hill-2:#0d2439; --hill-3:#081a2b;
+    --turbine:#a9bccf; --turbine-edge:#6d859c; --tower:#93a8bf;
+    --sun:#dde8f6; --sun-glow:rgba(221,232,246,.28);
+    --cloud:transparent; --star:#dfeaff;
+    --shadow:0 18px 50px rgba(0,0,0,.5);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ink:#e8eff8; --muted:#9fb2c6;
+      --panel:rgba(15,29,48,.74); --panel-border:rgba(120,150,185,.22);
+      --card:#f3f7fb; --card-line:#2a3c52;
+      --sky-1:#081525; --sky-2:#173251;
+      --hill-1:#123049; --hill-2:#0d2439; --hill-3:#081a2b;
+      --turbine:#a9bccf; --turbine-edge:#6d859c; --tower:#93a8bf;
+      --sun:#dde8f6; --sun-glow:rgba(221,232,246,.28);
+      --cloud:transparent; --star:#dfeaff;
+      --shadow:0 18px 50px rgba(0,0,0,.5);
+    }
+  }
+  html{overflow-x:hidden}
+  body{font-family:var(--ff);color:var(--ink);min-height:100vh;position:relative;overflow-x:hidden;
+    display:flex;flex-direction:column;-webkit-tap-highlight-color:transparent}
+
+  /* ── CENA (fundo de turbinas) ── */
+  .scene{position:fixed;inset:0;z-index:-1}
+  .scene svg{width:100%;height:100%;display:block}
+  .sky-1{stop-color:var(--sky-1)} .sky-2{stop-color:var(--sky-2)}
+  .hill-1{fill:var(--hill-1)} .hill-2{fill:var(--hill-2)} .hill-3{fill:var(--hill-3)}
+  .blade{fill:var(--turbine);stroke:var(--turbine-edge);stroke-width:.6}
+  .nacelle{fill:var(--turbine);stroke:var(--turbine-edge);stroke-width:.6}
+  .hub{fill:var(--turbine-edge)}
+  .tower{fill:var(--tower);stroke:var(--turbine-edge);stroke-width:.4}
+  .sun{fill:var(--sun)} .sun-glow{fill:var(--sun-glow)}
+  .cloud{fill:var(--cloud)}
+  .star{fill:var(--star)}
+
+  /* ── TEMA ── */
+  .theme-btn{position:fixed;top:14px;right:14px;z-index:20;width:42px;height:42px;border-radius:50%;
+    border:none;cursor:pointer;background:var(--panel);color:var(--ink);font-size:1.05rem;
+    box-shadow:var(--shadow);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid var(--panel-border)}
+  .theme-btn:hover{filter:brightness(1.05)}
+  .nav-back-link{position:fixed;top:14px;left:14px;z-index:20;width:42px;height:42px;border-radius:50%;
+    border:1px solid var(--panel-border);cursor:pointer;background:var(--panel);color:var(--ink);
+    display:grid;place-items:center;font-size:1.05rem;text-decoration:none;
+    box-shadow:var(--shadow);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  .nav-back-link:hover{filter:brightness(1.05)}
+
+  /* ── CONTEÚDO ── */
+  .landing{flex:1;width:100%;max-width:920px;margin:0 auto;padding:34px 18px 24px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center}
+  .brand-pill{background:#fff;border-radius:16px;padding:12px 20px;box-shadow:var(--shadow);display:inline-block}
+  .brand-pill img{height:46px;width:auto;display:block}
+  .brand-fallback{font-weight:800;letter-spacing:.5px;font-size:1.5rem;color:#004aad}
+  h1{font-size:clamp(1.5rem,4vw,2.3rem);font-weight:800;letter-spacing:-.5px;line-height:1.15;
+    text-shadow:0 1px 12px rgba(255,255,255,.35)}
+  :root[data-theme="dark"] h1{text-shadow:0 1px 14px rgba(0,0,0,.5)}
+  .subtitle{font-size:1rem;color:var(--muted);font-weight:600;margin-top:-8px}
+
+  /* ── PAINEL SELETOR ── */
+  .picker{width:100%;background:var(--panel);border:1px solid var(--panel-border);border-radius:24px;
+    padding:26px 22px 28px;box-shadow:var(--shadow);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);margin-top:4px}
+  .picker h2{font-size:1.1rem;font-weight:700;margin-bottom:4px}
+  .picker .hint{font-size:.9rem;color:var(--muted);margin-bottom:22px}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .oem-card{background:var(--card);border:1px solid var(--card-line);border-top:5px solid var(--c,#004aad);
+    border-radius:18px;padding:26px 16px 18px;text-decoration:none;color:var(--ink);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:150px;
+    box-shadow:0 6px 18px rgba(9,34,64,.10);transition:transform .18s ease,box-shadow .18s ease;position:relative}
+  .oem-card:hover,.oem-card:focus-visible{transform:translateY(-6px);box-shadow:0 16px 34px rgba(9,34,64,.22);outline:none}
+  .oem-card img{width:auto;height:auto;max-width:100%;max-height:50px;object-fit:contain;display:block}
+  .oem-card .go{font-size:.8rem;font-weight:700;color:var(--c,#004aad);display:flex;align-items:center;gap:6px;opacity:.85}
+  .oem-card .go i{transition:transform .18s ease}
+  .oem-card:hover .go i{transform:translateX(4px)}
+
+  footer{text-align:center;color:var(--muted);font-size:.8rem;padding:22px 16px 10px;
+    text-shadow:0 1px 8px rgba(255,255,255,.3)}
+  :root[data-theme="dark"] footer{text-shadow:0 1px 10px rgba(0,0,0,.5)}
+
+  @media(max-width:768px){
+    .landing{padding:16px 12px 16px;gap:14px}
+    .brand-pill{padding:10px 16px}
+    .brand-pill img{height:38px}
+    h1{font-size:1.4rem}
+    .subtitle{font-size:.9rem}
+    .picker{padding:20px 14px 22px;border-radius:20px}
+    .picker h2{font-size:1.05rem}
+    .picker .hint{margin-bottom:16px;font-size:.85rem}
+    .cards{grid-template-columns:1fr;gap:12px}
+    .oem-card{min-height:0;padding:18px 12px 14px;gap:10px}
+    .oem-card img{max-height:54px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ CENA DE TURBINAS (fundo) ══ -->
+<div class="scene" aria-hidden="true">
+  <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" class="sky-1"/><stop offset="1" class="sky-2"/>
+      </linearGradient>
+      <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0" class="sun-glow"/><stop offset="1" stop-color="transparent"/>
+      </radialGradient>
+      <!-- pá (aponta para cima a partir do cubo em 0,0) -->
+      <path id="blade" class="blade" d="M0 0 C 6 -44 4 -98 1.4 -124 C 0.6 -129 -0.6 -129 -1.4 -124 C -3 -98 -6 -44 0 0 Z"/>
+      <g id="turbine">
+        <path class="tower" d="M -3.2 4 L 3.2 4 L 9 262 L -9 262 Z"/>
+        <rect class="nacelle" x="-7" y="-7" width="21" height="13" rx="4"/>
+        <g class="rotor">
+          <use href="#blade"/>
+          <use href="#blade" transform="rotate(120)"/>
+          <use href="#blade" transform="rotate(240)"/>
+          <circle class="hub" r="6"/>
+          <animateTransform attributeName="transform" attributeType="XML" type="rotate"
+            from="0 0 0" to="360 0 0" dur="8s" repeatCount="indefinite"/>
+        </g>
+      </g>
+    </defs>
+
+    <!-- céu -->
+    <rect x="0" y="0" width="1200" height="700" fill="url(#sky)"/>
+
+    <!-- sol / lua -->
+    <circle class="sun-glow" cx="985" cy="135" r="150" fill="url(#glow)"/>
+    <circle class="sun" cx="985" cy="135" r="60"/>
+
+    <!-- estrelas (só no modo escuro via var) -->
+    <g>
+      <circle class="star" cx="140" cy="90" r="2"/><circle class="star" cx="320" cy="150" r="1.6"/>
+      <circle class="star" cx="520" cy="70" r="2.2"/><circle class="star" cx="700" cy="120" r="1.5"/>
+      <circle class="star" cx="250" cy="220" r="1.6"/><circle class="star" cx="1120" cy="220" r="2"/>
+      <circle class="star" cx="60" cy="180" r="1.6"/><circle class="star" cx="860" cy="60" r="1.8"/>
+    </g>
+
+    <!-- nuvens (só no modo claro) -->
+    <g class="cloud">
+      <ellipse cx="230" cy="140" rx="70" ry="24"/><ellipse cx="290" cy="130" rx="52" ry="26"/>
+    </g>
+    <g class="cloud">
+      <ellipse cx="640" cy="210" rx="60" ry="20"/><ellipse cx="690" cy="202" rx="42" ry="22"/>
+    </g>
+
+    <!-- colinas -->
+    <path class="hill-1" d="M0 470 C 220 428 430 472 620 456 C 820 440 1010 448 1200 470 L1200 700 L0 700 Z"/>
+    <path class="hill-2" d="M0 532 C 260 496 520 540 760 518 C 980 498 1110 522 1200 536 L1200 700 L0 700 Z"/>
+    <path class="hill-3" d="M0 590 C 300 558 660 594 900 578 C 1080 566 1150 588 1200 592 L1200 700 L0 700 Z"/>
+
+    <!-- turbinas (atrás->frente) -->
+    <use href="#turbine" transform="translate(1035 358) scale(0.55)"/>
+    <use href="#turbine" transform="translate(545 342) scale(0.72)"/>
+    <use href="#turbine" transform="translate(835 312) scale(0.9)"/>
+    <use href="#turbine" transform="translate(250 300) scale(1.05)"/>
+  </svg>
+</div>
+
+<a class="nav-back-link" href="index.html" title="Voltar"><i class="fas fa-arrow-left"></i></a>
+<button class="theme-btn" id="theme-btn" title="Alternar tema"><i class="fas fa-moon"></i></button>
+
+<main class="landing">
+  <div class="brand-pill">
+    <img src="logo-ew.png" alt="Extreme Wind Blade Services"
+         onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<span class=\'brand-fallback\'>EXTREME WIND</span>')">
+  </div>
+
+  <div>
+    <h1>Calculadora de Reparos em Pás Eólicas</h1>
+    <p class="subtitle">Extreme Wind Blade Services</p>
+  </div>
+
+  <section class="picker">
+    <h2>Selecione o cliente</h2>
+    <p class="hint">Cada cliente tem sua calculadora com os químicos e proporções específicos.</p>
+    <div class="cards">
+      <a class="oem-card" href="calculadora-nordex.html" style="--c:#135091">
+        <img src="logo-oem.png" alt="Nordex">
+        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
+      </a>
+      <a class="oem-card" href="calculadora-ge.html" style="--c:#005e60">
+        <img src="logo-oem-ge.png" alt="GE Vernova">
+        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
+      </a>
+      <a class="oem-card" href="calculadora-siemens.html" style="--c:#0098a2">
+        <img src="logo-oem-siemens.png" alt="Siemens Gamesa">
+        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>Extreme Wind Blade Services &copy; <span id="year"></span> · Uso interno</p>
+</footer>
+
+<script>
+'use strict';
+document.getElementById('year').textContent = new Date().getFullYear();
+(function(){
+  var KEY='ew_theme';
+  function apply(t){
+    if(t==='dark'||t==='light'){ document.documentElement.setAttribute('data-theme',t); }
+    else { document.documentElement.removeAttribute('data-theme'); t=null; }
+    var dark = t==='dark' || (!t && window.matchMedia('(prefers-color-scheme:dark)').matches);
+    var b=document.getElementById('theme-btn'); if(b) b.innerHTML = dark?'<i class="fas fa-sun"></i>':'<i class="fas fa-moon"></i>';
+  }
+  apply(localStorage.getItem(KEY));
+  document.getElementById('theme-btn').addEventListener('click',function(){
+    var cur=document.documentElement.getAttribute('data-theme');
+    var dark=cur==='dark'||(!cur&&window.matchMedia('(prefers-color-scheme:dark)').matches);
+    var next=dark?'light':'dark'; localStorage.setItem(KEY,next); apply(next);
+  });
+})();
+</script>
+<script>
+/* PWA — registra o service worker (uso offline) */
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}
+</script>
+</body>
+</html>
