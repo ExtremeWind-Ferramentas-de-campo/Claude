@@ -125,6 +125,19 @@ canvas.fc{display:block;flex-shrink:0}
 .cam-capture{background:#fff;color:#000;font-size:20px;width:66px;height:66px;border-radius:50%;border:4px solid rgba(255,255,255,.4)!important;display:flex;align-items:center;justify-content:center;padding:0}
 .cam-flip{background:rgba(255,255,255,.15);color:#fff;backdrop-filter:blur(6px)}
 
+/* ── Zoom da câmera: 0,5× / 1× / 2× ──
+   0,5× só existe onde o aparelho tem lente ultra-angular (ou zoom de driver
+   que desce abaixo de 1). 2× usa o zoom do próprio driver e, quando ele não
+   oferece, recorta o centro do quadro — em 4K ainda sobra resolução de
+   sobra. Lente que o aparelho não tem fica com o botão APAGADO em vez de
+   sumir: o técnico vê que aquela opção não existe naquele celular. */
+#cam-zoom{position:absolute;bottom:172px;left:0;right:0;display:flex;justify-content:center;gap:8px;z-index:20}
+.cam-zm{border:none;border-radius:50px;min-width:54px;padding:9px 12px;font-size:13px;font-weight:bold;
+  background:rgba(0,0,0,.45);color:#fff;backdrop-filter:blur(6px);cursor:pointer;
+  -webkit-tap-highlight-color:transparent}
+.cam-zm.on{background:#fff;color:#000}
+.cam-zm.off{opacity:.35}
+
 /* ── Ajuste manual do tamanho do card ──
    O card é vetorial: mudar o tamanho não mexe na qualidade, porque ele é
    REDESENHADO no novo tamanho (não esticado). Vale para o overlay e para a
@@ -133,13 +146,13 @@ canvas.fc{display:block;flex-shrink:0}
 .cam-sz{width:42px;height:42px;flex-shrink:0;border:none;border-radius:50%;background:rgba(255,255,255,.18);
   color:#fff;font-size:24px;font-weight:bold;line-height:1;cursor:pointer;backdrop-filter:blur(6px);
   -webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;padding:0}
-#cam-size-range{flex:1;width:auto;height:36px;padding:0;margin:0;background:transparent;border:none;
+#cam-size-range,.gal-rng{flex:1;width:auto;height:34px;padding:0;margin:0;background:transparent;border:none;
   outline:none;-webkit-appearance:none;appearance:none;cursor:pointer}
-#cam-size-range::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:rgba(255,255,255,.4)}
-#cam-size-range::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;
-  background:#fff;border:none;margin-top:-11px;box-shadow:0 1px 5px rgba(0,0,0,.6)}
-#cam-size-range::-moz-range-track{height:6px;border-radius:3px;background:rgba(255,255,255,.4)}
-#cam-size-range::-moz-range-thumb{width:28px;height:28px;border:none;border-radius:50%;background:#fff}
+#cam-size-range::-webkit-slider-runnable-track,.gal-rng::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:rgba(255,255,255,.4)}
+#cam-size-range::-webkit-slider-thumb,.gal-rng::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;
+  background:#fff;border:none;margin-top:-10px;box-shadow:0 1px 5px rgba(0,0,0,.6)}
+#cam-size-range::-moz-range-track,.gal-rng::-moz-range-track{height:6px;border-radius:3px;background:rgba(255,255,255,.4)}
+#cam-size-range::-moz-range-thumb,.gal-rng::-moz-range-thumb{width:26px;height:26px;border:none;border-radius:50%;background:#fff}
 #cam-size-lbl{color:#fff;font-size:12px;font-weight:bold;min-width:82px;text-align:right;flex-shrink:0;
   text-shadow:0 1px 3px rgba(0,0,0,.9);cursor:pointer}
 /* ── Carimbo de data/hora ao vivo ──
@@ -150,6 +163,8 @@ canvas.fc{display:block;flex-shrink:0}
    não cobre nenhum lugar de toque. */
 #cam-stamp{position:absolute;top:0;left:0;transform-origin:center center;
   pointer-events:none;z-index:21;transition:transform .18s ease}
+#cam-stamp.sem-transicao{transition:none}
+#cam-stamp.arrastando{filter:drop-shadow(0 5px 18px rgba(0,0,0,.85))}
 #cam-stamp canvas{display:block}
 /* ── Tela de revisão: a foto pronta, antes de gravar e enviar ──
    Nada é salvo nem sobe para o Dropbox enquanto o técnico não aprovar. */
@@ -164,8 +179,43 @@ canvas.fc{display:block;flex-shrink:0}
 .rev-refaz{background:#21262d;color:#c9d1d9;border:1px solid #30363d}
 .rev-usa{background:#238636;color:#fff}
 .rev-btn:disabled{opacity:.5}
+/* ── Tela de ajuste da foto vinda da galeria ──
+   A foto escolhida aparece INTEIRA, com o card e o carimbo por cima, e os
+   dois podem ser arrastados antes de a imagem ser montada. Antes o card e o
+   carimbo caíam sempre no mesmo canto: se o dano estivesse ali, não havia o
+   que fazer — a foto saía com a marcação em cima do defeito. */
+#gal-view{position:fixed;inset:0;background:#000;z-index:1050;display:none;flex-direction:column}
+#gal-view.on{display:flex}
+#gal-info{padding:10px 14px;color:#c9d1d9;font-size:12px;text-align:center;background:#0d1117;font-weight:bold}
+#gal-area{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+/* O palco tem EXATAMENTE a proporção da foto: assim canto no palco = canto
+   na foto, e o que se arrasta aqui é o que sai gravado. */
+#gal-stage{position:relative;touch-action:none;-webkit-user-select:none;user-select:none}
+#gal-img{display:block;width:100%;height:100%;pointer-events:none}
+#gal-card,#gal-stamp{position:absolute;top:0;left:0;display:block;pointer-events:none;
+  filter:drop-shadow(0 2px 8px rgba(0,0,0,.55))}
+#gal-card.peg,#gal-stamp.peg{filter:drop-shadow(0 5px 16px rgba(0,0,0,.9))}
+/* Contorno tracejado em quem está selecionado: os sliders de tamanho e ângulo
+   mexem num de cada vez, e sem essa marca não dá para saber em qual. */
+#gal-card.sel,#gal-stamp.sel{outline:2px dashed rgba(88,166,255,.9);outline-offset:2px}
+
+/* ── Barra de ajuste: escolhe o alvo e mexe em tamanho e ângulo ──
+   Compacta de propósito: cada linha que ela ocupa é foto a menos na tela, e
+   em campo o que importa é enxergar o dano por baixo da marcação. */
+#gal-tools{background:#0d1117;padding:6px 12px 4px}
+#gal-abas{display:flex;gap:8px;align-items:center;margin-bottom:4px}
+.gal-aba{flex:1;padding:8px 6px;border:1px solid #30363d;border-radius:9px;background:#161b22;color:#8b949e;
+  font-size:12px;font-weight:bold;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.gal-aba.on{background:#1f6feb;border-color:#1f6feb;color:#fff}
+.gal-ico{flex-shrink:0;width:38px;height:36px;padding:0;border:1px solid #30363d;border-radius:9px;
+  background:#161b22;color:#c9d1d9;font-size:15px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.gal-lin{display:flex;align-items:center;gap:8px}
+.gal-lin>.et{color:#8b949e;font-size:11px;font-weight:bold;width:30px;flex-shrink:0}
+.gal-lin>.vl{color:#c9d1d9;font-size:12px;font-weight:bold;min-width:48px;text-align:right;flex-shrink:0}
+.gal-lin .cam-sz{width:34px;height:34px;font-size:20px;background:rgba(255,255,255,.12)}
+#gal-controls{padding:12px 16px 26px;display:flex;gap:12px;background:#0d1117;border-top:1px solid #21262d}
 #cam-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:30;transition:opacity .15s}
-#cam-toast{position:absolute;bottom:176px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;white-space:nowrap;z-index:40;opacity:0;transition:opacity .3s;pointer-events:none}
+#cam-toast{position:absolute;bottom:224px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;white-space:nowrap;z-index:40;opacity:0;transition:opacity .3s;pointer-events:none}
 #cam-toast.show{opacity:1}
 #cam-offline-badge{position:absolute;top:10px;left:10px;background:rgba(126,82,0,.85);color:#fbbf24;font-size:11px;padding:4px 10px;border-radius:20px;font-weight:bold;z-index:20;display:none}
 #cam-offline-badge.show{display:block}
@@ -326,10 +376,60 @@ canvas.fc{display:block;flex-shrink:0}
           title="Voltar ao padrão: 38%, canto superior direito"></span>
   </div>
 
+  <!-- Zoom: 0,5× (ultra-angular), 1× (padrão) e 2×. Botão de lente que o
+       aparelho não tem fica apagado e avisa ao ser tocado. -->
+  <div id="cam-zoom">
+    <button class="cam-zm" id="zm-05" onclick="setZoom(0.5)">0,5×</button>
+    <button class="cam-zm on" id="zm-10" onclick="setZoom(1)">1×</button>
+    <button class="cam-zm" id="zm-20" onclick="setZoom(2)">2×</button>
+  </div>
+
   <div id="cam-controls">
     <button class="cam-btn cam-back" onclick="closeCamera()">✕ Voltar</button>
     <button class="cam-btn cam-capture" onclick="capturePhoto()" title="Capturar">📷</button>
     <button class="cam-btn cam-flip" onclick="flipCamera()">🔄</button>
+  </div>
+</div>
+
+<!-- ── Ajuste da foto da galeria: posiciona card e carimbo antes de montar ── -->
+<div id="gal-view">
+  <div id="gal-info">Arraste o <b>card</b> e o <b>carimbo</b> · toque para escolher e ajustar</div>
+  <div id="gal-area">
+    <div id="gal-stage">
+      <canvas id="gal-img"></canvas>
+      <canvas class="fc" id="gal-card"></canvas>
+      <canvas id="gal-stamp"></canvas>
+    </div>
+  </div>
+  <!-- Tamanho e ângulo mexem em UM alvo de cada vez: as abas dizem em qual.
+       Tocar no card ou no carimbo na foto também troca o alvo. -->
+  <div id="gal-tools">
+    <div id="gal-abas">
+      <button class="gal-aba on" id="aba-card"    onclick="selecionaGal('card')">🪪 Fotocard</button>
+      <button class="gal-aba"    id="aba-carimbo" onclick="selecionaGal('carimbo')">🕐 Carimbo</button>
+      <button class="gal-ico" onclick="giraGal(90)" title="Girar 90°">↻</button>
+      <button class="gal-ico" onclick="restauraPadraoGal()" title="Voltar tudo ao padrão">↺</button>
+    </div>
+    <div class="gal-lin">
+      <span class="et">Tam</span>
+      <button class="cam-sz" onclick="passoTamGal(-2)" title="Diminuir">−</button>
+      <input class="gal-rng" id="gal-tam" type="range" min="20" max="70" step="1" value="50"
+             oninput="mudaTamGal(this.value)">
+      <button class="cam-sz" onclick="passoTamGal(2)" title="Aumentar">+</button>
+      <span class="vl" id="gal-tam-vl"></span>
+    </div>
+    <div class="gal-lin">
+      <span class="et">Âng</span>
+      <button class="cam-sz" onclick="passoAngGal(-5)" title="Girar à esquerda">−</button>
+      <input class="gal-rng" id="gal-ang" type="range" min="-180" max="180" step="1" value="0"
+             oninput="mudaAngGal(this.value)">
+      <button class="cam-sz" onclick="passoAngGal(5)" title="Girar à direita">+</button>
+      <span class="vl" id="gal-ang-vl"></span>
+    </div>
+  </div>
+  <div id="gal-controls">
+    <button class="rev-btn rev-refaz" onclick="cancelarGaleria()">✕  Cancelar</button>
+    <button class="rev-btn rev-usa" id="gal-btn-ok" onclick="aplicarGaleria()">✓  Aplicar</button>
   </div>
 </div>
 
@@ -1265,11 +1365,13 @@ function scaleCamOverlay(){
   if(!wrap||!card) return;
 
   var ladoMenor=Math.min(window.innerWidth,window.innerHeight);
-  var video=document.getElementById('cam-video');
+  /* Quadro que vai ser GRAVADO (já descontado o zoom digital), não o do
+     sensor: é dele que sai a fração do card. */
+  var F=dimsFoto();
   var targetW;
-  if(video&&video.videoWidth){
-    var cover=Math.max(window.innerWidth/video.videoWidth, window.innerHeight/video.videoHeight);
-    targetW=FC.larguraNaFoto(Math.min(video.videoWidth,video.videoHeight))*cover;
+  if(F){
+    var cover=Math.max(window.innerWidth/F.w, window.innerHeight/F.h);
+    targetW=FC.larguraNaFoto(Math.min(F.w,F.h))*cover;
   } else {
     targetW=ladoMenor*FC.frac();          /* antes do vídeo abrir */
   }
@@ -1307,11 +1409,21 @@ function scaleCamOverlay(){
    os dois igualmente nítidos. A escolha fica guardada no aparelho. */
 var CARD_FRAC_KEY='ew_card_frac';
 
+/* Tamanho do quadro que a foto vai ter, em pixels: o do sensor dividido pelo
+   zoom digital (quando o driver não faz o zoom, o app recorta o centro).
+   Devolve null enquanto a câmera não abriu. */
+function dimsFoto(){
+  var v=document.getElementById('cam-video');
+  if(!v||!v.videoWidth) return null;
+  var z=zoomDigital||1;
+  return {w:Math.round(v.videoWidth/z), h:Math.round(v.videoHeight/z)};
+}
+
 /* Largura do card na foto atual, em pixels (0 se a câmera não abriu ainda) */
 function larguraCardNaFoto(){
-  var v=document.getElementById('cam-video');
-  if(!v||!v.videoWidth) return 0;
-  return FC.larguraNaFoto(Math.min(v.videoWidth,v.videoHeight));
+  var F=dimsFoto();
+  if(!F) return 0;
+  return FC.larguraNaFoto(Math.min(F.w,F.h));
 }
 
 function mostraTamanho(){
@@ -1329,6 +1441,7 @@ function mostraTamanho(){
 var CARD_POS_KEY='ew_card_pos';
 var posX=1, posY=0;
 var camCardBox=null;      /* caixa do card na tela — usada para saber se o dedo pegou nele */
+var camStampBox=null;     /* idem para o carimbo de data/hora */
 var MG_TELA=10;           /* folga do card até a borda da tela */
 
 /* Gravação adiada: arrastar o card, o slider ou dar pinça dispara isso dezenas
@@ -1340,6 +1453,10 @@ function gravaAjustes(){
     try{
       localStorage.setItem(CARD_FRAC_KEY,String(FC.frac()));
       localStorage.setItem(CARD_POS_KEY,posX.toFixed(4)+','+posY.toFixed(4));
+      localStorage.setItem(STAMP_POS_KEY,stampX.toFixed(4)+','+stampY.toFixed(4));
+      /* ângulos e tamanho do carimbo: só valem na tela da galeria, mas ficam
+         guardados para não ter de reajustar foto a foto */
+      localStorage.setItem(GAL_AJU_KEY,cardAng+','+stampAng+','+stampEsc.toFixed(3));
     }catch(e){}
   },400);
 }
@@ -1365,36 +1482,64 @@ function mudaTamanho(pct){
 }
 function passoTamanho(d){ mudaTamanho(Math.round(FC.frac()*100)+d); }
 
-/* Volta ao padrão de fábrica: 38%, canto superior direito */
+/* Volta ao padrão de fábrica: 38%, canto superior direito,
+   carimbo no canto inferior direito */
 function restauraPadrao(){
   clearTimeout(tGrava);
   posX=1; posY=0;
+  stampX=1; stampY=1;
   FC.setFrac(FC.FRAC0,false);            /* false = volta ao automático */
-  try{ localStorage.removeItem(CARD_FRAC_KEY); localStorage.removeItem(CARD_POS_KEY); }catch(e){}
+  try{
+    localStorage.removeItem(CARD_FRAC_KEY);
+    localStorage.removeItem(CARD_POS_KEY);
+    localStorage.removeItem(STAMP_POS_KEY);
+  }catch(e){}
   mostraTamanho();
   semTransicao();
   scaleCamOverlay();
+  pintaCarimboCam();
 }
 
 /* ─── Arrastar o card (um dedo) ───
    O técnico põe o card onde não atrapalha o dano. Só começa a arrastar se o
    dedo encostar NO card — assim segurar o celular não sai movendo nada. */
 var drag=null;
-function pontoNoCard(x,y){
-  var b=camCardBox;
+function dentroDaCaixa(b,x,y){
   if(!b) return false;
   return x>=b.x-10 && x<=b.x+b.w+10 && y>=b.y-10 && y<=b.y+b.h+10;
 }
+function pontoNoCard(x,y){ return dentroDaCaixa(camCardBox,x,y); }
+
 function iniciaArraste(x,y){
-  if(!pontoNoCard(x,y)) return false;
-  drag={x0:x, y0:y, px:posX, py:posY};
-  var wrap=document.getElementById('cam-overlay-wrap');
+  /* O card é testado antes do carimbo: se os dois se sobrepuserem, quem sai
+     do lugar é o card, que é o maior e o que mais atrapalha. */
+  var alvo=null;
+  if(pontoNoCard(x,y)) alvo='card';
+  else if(dentroDaCaixa(camStampBox,x,y)) alvo='carimbo';
+  if(!alvo) return false;
+  drag={alvo:alvo, x0:x, y0:y,
+        px:(alvo==='card'?posX:stampX), py:(alvo==='card'?posY:stampY)};
+  var wrap=document.getElementById(alvo==='card'?'cam-overlay-wrap':'cam-stamp');
   if(wrap){ wrap.classList.add('sem-transicao','arrastando'); }
   clearTimeout(tTransicao);
   return true;
 }
 function moveArraste(x,y){
-  if(!drag||!camCardBox) return;
+  if(!drag) return;
+  if(drag.alvo==='carimbo'){
+    var bs=camStampBox;
+    if(!bs) return;
+    /* o carimbo usa a MESMA margem do desenho na foto (bs.mg), senão a
+       posição da tela não bateria com a da imagem gravada */
+    var lW=Math.max(1, window.innerWidth -2*bs.mg-bs.w);
+    var lH=Math.max(1, window.innerHeight-2*bs.mg-bs.h);
+    stampX=Math.min(1,Math.max(0, drag.px+(x-drag.x0)/lW));
+    stampY=Math.min(1,Math.max(0, drag.py+(y-drag.y0)/lH));
+    pintaCarimboCam();
+    gravaAjustes();
+    return;
+  }
+  if(!camCardBox) return;
   var livreW=Math.max(1, window.innerWidth -2*MG_TELA-camCardBox.w);
   var livreH=Math.max(1, window.innerHeight-2*MG_TELA-camCardBox.h);
   posX=Math.min(1,Math.max(0, drag.px+(x-drag.x0)/livreW));
@@ -1405,8 +1550,10 @@ function moveArraste(x,y){
 function fimArraste(){
   if(!drag) return;
   drag=null;
-  var wrap=document.getElementById('cam-overlay-wrap');
-  if(wrap) wrap.classList.remove('sem-transicao','arrastando');
+  ['cam-overlay-wrap','cam-stamp'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.classList.remove('sem-transicao','arrastando');
+  });
 }
 
 /* Pinça com dois dedos: mesma coisa que o slider */
@@ -1420,7 +1567,7 @@ function distDedos(t){
 function ligarGestos(){
   var el=document.getElementById('cam-view');
   /* toques nos botões e no slider não são gesto do card */
-  function ehControle(t){ return !!(t&&t.closest&&t.closest('#cam-controls,#cam-size')); }
+  function ehControle(t){ return !!(t&&t.closest&&t.closest('#cam-controls,#cam-size,#cam-zoom')); }
 
   el.addEventListener('touchstart',function(e){
     if(ehControle(e.target)) return;
@@ -1459,7 +1606,7 @@ function dicaGesto(){
   try{
     if(localStorage.getItem(CARD_POS_KEY)||localStorage.getItem(CARD_FRAC_KEY)) return;
   }catch(e){}
-  toast('Arraste o card para mover · pinça para o tamanho',3800);
+  toast('Arraste o card ou o carimbo · pinça muda o tamanho',3800);
 }
 
 /* ─── Toast da câmera ─── */
@@ -1469,6 +1616,164 @@ function toast(msg,dur){
   setTimeout(function(){el.classList.remove('show')},dur||2500);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   ZOOM DA CÂMERA — 0,5× · 1× · 2×
+   ───────────────────────────────────────────────────────────────────────────
+   Em pá eólica a distância de trabalho muda muito: dentro da plataforma não
+   dá para andar para trás e o 0,5× é o que faz o dano inteiro caber no
+   quadro; de longe, o 2× aproxima sem ter de subir mais.
+
+   Três caminhos, nessa ordem de preferência:
+
+   1) LENTE SEPARADA (0,5×) — quase todo celular com ultra-angular expõe essa
+      câmera como um deviceId próprio. É zoom ÓPTICO de verdade: o quadro
+      fica mais largo, sem perder pixel nenhum.
+   2) ZOOM DO DRIVER — alguns aparelhos entregam uma única câmera traseira
+      "lógica" com capabilities.zoom (às vezes já a partir de 0,5). Aí basta
+      applyConstraints e o próprio sistema troca de lente.
+   3) RECORTE DIGITAL (só para 2×) — quando nada disso existe, o app recorta
+      o centro do quadro. Como a captura é em 4K, 2× ainda sai com ~1080p:
+      pior que óptico, mas honesto e disponível em qualquer celular.
+
+   0,5× NÃO tem recorte: não há como inventar campo de visão que a lente não
+   capta. Sem ultra-angular, o botão fica apagado e avisa ao ser tocado.
+   ═══════════════════════════════════════════════════════════════════════════ */
+var zoomAlvo=1;        /* o que o técnico escolheu: 0.5, 1 ou 2 */
+var zoomDigital=1;     /* fator feito por recorte (1 = nenhum) */
+var zoomCaps=null;     /* capabilities.zoom da câmera aberta, se houver */
+var devUltra=null;     /* deviceId da ultra-angular traseira, se existir */
+var devAtual=null;     /* deviceId forçado (null = facingMode) */
+var sondouCameras=false;
+
+/* Descobre as câmeras traseiras. Só funciona DEPOIS da primeira permissão:
+   sem ela o navegador devolve a lista com os rótulos em branco. */
+async function sondaCameras(){
+  if(sondouCameras) return;
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.enumerateDevices) return;
+    var devs=await navigator.mediaDevices.enumerateDevices();
+    var cams=devs.filter(function(d){ return d.kind==='videoinput'; });
+    if(!cams.length||!cams[0].label) return;    /* sem rótulo não dá para escolher */
+    sondouCameras=true;
+    /* iOS: "Câmera traseira ultra-angular" · Android: "... ultra wide ..." */
+    var tras=cams.filter(function(d){
+      return /back|rear|traseir|environment/i.test(d.label);
+    });
+    var lista=tras.length?tras:cams;
+    var u=lista.filter(function(d){
+      return /ultra|0[.,]5/i.test(d.label);
+    })[0];
+    if(u) devUltra=u.deviceId;
+  }catch(e){}
+  pintaBotoesZoom();
+}
+
+/* Liga/desliga os botões conforme o que ESTE aparelho realmente oferece */
+function pintaBotoesZoom(){
+  var pode05=!!devUltra || !!(zoomCaps && zoomCaps.min<=0.5);
+  var b05=document.getElementById('zm-05');
+  if(b05) b05.classList.toggle('off',!pode05);
+  [['zm-05',0.5],['zm-10',1],['zm-20',2]].forEach(function(p){
+    var b=document.getElementById(p[0]);
+    if(b) b.classList.toggle('on', zoomAlvo===p[1]);
+  });
+}
+
+/* Lê o que a câmera aberta sabe fazer de zoom */
+function lerCapsZoom(){
+  zoomCaps=null;
+  try{
+    var t=camStream&&camStream.getVideoTracks()[0];
+    if(t&&t.getCapabilities){
+      var c=t.getCapabilities();
+      if(c&&typeof c.zoom==='object'&&isFinite(c.zoom.max)) zoomCaps=c.zoom;
+    }
+  }catch(e){}
+}
+
+/* Pede um fator de zoom ao driver. Devolve true se ele aceitou. */
+async function zoomDoDriver(z){
+  if(!zoomCaps) return false;
+  if(z<zoomCaps.min-1e-6 || z>zoomCaps.max+1e-6) return false;
+  try{
+    var t=camStream.getVideoTracks()[0];
+    await t.applyConstraints({advanced:[{zoom:z}]});
+    return true;
+  }catch(e){ return false; }
+}
+
+/* Recorte digital: a prévia é escalada por CSS e a captura recorta o centro
+   do quadro no MESMO fator — o que se vê é o que grava. */
+function aplicaZoomDigital(z){
+  zoomDigital=z;
+  var v=document.getElementById('cam-video');
+  if(v) v.style.transform = z>1 ? 'scale('+z+')' : '';
+  /* o quadro mudou de tamanho: card e carimbo têm de ser remedidos */
+  mostraTamanho();
+  scaleCamOverlay();
+  pintaCarimboCam();
+}
+
+/* Reaplica o zoom escolhido depois de o stream reabrir (giro de tela,
+   troca de lente frontal/traseira). */
+async function reaplicaZoom(){
+  lerCapsZoom();
+  /* Na lente ultra-angular o 0,5× é a própria câmera: nada a reaplicar. */
+  if(devUltra && devAtual===devUltra){ aplicaZoomDigital(1); pintaBotoesZoom(); return; }
+  if(zoomAlvo===1){
+    if(zoomCaps) await zoomDoDriver(Math.max(1,zoomCaps.min));
+    aplicaZoomDigital(1);
+  } else {
+    var ok=await zoomDoDriver(zoomAlvo);
+    /* 2× o app cobre sozinho com recorte; 0,5× não tem como — se o driver
+       reabriu sem a grande angular, volta honestamente para 1×. */
+    if(ok) aplicaZoomDigital(1);
+    else if(zoomAlvo>1) aplicaZoomDigital(zoomAlvo);
+    else { zoomAlvo=1; aplicaZoomDigital(1); }
+  }
+  pintaBotoesZoom();
+}
+
+async function setZoom(z){
+  if(z===zoomAlvo) return;
+  var eraUltra=(devAtual&&devAtual===devUltra);
+
+  if(z===0.5){
+    /* 1) driver que desce abaixo de 1 — nem precisa trocar de câmera */
+    if(!eraUltra && zoomCaps && zoomCaps.min<=0.5){
+      if(await zoomDoDriver(0.5)){
+        zoomAlvo=0.5; aplicaZoomDigital(1); pintaBotoesZoom();
+        toast('0,5× — grande angular',1600); return;
+      }
+    }
+    /* 2) lente ultra-angular como câmera separada */
+    if(devUltra){
+      zoomAlvo=0.5; devAtual=devUltra; zoomDigital=1;
+      pintaBotoesZoom();          /* marca já, antes de a câmera reabrir */
+      await startStream();
+      /* depois do aviso de resolução, que sai assim que o vídeo abre */
+      setTimeout(function(){ toast('0,5× — lente ultra-angular',1600); },2400);
+      return;
+    }
+    toast('0,5× não disponível neste aparelho',2600);
+    return;
+  }
+
+  /* 1× e 2× são sempre na câmera principal */
+  if(eraUltra){ devAtual=null; zoomAlvo=z; pintaBotoesZoom(); await startStream(); return; }
+
+  zoomAlvo=z;
+  if(z>1){
+    var ok=await zoomDoDriver(z);
+    aplicaZoomDigital(ok?1:z);
+    toast(ok?'2× — zoom da câmera':'2× — recorte digital',1600);
+  } else {
+    if(zoomCaps) await zoomDoDriver(Math.max(1,zoomCaps.min));
+    aplicaZoomDigital(1);
+  }
+  pintaBotoesZoom();
+}
+
 /* ─── Câmera ─── */
 async function openCamera(){
   /* Sem o fotocard inteiro preenchido não abre: a foto é o registro, e campo
@@ -1476,6 +1781,7 @@ async function openCamera(){
   if(!exigePreenchimento('abrir a câmera')) return;
   document.getElementById('cam-view').classList.add('on');
   paintCamCard();          // card do overlay, já translúcido
+  pintaBotoesZoom();       // marca o zoom em uso e apaga a lente que não existe
   mostraTamanho();
   scaleCamOverlay();
   ligaCarimboCam();        // carimbo ao vivo, com o relógio andando
@@ -1492,12 +1798,15 @@ async function startStream(){
        Antes era 1280×720 fixo: o card saía com ~380 px e os rótulos com
        menos de 6 px, ilegíveis ao ampliar. Se o aparelho não tiver 4K, o
        navegador cai sozinho para a resolução mais próxima. */
-    var constraints={video:{
-      facingMode:facingMode,
+    var v={
       width:{ideal:3840}, height:{ideal:2160},
       advanced:[{focusMode:'continuous'}]
-    },audio:false};
-    var stream=await navigator.mediaDevices.getUserMedia(constraints);
+    };
+    /* devAtual só é usado quando o técnico pediu 0,5× e o aparelho tem a
+       ultra-angular como câmera separada; no resto do tempo vale o
+       facingMode, que é o que o navegador escolhe melhor sozinho. */
+    if(devAtual) v.deviceId={exact:devAtual}; else v.facingMode=facingMode;
+    var stream=await navigator.mediaDevices.getUserMedia({video:v,audio:false});
     camStream=stream;
     var video=document.getElementById('cam-video');
     video.srcObject=stream;
@@ -1508,10 +1817,20 @@ async function startStream(){
       mostraTamanho();
       scaleCamOverlay();
       pintaCarimboCam();   /* idem para o carimbo: agora dá para usar a escala real */
+      reaplicaZoom();      /* devolve o 0,5× / 2× depois de reabrir o stream */
+      sondaCameras();      /* com a permissão dada, os rótulos das lentes aparecem */
       setTimeout(dicaGesto,2400);   /* depois do aviso de resolução */
     };
     if(!isOnline)document.getElementById('cam-offline-badge').classList.add('show');
   }catch(e){
+    /* Pedimos uma lente específica (0,5×) e o aparelho recusou: volta para a
+       câmera padrão em vez de deixar a tela preta. */
+    if(devAtual){
+      devAtual=null; devUltra=null; zoomAlvo=1;
+      pintaBotoesZoom();
+      toast('Lente 0,5× indisponível — voltando ao 1×',2600);
+      return startStream();
+    }
     toast('Câmera não disponível. Verifique as permissões.');
   }
 }
@@ -1565,6 +1884,10 @@ function desligarListenerOrientacao(){
 
 async function flipCamera(){
   facingMode=facingMode==='environment'?'user':'environment';
+  /* Trocar de lado zera o zoom: a frontal não tem ultra-angular, e manter
+     2× ao virar deixaria a prévia recortada sem ninguém ter pedido. */
+  devAtual=null; zoomAlvo=1; zoomDigital=1;
+  pintaBotoesZoom();
   await startStream();
 }
 
@@ -1652,20 +1975,67 @@ function escreveCarimbo(ctx,size,txt){
   ctx.fillText(txt,0,0);
 }
 
-/* Grava o carimbo na foto, no canto inferior direito */
-function desenhaCarimbo(ctx,vw,vh,ang,data){
+/* ─── Onde o carimbo fica ───
+   Guardado como fração do espaço livre, exatamente como a posição do card
+   (posX/posY): 1 / 1 = canto inferior direito, que é o padrão de sempre.
+   Vale para a câmera e para a foto trazida da galeria — o técnico arrasta o
+   carimbo para fora do dano quando ele cai justo em cima. */
+var STAMP_POS_KEY='ew_stamp_pos';
+var stampX=1, stampY=1;
+
+/* Espaço que um retângulo w×h ocupa DEPOIS de girado "ang" graus.
+   Com ang múltiplo de 90 dá exatamente a troca de w por h que o app já fazia;
+   com ângulo qualquer (o ajuste manual da galeria) dá a caixa real, e é ela
+   que mantém a marcação inteira dentro da foto. */
+function bboxGirada(w,h,ang){
+  var a=Math.abs(ang)*Math.PI/180, c=Math.abs(Math.cos(a)), s=Math.abs(Math.sin(a));
+  return {w:w*c+h*s, h:w*s+h*c};
+}
+
+/* Centro de um elemento de caixa "bb" num lado de "dim" pixels, colocado na
+   fração "f" do espaço livre (0 = encostado no começo, 1 = no fim).
+   Se não couber — card grande girado a 45°, por exemplo — centraliza: sai
+   sobrando dos dois lados por igual em vez de escapar todo por um canto. */
+function centroNoLivre(dim,mg,bb,f){
+  var livre=dim-2*mg-bb;
+  return livre<=0 ? dim/2 : mg+f*livre+bb/2;
+}
+
+/* Grava o carimbo na foto, na posição escolhida (padrão: inferior direito).
+   "ang" é o giro da TELA (o desenho sai rodado -ang, para acompanhar o
+   celular); a tela de ajuste da galeria passa o negativo do ângulo que o
+   técnico escolheu. "esc" multiplica o corpo da fonte (1 = automático). */
+function desenhaCarimbo(ctx,vw,vh,ang,data,esc){
   var lado=Math.min(vw,vh);
   /* "data" só vem na foto importada da galeria: ali o carimbo tem de mostrar
      quando a foto foi TIRADA, não a hora em que ela foi carregada no app. */
-  var size=corpoCarimbo(lado), mg=margemCarimbo(lado), txt=textoCarimbo(data);
+  var size=corpoCarimbo(lado)*(esc||1), mg=margemCarimbo(lado), txt=textoCarimbo(data);
   ctx.save();
   var m=medeCarimbo(ctx,size,txt);
-  var deitado=(ang===90||ang===270);
-  var bbW=deitado?m.h:m.w, bbH=deitado?m.w:m.h;   /* ocupado DEPOIS de girar */
-  ctx.translate(vw-mg-bbW/2, vh-mg-bbH/2);
+  var bb=bboxGirada(m.w,m.h,ang);                 /* ocupado DEPOIS de girar */
+  ctx.translate(centroNoLivre(vw,mg,bb.w,stampX), centroNoLivre(vh,mg,bb.h,stampY));
   ctx.rotate(-ang*Math.PI/180);
   escreveCarimbo(ctx,size,txt);
   ctx.restore();
+}
+
+/* Pinta o carimbo num <canvas> de TELA (câmera ou palco da galeria), com uma
+   folga em volta para o contorno das letras não ser cortado pela borda do
+   canvas. Devolve o tamanho do canvas e o do bloco de texto — a posição é
+   calculada pelo TEXTO, senão o carimbo sairia do canto deslocado do pad. */
+function pintaCarimboEm(cv,size,txt){
+  var ctx=cv.getContext('2d');
+  var m=medeCarimbo(ctx,size,txt);
+  var pad=Math.ceil(size*0.4);
+  var w=Math.ceil(m.w)+2*pad, h=Math.ceil(m.h)+2*pad;
+  cv.width=Math.ceil(w*SS); cv.height=Math.ceil(h*SS);
+  cv.style.width=w+'px'; cv.style.height=h+'px';
+  ctx.setTransform(SS,0,0,SS,0,0);
+  ctx.clearRect(0,0,w,h);
+  ctx.translate(w/2,h/2);
+  escreveCarimbo(ctx,size,txt);
+  ctx.setTransform(1,0,0,1,0,0);
+  return {w:w, h:h, tw:m.w, th:m.h};
 }
 
 /* ─── Carimbo ao vivo na tela da câmera ───
@@ -1684,11 +2054,13 @@ function pintaCarimboCam(){
   var cv=document.getElementById('fc-stamp');
   if(!wrap||!cv) return;
 
-  var video=document.getElementById('cam-video');
+  /* Medidas do QUADRO QUE VAI SER GRAVADO — com zoom digital ele é menor que
+     o do sensor, e o carimbo tem de acompanhar. */
+  var F=dimsFoto();
   var size, mg;
-  if(video&&video.videoWidth){
-    var cover=Math.max(window.innerWidth/video.videoWidth, window.innerHeight/video.videoHeight);
-    var lado=Math.min(video.videoWidth,video.videoHeight);
+  if(F){
+    var cover=Math.max(window.innerWidth/F.w, window.innerHeight/F.h);
+    var lado=Math.min(F.w,F.h);
     size=corpoCarimbo(lado)*cover;
     mg=margemCarimbo(lado)*cover;
   } else {
@@ -1719,23 +2091,19 @@ function pintaCarimboCam(){
 
   /* folga em volta para o contorno das letras não ser cortado pela borda do
      canvas — é simétrica, então o centro do canvas segue sendo o do texto */
-  var pad=Math.ceil(size*0.4);
-  var w=Math.ceil(m.w)+2*pad, h=Math.ceil(m.h)+2*pad;
-
-  cv.width=Math.ceil(w*SS); cv.height=Math.ceil(h*SS);
-  cv.style.width=w+'px'; cv.style.height=h+'px';
-  ctx.setTransform(SS,0,0,SS,0,0);
-  ctx.clearRect(0,0,w,h);
-  ctx.translate(w/2,h/2);
-  escreveCarimbo(ctx,size,txt);
-  ctx.setTransform(1,0,0,1,0,0);
+  var C=pintaCarimboEm(cv,size,txt);
+  var w=C.w, h=C.h;
 
   /* Posição pelo bloco de TEXTO (sem a folga), senão o carimbo sairia do canto
      deslocado do tanto do pad. O giro é em torno do centro do elemento, que
-     coincide com o centro do texto. */
+     coincide com o centro do texto. A mesma conta de fração do espaço livre
+     que o card usa: stampX/stampY 1 / 1 = canto inferior direito. */
   var bbW=deitado?m.h:m.w, bbH=deitado?m.w:m.h;
-  var cx=window.innerWidth -mg-bbW/2;
-  var cy=window.innerHeight-mg-bbH/2;
+  var livreW=Math.max(0, window.innerWidth -2*mg-bbW);
+  var livreH=Math.max(0, window.innerHeight-2*mg-bbH);
+  var cx=mg+stampX*livreW+bbW/2;
+  var cy=mg+stampY*livreH+bbH/2;
+  camStampBox={x:cx-bbW/2, y:cy-bbH/2, w:bbW, h:bbH, mg:mg};
   wrap.style.transform='translate('+(cx-w/2)+'px,'+(cy-h/2)+'px) rotate('+(-ang)+'deg)';
 }
 
@@ -1757,13 +2125,20 @@ async function capturePhoto(){
   flash.style.opacity='1';
   setTimeout(function(){flash.style.opacity='0'},150);
 
-  // Canvas com frame da câmera
-  var vw=video.videoWidth, vh=video.videoHeight;
+  // Canvas com frame da câmera.
+  // Com zoom digital (o driver não fez o 2×), grava só o RECORTE CENTRAL, no
+  // mesmo fator que a prévia mostra — e no tamanho real do recorte, sem
+  // esticar: 4K com 2× ainda sai em ~1920×1080, resolução de verdade em vez
+  // de pixel inventado.
+  var zd=zoomDigital||1;
+  var sw=Math.round(video.videoWidth/zd), sh=Math.round(video.videoHeight/zd);
+  var sx=Math.round((video.videoWidth -sw)/2), sy=Math.round((video.videoHeight-sh)/2);
+  var vw=sw, vh=sh;
   var main=document.createElement('canvas');
   main.width=vw; main.height=vh;
   var ctx=main.getContext('2d');
-  if(facingMode==='user'){ctx.save();ctx.scale(-1,1);ctx.drawImage(video,-vw,0,vw,vh);ctx.restore()}
-  else{ctx.drawImage(video,0,0,vw,vh)}
+  if(facingMode==='user'){ctx.save();ctx.scale(-1,1);ctx.drawImage(video,sx,sy,sw,sh,-vw,0,vw,vh);ctx.restore()}
+  else{ctx.drawImage(video,sx,sy,sw,sh,0,0,vw,vh)}
 
   // Card VETORIZADO direto no tamanho final: o texto é rasterizado só agora,
   // já com os pixels da foto, então sai nítido em qualquer resolução.
@@ -1887,11 +2262,31 @@ function abrirGaleria(){
   inp.click();
 }
 
+/* Estado da foto que está sendo ajustada */
+var galBmp=null, galVW=0, galVH=0, galData=null, galEstado=null, galEsc=1;
+var galCardBox={w:0,h:0}, galStampBox={w:0,h:0,cw:0,ch:0}, galStampMg=0;
+
+/* ─── Ajustes que valem SÓ para a foto da galeria ───
+   Na câmera o giro do card e do carimbo vem do sensor de orientação: eles
+   acompanham o celular sozinhos, e um ângulo manual ali brigaria com isso.
+   Na foto importada não há tela girando — a imagem já vem na orientação
+   final — então o ângulo passa a ser escolha do técnico. Serve para
+   acompanhar uma pá deitada no quadro, ou para deitar a marcação numa faixa
+   estreita de céu em vez de cobrir o dano.
+
+   O tamanho do CARD é o mesmo FC.frac() da câmera (o app já guardava). O
+   tamanho do CARIMBO é novo e multiplica o corpo automático da fonte. */
+var GAL_AJU_KEY='ew_gal_ajustes';
+var cardAng=0;      /* graus, sentido horário */
+var stampAng=0;
+var stampEsc=1;     /* 0,4 a 2,0 do corpo automático */
+var galAlvo='card'; /* em quem os sliders de tamanho e ângulo mexem */
+
 async function importarDaGaleria(input){
   var file=input.files && input.files[0];
   if(!file) return;
   var st=document.getElementById('st');
-  st.textContent='Montando a foto...'; st.className='status';
+  st.textContent='Abrindo a foto...'; st.className='status';
 
   try{
     /* imageOrientation from-image: respeita o EXIF, senão foto em pé vem deitada */
@@ -1899,43 +2294,335 @@ async function importarDaGaleria(input){
     try{ bmp=await createImageBitmap(file,{imageOrientation:'from-image'}); }
     catch(e){ bmp=await createImageBitmap(file); }
 
-    var vw=bmp.width, vh=bmp.height;
-    var main=document.createElement('canvas');
-    main.width=vw; main.height=vh;
-    var ctx=main.getContext('2d');
-    ctx.drawImage(bmp,0,0,vw,vh);
+    liberaGaleria();
+    galBmp=bmp; galVW=bmp.width; galVH=bmp.height;
 
     /* Data e hora do RELÓGIO DO CELULAR, no momento em que a foto é escolhida.
        Não é a data do arquivo nem hora de servidor: é exatamente o que o
        aparelho está marcando agora — o mesmo new Date() que a câmera do app já
        usa, então foto tirada no app e foto trazida da galeria carimbam do mesmo
        jeito. Vale para o carimbo do rodapé e para a Data do card. */
-    var d=new Date();
+    galData=new Date();
     var p2=function(n){ return n<10?'0'+n:''+n; };
-    var estado=Object.assign({},curState,{data:p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()});
+    galEstado=Object.assign({},curState,
+      {data:p2(galData.getDate())+'/'+p2(galData.getMonth()+1)+'/'+galData.getFullYear()});
 
-    /* Card sem giro: a foto já vem na orientação final, não há tela girando */
+    st.textContent=''; st.className='status';
+    abreAjusteGaleria();
+
+  }catch(e){
+    st.textContent='Erro ao ler a foto: '+e.message; st.className='status er';
+  }
+}
+
+/* ═══ AJUSTE DA FOTO DA GALERIA ═══
+   A foto aparece inteira, com o card e o carimbo por cima, e os dois são
+   arrastados até onde não cobrem o dano. O palco tem exatamente a proporção
+   da foto e as posições são as MESMAS frações usadas na montagem final —
+   canto no palco = canto na foto, então o que se vê aqui é o que sai gravado.
+   A montagem (que é cara, em foto de 12 MP) só acontece no "Aplicar". */
+function abreAjusteGaleria(){
+  document.getElementById('gal-view').classList.add('on');
+  var monta=function(){
+    /* a segunda passada é agendada: se até lá o técnico já tiver saído da
+       tela (Cancelar ou Aplicar), não há mais foto para desenhar */
+    if(!galBmp) return;
+    montaPreviaGaleria(); montaPalcoGaleria(); selecionaGal(galAlvo);
+  };
+  monta();                       /* o palco já tem tamanho: o display:flex vale na hora */
+  requestAnimationFrame(monta);  /* segunda passada: barra do navegador que aparece/some
+                                    no celular muda a altura útil logo depois de abrir */
+}
+
+/* Cópia reduzida da foto para o palco: desenhar 12 MP a cada arraste
+   engasgaria o celular. 1600 px é bem mais do que qualquer tela mostra. */
+function montaPreviaGaleria(){
+  if(!galBmp) return;
+  var cv=document.getElementById('gal-img');
+  var esc=Math.min(1, 1600/Math.max(galVW,galVH));
+  cv.width=Math.max(1,Math.round(galVW*esc));
+  cv.height=Math.max(1,Math.round(galVH*esc));
+  cv.getContext('2d').drawImage(galBmp,0,0,cv.width,cv.height);
+}
+
+function montaPalcoGaleria(){
+  if(!galBmp) return;
+  var area=document.getElementById('gal-area');
+  var stage=document.getElementById('gal-stage');
+  var aw=area.clientWidth, ah=area.clientHeight;
+  if(!aw||!ah) return;
+  galEsc=Math.min(aw/galVW, ah/galVH);
+  stage.style.width=(galVW*galEsc)+'px';
+  stage.style.height=(galVH*galEsc)+'px';
+  pintaCardGaleria();
+  pintaCarimboGaleria();
+  posicionaGaleria();
+}
+
+function pintaCardGaleria(){
+  if(!galEstado) return;      /* tela já fechada: não há o que redesenhar */
+  var cv=document.getElementById('gal-card');
+  var L=FC.fit(cv, galEstado, SS, FC.OPACITY);
+  var lado=Math.min(galVW,galVH);
+  var w=FC.larguraNaFoto(lado)*galEsc, h=w*L.h/L.w;
+  cv.style.width=w+'px'; cv.style.height=h+'px';
+  galCardBox={w:w,h:h};
+}
+
+function pintaCarimboGaleria(){
+  if(!galBmp) return;         /* idem: sem foto carregada não há palco */
+  var cv=document.getElementById('gal-stamp');
+  var lado=Math.min(galVW,galVH);
+  var C=pintaCarimboEm(cv, corpoCarimbo(lado)*stampEsc*galEsc, textoCarimbo(galData));
+  galStampMg=margemCarimbo(lado)*galEsc;
+  galStampBox={w:C.tw, h:C.th, cw:C.w, ch:C.h};
+}
+
+/* Caixas de card e carimbo em pixels do palco — as mesmas contas de fração do
+   espaço livre que a montagem final usa. Com o ângulo manual, o que entra na
+   conta é a caixa DEPOIS de girada (bb): é assim que a marcação continua
+   inteira dentro da foto por mais que se gire. */
+function caixasGaleria(){
+  var lado=Math.min(galVW,galVH);
+  var sw=galVW*galEsc, sh=galVH*galEsc;
+  var mgC=lado*FC.MARGIN*galEsc, mgS=galStampMg;
+  var c=galCardBox, s=galStampBox;
+  var bc=bboxGirada(c.w,c.h,cardAng), bs=bboxGirada(s.w,s.h,stampAng);
+  var lw =Math.max(0,sw-2*mgC-bc.w), lh =Math.max(0,sh-2*mgC-bc.h);
+  var lws=Math.max(0,sw-2*mgS-bs.w), lhs=Math.max(0,sh-2*mgS-bs.h);
+  /* cx/cy = centro (é em torno dele que o giro acontece), pela mesma conta da
+     montagem final; pw/ph = o retângulo de verdade, que o arraste usa */
+  return {
+    card   :{cx:centroNoLivre(sw,mgC,bc.w,posX), cy:centroNoLivre(sh,mgC,bc.h,posY),
+             w:bc.w, h:bc.h, pw:c.w, ph:c.h, ang:cardAng,  lw:lw,  lh:lh},
+    carimbo:{cx:centroNoLivre(sw,mgS,bs.w,stampX), cy:centroNoLivre(sh,mgS,bs.h,stampY),
+             w:bs.w, h:bs.h, pw:s.w, ph:s.h, ang:stampAng, lw:lws, lh:lhs}
+  };
+}
+
+function posicionaGaleria(){
+  if(!galBmp) return;
+  var B=caixasGaleria(), c=galCardBox, s=galStampBox;
+  /* transform-origin é o centro do elemento: posiciona o canto e gira. O
+     canvas do carimbo tem folga simétrica em volta do texto (para o contorno
+     das letras não ser cortado), então o centro dele é o centro do texto. */
+  document.getElementById('gal-card').style.transform=
+    'translate('+(B.card.cx-c.w/2)+'px,'+(B.card.cy-c.h/2)+'px) rotate('+cardAng+'deg)';
+  document.getElementById('gal-stamp').style.transform=
+    'translate('+(B.carimbo.cx-s.cw/2)+'px,'+(B.carimbo.cy-s.ch/2)+'px) rotate('+stampAng+'deg)';
+}
+
+/* ─── Alvo dos sliders: fotocard ou carimbo ─── */
+function selecionaGal(alvo){
+  galAlvo=alvo;
+  document.getElementById('aba-card').classList.toggle('on',alvo==='card');
+  document.getElementById('aba-carimbo').classList.toggle('on',alvo==='carimbo');
+  var cc=document.getElementById('gal-card'), cs=document.getElementById('gal-stamp');
+  if(cc) cc.classList.toggle('sel',alvo==='card');
+  if(cs) cs.classList.toggle('sel',alvo==='carimbo');
+  mostraTamanhoGal();
+}
+
+/* Escreve nos sliders e nos rótulos o que vale para o alvo em uso */
+function mostraTamanhoGal(){
+  var rt=document.getElementById('gal-tam'), vt=document.getElementById('gal-tam-vl');
+  var ra=document.getElementById('gal-ang'), va=document.getElementById('gal-ang-vl');
+  if(galAlvo==='card'){
+    var pct=Math.round(FC.frac()*100);
+    if(rt){ rt.min=20; rt.max=70; rt.value=pct; }
+    if(vt) vt.textContent=pct+'%';
+    if(ra) ra.value=cardAng;
+    if(va) va.textContent=cardAng+'°';
+  } else {
+    var p=Math.round(stampEsc*100);
+    if(rt){ rt.min=40; rt.max=200; rt.value=p; }
+    if(vt) vt.textContent=p+'%';
+    if(ra) ra.value=stampAng;
+    if(va) va.textContent=stampAng+'°';
+  }
+}
+
+function mudaTamGal(v){
+  v=parseFloat(v);
+  if(galAlvo==='card'){
+    FC.setFrac(v/100,true);
+    pintaCardGaleria();
+  } else {
+    stampEsc=Math.min(2,Math.max(0.4,v/100));
+    pintaCarimboGaleria();
+  }
+  gravaAjustes();
+  mostraTamanhoGal();
+  posicionaGaleria();
+}
+function passoTamGal(d){
+  mudaTamGal((galAlvo==='card'?Math.round(FC.frac()*100):Math.round(stampEsc*100))+d*(galAlvo==='card'?1:3));
+}
+
+/* Ângulo: -180 a 180. Fora dos múltiplos de 90 o ajuste é fino, então o
+   arredondamento para 0 / ±90 / 180 acontece só no botão ↻. */
+function mudaAngGal(v){
+  var a=Math.max(-180,Math.min(180,Math.round(parseFloat(v)||0)));
+  if(galAlvo==='card') cardAng=a; else stampAng=a;
+  gravaAjustes();
+  mostraTamanhoGal();
+  posicionaGaleria();
+}
+function passoAngGal(d){ mudaAngGal((galAlvo==='card'?cardAng:stampAng)+d); }
+/* ↻ = PRÓXIMO quarto de volta, sempre caindo num múltiplo exato de 90.
+   Partindo de um ângulo fino (45°, por exemplo) vai para 90, não para 180:
+   arredondar direto pularia um quarto sempre que o ângulo caísse no meio. */
+function giraGal(d){
+  var a=(galAlvo==='card'?cardAng:stampAng)/90;
+  a=90*(d>=0 ? Math.floor(a)+1 : Math.ceil(a)-1);
+  while(a>180) a-=360;
+  while(a<=-180) a+=360;
+  mudaAngGal(a);
+}
+
+function restauraPadraoGal(){
+  clearTimeout(tGrava);
+  posX=1; posY=0; stampX=1; stampY=1;
+  cardAng=0; stampAng=0; stampEsc=1;
+  FC.setFrac(FC.FRAC0,false);
+  try{
+    localStorage.removeItem(CARD_FRAC_KEY);
+    localStorage.removeItem(CARD_POS_KEY);
+    localStorage.removeItem(STAMP_POS_KEY);
+    localStorage.removeItem(GAL_AJU_KEY);
+  }catch(e){}
+  pintaCardGaleria();
+  pintaCarimboGaleria();
+  mostraTamanhoGal();
+  posicionaGaleria();
+}
+
+/* ─── Arraste do card e do carimbo no palco ─── */
+var galDrag=null;
+function galPonto(e){
+  var r=document.getElementById('gal-stage').getBoundingClientRect();
+  var t=(e.touches&&e.touches[0])||e;
+  return {x:t.clientX-r.left, y:t.clientY-r.top};
+}
+/* O dedo pegou o elemento? Com o ângulo manual, testar a caixa girada seria
+   generoso demais (um card a 45° tem caixa quase o dobro): o ponto é levado
+   para o sistema do próprio elemento e comparado com o retângulo de verdade. */
+function dentroGirado(b,px,py){
+  var a=b.ang*Math.PI/180, dx=px-b.cx, dy=py-b.cy;
+  var lx= dx*Math.cos(a)+dy*Math.sin(a);
+  var ly=-dx*Math.sin(a)+dy*Math.cos(a);
+  return Math.abs(lx)<=b.pw/2+10 && Math.abs(ly)<=b.ph/2+10;
+}
+
+function galInicia(p){
+  if(!galBmp) return false;
+  var B=caixasGaleria(), alvo=null;
+  /* card primeiro: sobrepostos, quem sai do lugar é o maior */
+  if(dentroGirado(B.card,p.x,p.y)) alvo='card';
+  else if(dentroGirado(B.carimbo,p.x,p.y)) alvo='carimbo';
+  if(!alvo) return false;
+  selecionaGal(alvo);          /* pegar no elemento já aponta os sliders para ele */
+  galDrag={alvo:alvo, x0:p.x, y0:p.y,
+           px:(alvo==='card'?posX:stampX), py:(alvo==='card'?posY:stampY),
+           lw:B[alvo].lw, lh:B[alvo].lh};
+  var el=document.getElementById(alvo==='card'?'gal-card':'gal-stamp');
+  if(el) el.classList.add('peg');
+  return true;
+}
+function galMove(p){
+  if(!galDrag) return;
+  var nx=Math.min(1,Math.max(0, galDrag.px+(p.x-galDrag.x0)/Math.max(1,galDrag.lw)));
+  var ny=Math.min(1,Math.max(0, galDrag.py+(p.y-galDrag.y0)/Math.max(1,galDrag.lh)));
+  if(galDrag.alvo==='card'){ posX=nx; posY=ny; } else { stampX=nx; stampY=ny; }
+  posicionaGaleria();
+  gravaAjustes();
+}
+function galSolta(){
+  if(!galDrag) return;
+  galDrag=null;
+  ['gal-card','gal-stamp'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.classList.remove('peg');
+  });
+}
+function ligarGestosGaleria(){
+  var st=document.getElementById('gal-stage');
+  if(!st) return;
+  st.addEventListener('touchstart',function(e){ galInicia(galPonto(e)); },{passive:true});
+  st.addEventListener('touchmove',function(e){
+    if(galDrag){ e.preventDefault(); galMove(galPonto(e)); }
+  },{passive:false});
+  st.addEventListener('touchend',galSolta,{passive:true});
+  st.addEventListener('touchcancel',galSolta,{passive:true});
+  st.addEventListener('mousedown',function(e){ if(galInicia(galPonto(e))) e.preventDefault(); });
+  window.addEventListener('mousemove',function(e){ if(galDrag) galMove(galPonto(e)); });
+  window.addEventListener('mouseup',galSolta);
+}
+
+function liberaGaleria(){
+  if(galBmp&&galBmp.close){ try{ galBmp.close(); }catch(e){} }
+  galBmp=null; galEstado=null; galData=null;
+}
+function fechaAjusteGaleria(){
+  galSolta();
+  document.getElementById('gal-view').classList.remove('on');
+  liberaGaleria();
+}
+function cancelarGaleria(){ fechaAjusteGaleria(); }
+
+/* Só aqui a foto é montada de verdade, no tamanho cheio e nas posições
+   escolhidas. Depois segue pelo mesmo caminho de revisão e envio da câmera. */
+function aplicarGaleria(){
+  if(!galBmp) return;
+  var btn=document.getElementById('gal-btn-ok');
+  btn.disabled=true;
+  /* O aviso vai no cabeçalho DESTA tela, não no status do formulário: ele
+     está atrás e o técnico não veria nada acontecendo. Em foto de 48 MP a
+     montagem leva alguns segundos. */
+  var info=document.getElementById('gal-info');
+  var infoTxt=info.innerHTML;
+  info.textContent='Montando a foto...';
+
+  try{
+    var vw=galVW, vh=galVH, estado=galEstado, d=galData;
+    var main=document.createElement('canvas');
+    main.width=vw; main.height=vh;
+    var ctx=main.getContext('2d');
+    ctx.drawImage(galBmp,0,0,vw,vh);
+
+    /* A foto já vem na orientação final (não há tela girando): o giro do card
+       e do carimbo é o que o técnico escolheu na tela de ajuste. Mesma conta
+       da câmera — centro na fração do espaço livre, rotação em torno dele —
+       só que com a caixa girada de ângulo qualquer, não só de 90 em 90. */
     var lado=Math.min(vw,vh);
     var mg=Math.round(lado*FC.MARGIN);
     var cw=FC.larguraNaFoto(lado);
     var cardCv=FC.toCanvas(estado, cw/FC.W, FC.OPACITY);
     cw=cardCv.width;
     var ch=cardCv.height;
-    var livreW=Math.max(0,vw-2*mg-cw), livreH=Math.max(0,vh-2*mg-ch);
-    ctx.drawImage(cardCv, mg+posX*livreW, mg+posY*livreH, cw, ch);
+    var bb=bboxGirada(cw,ch,cardAng);
+    ctx.save();
+    ctx.translate(centroNoLivre(vw,mg,bb.w,posX), centroNoLivre(vh,mg,bb.h,posY));
+    ctx.rotate(cardAng*Math.PI/180);
+    ctx.drawImage(cardCv, -cw/2, -ch/2, cw, ch);
+    ctx.restore();
 
-    desenhaCarimbo(ctx, vw, vh, 0, d);
+    /* desenhaCarimbo gira -ang (é o giro da TELA na câmera): daí o sinal */
+    desenhaCarimbo(ctx, vw, vh, -stampAng, d, stampEsc);
 
     var fname='EW_'+partesNome([estado.parque,estado.turbina,estado.ns,estado.etapa])
              +'_'+carimboArquivo()+'.jpg';
     main.toBlob(function(blob){
-      st.textContent=''; st.className='status';
-      if(!blob){ toast('Não consegui montar a foto'); return; }
+      info.innerHTML=infoTxt;
+      btn.disabled=false;
+      if(!blob){ info.textContent='Não consegui montar a foto — tente de novo'; return; }
+      fechaAjusteGaleria();
       revisarFoto(blob, fname, estado, 'galeria');
     },'image/jpeg',0.92);
 
   }catch(e){
-    st.textContent='Erro ao ler a foto: '+e.message; st.className='status er';
+    btn.disabled=false;
+    info.textContent='Erro ao montar a foto: '+e.message;
   }
 }
 
@@ -2207,9 +2894,21 @@ window.addEventListener('online', flushFila);
       posX=Math.min(1,Math.max(0,x));
       posY=Math.min(1,Math.max(0,y));
     }
+    var q=(localStorage.getItem(STAMP_POS_KEY)||'').split(',');
+    var sx=parseFloat(q[0]), sy=parseFloat(q[1]);
+    if(isFinite(sx)&&isFinite(sy)){
+      stampX=Math.min(1,Math.max(0,sx));
+      stampY=Math.min(1,Math.max(0,sy));
+    }
+    var g=(localStorage.getItem(GAL_AJU_KEY)||'').split(',');
+    var ca=parseFloat(g[0]), sa=parseFloat(g[1]), se=parseFloat(g[2]);
+    if(isFinite(ca)) cardAng =Math.max(-180,Math.min(180,ca));
+    if(isFinite(sa)) stampAng=Math.max(-180,Math.min(180,sa));
+    if(isFinite(se)) stampEsc=Math.max(0.4,Math.min(2,se));
   }catch(e){}
   mostraTamanho();
   ligarGestos();
+  ligarGestosGaleria();
 })();
 /* Antes do render: repõe os campos gravados e trava os que vieram preenchidos,
    senão o card sairia em branco na primeira pintura. */
@@ -2227,6 +2926,9 @@ window.addEventListener('resize',function(){
     scaleCamOverlay();
     pintaCarimboCam();
   }
+  /* Girar o celular na tela de ajuste muda o espaço do palco: refaz a conta,
+     senão o card ficaria fora da foto. */
+  if(document.getElementById('gal-view').classList.contains('on')) montaPalcoGaleria();
 });
 </script>
 </body>

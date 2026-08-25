@@ -198,8 +198,8 @@ menor (e não a largura) mantém a mesma presença em foto em pé ou deitada.
 
 ## Carimbo de data e hora
 
-Toda foto sai com o carimbo no **canto inferior direito**, no mesmo formato das
-câmeras de campo:
+Toda foto sai com o carimbo no **canto inferior direito** (padrão, e ele pode
+ser arrastado para outro canto), no mesmo formato das câmeras de campo:
 
 ```
 21 de abr. de 2026 16:36:08
@@ -238,7 +238,94 @@ O tamanho acompanha a resolução (3,8 % do lado menor da foto), igual ao card:
 
 Se o card for arrastado para o canto inferior direito, ele encosta no carimbo —
 com o card na posição padrão (canto superior direito) sobra a foto inteira entre
-os dois.
+os dois. Nesse caso, **arraste o carimbo** para outro canto: ele se move com um
+dedo, igual ao card, tanto na câmera quanto na tela de ajuste da galeria. A
+posição fica guardada no aparelho (`ew_stamp_pos`) e vale para os dois caminhos.
+Tocar no rótulo de tamanho ("50 %") devolve tudo ao padrão: card no canto
+superior direito, carimbo no inferior direito.
+
+## Zoom da câmera — 0,5× · 1× · 2×
+
+Em pá eólica a distância de trabalho muda muito: dentro da plataforma não dá
+para andar para trás, e o 0,5× é o que faz o dano inteiro caber no quadro; de
+longe, o 2× aproxima sem ter de subir mais. Três botões abaixo do slider de
+tamanho, e o app escolhe sozinho o melhor caminho que o aparelho oferece:
+
+| Ordem | Caminho | Quando entra |
+|---|---|---|
+| 1 | **Lente separada** (`deviceId` da ultra-angular) | 0,5×, na maioria dos celulares com grande angular |
+| 2 | **Zoom do driver** (`applyConstraints({zoom})`) | quando `capabilities.zoom` cobre o fator pedido |
+| 3 | **Recorte digital** | só para 2×, quando nada acima existe |
+
+O recorte digital grava o **centro do quadro no tamanho real do recorte**, sem
+esticar: 4K com 2× ainda sai em 1920×1080. A pré-visualização usa
+`transform:scale(2)` no vídeo, então o que se vê é o que grava — e o card e o
+carimbo são remedidos pelo quadro recortado, não pelo do sensor.
+
+**0,5× não tem recorte**: não há como inventar campo de visão que a lente não
+capta. Sem ultra-angular o botão fica **apagado** em vez de sumir, e avisa ao
+ser tocado — o técnico vê que aquela opção não existe naquele celular.
+
+Girar o celular reabre o stream (a câmera precisa renegociar a orientação); o
+zoom escolhido é reaplicado sozinho. Virar para a câmera frontal zera o zoom —
+a frontal não tem ultra-angular, e manter 2× ao virar deixaria a prévia
+recortada sem ninguém ter pedido.
+
+## Foto da galeria: ajuste antes de montar
+
+Foto que já foi tirada pela câmera do celular entra pelo botão
+**🖼️ Carregar foto da galeria** e passa por uma tela de ajuste antes de virar
+arquivo: a foto aparece **inteira**, com o card e o carimbo por cima. Só o
+**✓ Aplicar** monta a imagem.
+
+Antes o card e o carimbo caíam sempre no mesmo canto, no mesmo tamanho e sem
+giro: se o dano estivesse ali, não havia o que fazer — a foto saía com a
+marcação em cima do defeito.
+
+O que dá para ajustar, no **fotocard** e no **carimbo** (as abas escolhem em
+qual):
+
+| Ajuste | Como | Faixa |
+|---|---|---|
+| **Lugar** | arraste com o dedo | qualquer ponto da foto |
+| **Tamanho** | slider `Tam`, ou − / + | card 20–70 % do lado menor · carimbo 40–200 % |
+| **Ângulo** | slider `Âng`, ou − / + (passo de 5°) | −180° a 180° |
+| **Quarto de volta** | botão **↻** | próximo múltiplo exato de 90° |
+| **Voltar ao padrão** | botão **↺** | zera lugar, tamanho e ângulo dos dois |
+
+Tocar no card ou no carimbo dentro da foto também troca a aba — os sliders
+passam a mexer naquele. O selecionado fica com contorno tracejado azul.
+
+O ângulo serve para acompanhar uma pá deitada no quadro, ou para deitar a
+marcação numa faixa estreita de céu em vez de cobrir o dano.
+
+**Na câmera não há ângulo manual**: lá o card e o carimbo giram sozinhos com o
+sensor de orientação do celular, e um ângulo fixo brigaria com isso. Na foto
+importada não há tela girando — a imagem já vem na orientação final — então o
+giro passa a ser escolha do técnico. O tamanho do carimbo também é exclusivo
+desta tela; na câmera ele continua automático (3,8 % do lado menor).
+
+Lugar, tamanho e ângulo ficam guardados no aparelho e valem para a próxima
+foto, para não ter de reajustar uma a uma.
+
+### Por que o que se vê é o que grava
+
+O palco tem exatamente a proporção da foto e usa as **mesmas contas** da
+montagem final: a caixa considerada é a do elemento **depois de girado**
+(`bboxGirada`), e o centro sai de `centroNoLivre` — margem + fração do espaço
+livre. Se a marcação não couber (card no máximo girado a 45°, por exemplo),
+ela é **centralizada** em vez de escapar por um canto.
+
+O fundo do palco é uma cópia reduzida a 1600 px — redesenhar 12 MP a cada
+arraste engasgaria o celular; a montagem em tamanho cheio acontece uma única
+vez, no Aplicar. O card é sempre **redesenhado** no tamanho escolhido (é
+vetorial), nunca esticado.
+
+O arraste testa o **retângulo de verdade**, não a caixa girada: um card a 45°
+tem caixa quase o dobro, e o dedo pegaria no vazio ao lado dele.
+
+Depois do Aplicar a foto segue pelo mesmo caminho da câmera: tela de revisão,
+gravação no aparelho e fila do Dropbox.
 
 ## Resolução da foto
 
@@ -270,10 +357,14 @@ enquadramento — não perde definição nem em foto de 12 MP.
 1. Abra o app → preencha os dados do fotocard
 2. Toque **📷 Abrir Câmera com Fotocard**
 3. Posicione a câmera → o fotocard aparece no canto superior direito
-4. Se precisar, ajuste o card: **arraste com o dedo** para mudar de lugar,
-   **pinça ou slider** para o tamanho — só na primeira vez, o app lembra
-5. Toque o botão de captura → foto composta é salva na galeria
-6. Ou use **💾 Salvar Fotocard** para exportar só o card
+4. Escolha o enquadramento: **0,5× · 1× · 2×**
+5. Se precisar, ajuste o card: **arraste com o dedo** para mudar de lugar,
+   **pinça ou slider** para o tamanho — o carimbo também se arrasta. Só na
+   primeira vez: o app lembra
+6. Toque o botão de captura → confira na tela de revisão → **✓ Usar esta foto**
+7. Foto já tirada antes: **🖼️ Carregar foto da galeria** → escolha a aba
+   (Fotocard ou Carimbo) → arraste, mude tamanho e ângulo → **✓ Aplicar**
+8. Ou use **💾 Salvar Fotocard** para exportar só o card
 
 ## "Adicionar à tela inicial"
 
