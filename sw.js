@@ -17,7 +17,7 @@
    IMPORTANTE: ao atualizar arquivos do app, incremente o número do CACHE
    abaixo — é o que descarta o cache antigo e força a atualização.
    ───────────────────────────────────────────────────────────── */
-const CACHE = 'ew-site-v23';
+const CACHE = 'ew-site-v25';
 
 const CORE = [
   './',
@@ -39,6 +39,8 @@ const CORE = [
   'calculadora/calculadora-nordex.html',
   'calculadora/calculadora-ge.html',
   'calculadora/calculadora-siemens.html',
+  'checklist/menu.html',                     // submenu: Almoxarifado/Segurança e Frotas
+  'checklist/almoxarifado-seguranca.html',   // materiais + 5 checklists de inspeção
   'checklist/index.html'
 ];
 const EXTRA = [

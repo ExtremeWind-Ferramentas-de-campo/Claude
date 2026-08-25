@@ -31,7 +31,10 @@ Site único no GitHub Pages: uma tela de entrada, um menu, quatro apps.
 │   ├── calculadora-nordex.html
 │   ├── calculadora-ge.html
 │   └── calculadora-siemens.html
-├── checklist/index.html          Checklist de Materiais
+├── checklist/
+│   ├── menu.html                 submenu: Almoxarifado/Segurança e Frotas (é o que o menu abre)
+│   ├── almoxarifado-seguranca.html   Materiais + 5 checklists de inspeção (forms.app)
+│   └── index.html                Checklist de Materiais
 │
 ├── EW-Apps-Script-RDO/Code.gs    backend do RDO (colar no Apps Script)
 ├── EW-Sheets-Script/Code.gs      backend das calculadoras/checklist
@@ -59,7 +62,7 @@ O `guard.js` deriva o endereço da raiz pelo próprio `src`, então funciona tan
 O service worker busca pela rede primeiro, então a versão nova chega sozinha na primeira abertura com internet. Para forçar, suba o número em `sw.js`:
 
 ```js
-const CACHE = 'ew-site-v22';   // v23, v24...
+const CACHE = 'ew-site-v25';   // v26, v27...
 ```
 
 Se `CORE` ganhar um arquivo que não existe, a instalação inteira do service worker falha e ninguém fica com offline. Ao renomear ou mover arquivo, ajuste a lista.
@@ -79,3 +82,24 @@ Aparece em dois lugares, e os dois precisam ser iguais:
 - **`html2canvas.min.js` ficou de fora** (198 KB). O Fotocard só o citava num comentário — o card é desenhado no Canvas 2D nativo desde a v38.
 - **`fotocard - Atalho.lnk` ficou de fora.** É atalho do Windows, não serve no site.
 - **O `guard.js` não é segurança, é conveniência.** Qualquer pessoa grava uma sessão falsa pelo console e abre as telas. O que protege os dados é o backend conferir o token — o Apps Script do RDO faz isso, com bloqueio de 10 minutos após tentativas demais.
+
+## Os cinco checklists de inspeção (forms.app)
+
+Ficam em `checklist/almoxarifado-seguranca.html` e são só atalhos: abrem em nova
+aba os formulários hospedados no forms.app. Não guardam nada no aparelho e não
+funcionam offline — o técnico precisa de sinal para preencher e enviar, e as
+respostas caem no painel do forms.app, não no Sheets nem no Dropbox da EW.
+
+| Botão | Endereço |
+|---|---|
+| Acesso por Cordas | `https://099hu7e7.forms.app/checklistquipamentosindividuais-1` |
+| Equipamentos Individuais | `https://099hu7e7.forms.app/checklistquipamentosindividuais` |
+| Ferramentas Gerais | `https://checklist.forms.app/formulario-de-ferramentas` |
+| Plataforma | `https://checklist.forms.app/formulario-plataforma-` |
+| Kit LOTO | `https://checklist.forms.app/formulario-de-ferramentas-1` |
+
+Para trocar um endereço, mexa só no `href` do cartão correspondente.
+
+O botão **Frotas**, em `checklist/menu.html`, está desligado de propósito: é uma
+`<div>` com a classe `breve` e o selo "Em breve". Quando os formulários de frota
+existirem, troque a `<div>` por um `<a href="...">` e tire a classe `breve`.
