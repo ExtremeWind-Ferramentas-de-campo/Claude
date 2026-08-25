@@ -2,6 +2,30 @@
 
 App PWA para registro fotográfico de inspeção e reparo de pás eólicas.
 
+## Versão
+
+**v39 · 25/08/2026** — o número aparece na tela do app, embaixo do título, ao
+lado do aviso de modo offline. É por ele que se sabe, olhando o celular, se o
+aparelho já carregou o código novo.
+
+### Ao publicar qualquer alteração, mexa nos três
+
+| Onde | O quê |
+|---|---|
+| `index.html` → `APP_VERSAO` | sobe o número e põe a data do dia |
+| `sw.js` (raiz do site) → `CACHE` | sobe o número, senão o celular serve o cache velho |
+| `README.md` → tabela abaixo | uma linha com o que mudou |
+
+Os três andam juntos. Sem o `APP_VERSAO` o técnico não tem como conferir a
+versão em campo; sem o `CACHE` o arquivo novo nem chega ao aparelho.
+
+### Histórico
+
+| Versão | Data | O que mudou |
+|---|---|---|
+| v39 | 25/08/2026 | Zoom da câmera 0,5× / 1× / 2×. Foto da galeria passa por tela de ajuste: lugar, tamanho e ângulo do fotocard e do carimbo. Carimbo passa a ser arrastável também na câmera. |
+| v38 | 18/08/2026 | Versão anterior. |
+
 ## Arquivos
 
 | Arquivo | Função |

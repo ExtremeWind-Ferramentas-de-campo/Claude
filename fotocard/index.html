@@ -461,9 +461,16 @@ var curState={}, camStream=null, facingMode='environment', isOnline=navigator.on
 
 /* Versão do app, mostrada embaixo do título. Serve para saber, em 2 segundos e
    olhando o celular, se o aparelho já está com o código novo — foi por não ter
-   isso que um upload defasado passou batido. Ao alterar este arquivo, mude aqui
-   e no CACHE do sw.js. */
-var APP_VERSAO = 'v38 · 18/08/2026';
+   isso que um upload defasado passou batido.
+
+   ATUALIZAR SEMPRE, em toda alteração deste arquivo — são três lugares e os
+   três têm de andar juntos:
+     1. APP_VERSAO aqui  → sobe o número e põe a data do dia
+     2. CACHE em ../sw.js → sobe o número, senão o celular serve o cache velho
+     3. o histórico no README.md
+   Sem o passo 1 o técnico não tem como saber, olhando a tela, qual versão o
+   aparelho carregou. */
+var APP_VERSAO = 'v39 · 25/08/2026';
 
 /* ─── Service Worker ─── */
 (function(){
