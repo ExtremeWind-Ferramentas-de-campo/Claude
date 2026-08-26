@@ -116,10 +116,14 @@ motivo é a conferência semanal: se o app mandar `un` onde a planilha espera
 Ao incluir material novo na lista, acrescente a unidade nesses dois mapas —
 sem entrada no mapa, o item cai no `un` padrão.
 
-Dois valores vieram da planilha e parecem erro de digitação dela, não do app:
-**macacão 100%** e **fita crepe larga** estão como `KG`. Ficaram como estão de
-propósito, para o app não divergir da fonte. Corrigindo na planilha, corrija
-aqui também.
+Duas exceções deliberadas: **macacão 100%** e **fita crepe larga** estão na
+planilha como `KG` e classificados como QUÍMICOS. São consumíveis, e no app
+valem `un` — a engenharia decidiu assim em 26/08/2026. Na aba PADRÃO a "FITA
+CREPE" já é `UN`, o que confirma que o `KG` da aba Contagem é erro de digitação.
+Enquanto a planilha não for corrigida, a coluna Unidade da aba `Checklist_*`
+vai dizer `un` para esses dois e a planilha de acompanhamento vai dizer `KG`.
+Não quebra cálculo nenhum (a análise só usa a quantidade), mas é divergência
+visível — corrija a planilha quando der.
 
 Seis itens Siemens não existem em nenhuma das duas abas — massa, gel coat e
 adesivo (Crystic, MEKP, SikaForce) e a fita 3M WPT2. A unidade deles é
@@ -167,3 +171,90 @@ o arquivo anexado, que é o que abre o WhatsApp. Onde o navegador não sabe
 compartilhar arquivo, o PDF é baixado para anexar à mão.
 
 `Exportar CSV` e `Imprimir / PDF` saíram.
+
+## Gasto em R$ (Apps Script)
+
+O preço unitário mora no `EW-Sheets-Script/Code.gs`, em `PRECO_NORDEX_GE` e
+`PRECO_SIEMENS`. Veio das duas planilhas de acompanhamento: aba
+"Comparativo W30 vs W31" (Nordex) e aba "PADRÃO" (Siemens). A tabela é por
+cliente porque as duas planilhas divergem — TECIDO BIAX 450 é R$ 41,48 na
+Nordex e R$ 44,20 na Siemens.
+
+A busca passa por `norm()`, então travessão, acento e caixa não atrapalham, e o
+material que vem da calculadora é traduzido por `traduzirMaterial()` antes —
+uma tabela serve às duas fontes.
+
+**Duas colunas novas nas abas `Checklist_*`:** `Valor unit (R$)` e
+`Valor total (R$)`. Elas guardam o valor da LINHA (QTD × preço): numa linha de
+ESTOQUE é quanto vale o que está parado no parque, numa de ENTRADA é quanto
+entrou. **Não é gasto.** Entraram no fim do cabeçalho, então nenhuma linha
+antiga saiu de lugar.
+
+**Gasto é consumo × preço**, e sai em duas abas novas:
+
+| Aba | Janela | O que traz |
+|---|---|---|
+| `Gasto Semanal (R$)` | 8 semanas | resumo por parque/semana, detalhe por material, materiais sem preço |
+| `Gasto Mensal (R$)` | mês corrente + 6 meses de histórico | fechamento mês a mês, por parque, por material |
+
+Consumo pelo checklist entre duas contagens é
+`estoque(anterior) + entradas no meio − estoque(atual)`, com as entradas
+filtradas por DATA (não por número de semana — na virada do ano a semana 1 é
+menor que a 52 e comparar número daria janela errada). Material com uma
+contagem só não gera gasto: sem duas medições não há como saber o que saiu.
+Consumo negativo aparece com aviso na coluna Obs — é contagem errada ou entrada
+não lançada.
+
+Consumo pela calculadora é a quantidade pesada na aba `Consumo_Reparos`. As duas
+fontes quase nunca dão igual, e a diferença é o que interessa: material que saiu
+do estoque e não apareceu em reparo nenhum.
+
+**Cobertura em 26/08/2026: 92 de 92 itens com preço** (47 Nordex/GE + 45
+Siemens). Mesmo assim, o bloco "MATERIAIS SEM PREÇO" das abas de gasto continua
+valendo: material novo que entrar na lista do checklist e não for cadastrado
+aqui cai nele, com o consumo certo e gasto zero — nunca escondido.
+
+A fonte é a **lista mestra** de materiais (TIPO / ID / QUÍMICOS E CONSUMÍVEIS /
+UM / CLASSE / DEMANDA / ESTOQUE ATUAL / ÚLTIMA COMPRA), e o valor usado é o da
+ÚLTIMA COMPRA. Cada linha das tabelas tem, no comentário ao lado, o ID e o nome
+de lá — é assim que se confere. CYTEC, TYVEK e MACACÃO seguem com valor da lista
+antiga, porque não aparecem na lista mestra.
+
+**Sete valores não vieram direto da lista mestra.** Todos estão marcados no
+arquivo; se algum estiver errado, o gasto daquele material sai errado:
+
+| Item | Valor | De onde |
+|---|---|---|
+| TECIDO BIAX 750 | 39,14 | igual ao BIAX 800/830 — decisão da engenharia |
+| COMBI | 44,20 | do COMBI 900 — **a lista dá por metro, o app conta em kg** |
+| TOP COAT 12 RAL 7035 (GRAY) | 392,40 | igual ao vermelho — decisão da engenharia |
+| BASE MASSA — CRYSTIC X401 | 36,00 | da "MASSA PUTTY GAMESA- MAX", por tipo |
+| ENDURECEDOR MASSA — MEKP | 55,00 | do BUTANOX M50 (MEKP é MEKP) |
+| ENDURECEDOR GEL COAT — MEKP | 55,00 | idem |
+| ENDURECEDOR ADESIVO — SIKAFORCE-050 | 300,00 | **ESTIMATIVA**, ver abaixo |
+
+O **SikaForce-050** não tem preço público: windsourcing e Castro Composites só
+mostram valor após login, e o único número aberto é € 56,55 pelo cartucho de
+195 ml do 818 L07 já misturado — preço de cartucho fica 2 a 3 vezes acima do
+barril por quilo, então não serve de base. Os R$ 300,00 estão ancorados no
+material comparável da própria lista da EW: o EPOXY ENDURECEDOR 137GF,
+endurecedor de adesivo estrutural de pá, a R$ 303,65/kg. **Trocar pelo valor
+real na primeira nota fiscal.**
+
+O **COMBI** é o outro ponto frágil: o preço é por metro e o checklist conta em
+kg, então aquele gasto só fecha quando as duas unidades baterem.
+
+**Os dois TOP COAT coloridos foram renomeados** no `checklist.html` em
+26/08/2026: era "TOP COAT 12 RAL 3020 RED" e "TOP COAT 12 RED 3020" (dois
+vermelhos, que era o erro), virou "TOP COAT 12 RAL 7035 (GRAY)" e
+"TOP COAT 12 RAL 7020 (RED)". Mexer nesse nome exige mexer em quatro lugares:
+`LISTA_NORDEX_GE`, `UNIDADE_NORDEX_GE` e `PERECIVEIS` no HTML, e `MAPA_MAT` mais
+a tabela de preço no `Code.gs`. No `MAPA_MAT` as entradas do colorido precisam
+vir ANTES do "TOP COAT 12" genérico: a busca é por substring e o genérico
+capturaria o colorido, creditando o consumo do vermelho ao cinza.
+
+Atenção: a lista mestra chama o vermelho de **RAL 3020**, não 7020. O nome no
+app seguiu o que a engenharia pediu; o `MAPA_MAT` aceita as duas grafias.
+
+Para acrescentar preço: mexa só nos números dos dois mapas. O nome tem de bater
+com a grafia do `checklist.html`.
