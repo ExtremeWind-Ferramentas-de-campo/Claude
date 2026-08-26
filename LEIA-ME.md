@@ -103,3 +103,67 @@ Para trocar um endereço, mexa só no `href` do cartão correspondente.
 O botão **Frotas**, em `checklist/menu.html`, está desligado de propósito: é uma
 `<div>` com a classe `breve` e o selo "Em breve". Quando os formulários de frota
 existirem, troque a `<div>` por um `<a href="...">` e tire a classe `breve`.
+
+## Checklist de Materiais — unidades, fotos e PDF
+
+**A unidade não é mais escolhida em campo.** Ela vem das planilhas de
+acompanhamento de materiais e está fixa no `index.html` do checklist, em
+`UNIDADE_NORDEX_GE` (aba "Contagem") e `UNIDADE_SIEMENS` (aba "PADRÃO"). O
+motivo é a conferência semanal: se o app mandar `un` onde a planilha espera
+`kg`, a comparação não fecha. Traduções aplicadas: `KG`→`kg`, `M²`→`m²`,
+`ML` (metro linear) e `M`→`m`, `UN`/`UND`→`un`, `LT`→`L`.
+
+Ao incluir material novo na lista, acrescente a unidade nesses dois mapas —
+sem entrada no mapa, o item cai no `un` padrão.
+
+Dois valores vieram da planilha e parecem erro de digitação dela, não do app:
+**macacão 100%** e **fita crepe larga** estão como `KG`. Ficaram como estão de
+propósito, para o app não divergir da fonte. Corrigindo na planilha, corrija
+aqui também.
+
+Seis itens Siemens não existem em nenhuma das duas abas — massa, gel coat e
+adesivo (Crystic, MEKP, SikaForce) e a fita 3M WPT2. A unidade deles é
+suposição nossa e está marcada com comentário no arquivo.
+
+**Foto dos químicos.** Resina, endurecedor, pintura, adesivo, massa, gel coat,
+diluente e parafina ganharam campo de foto (é a mesma lista de `PERECIVEIS`,
+via `ehQuimico`). A foto é reduzida para 1000 px no maior lado e gravada como
+JPEG de qualidade 0,6 — dá uns 80 KB, o bastante para ler rótulo de lote. Ela
+mora em chave separada da contagem (`ew_checklist_fest_*` / `ew_checklist_fent_*`)
+para que estourar a cota do navegador gravando foto não leve a contagem embora.
+`Limpar QTDs` apaga as fotos do modo atual junto.
+
+Só é cobrada foto de químico **com quantidade** — item zerado não tem tambor no
+parque para fotografar.
+
+**Os botões só liberam com tudo preenchido.** `Enviar para a planilha` e
+`Compartilhar (PDF)` ficam travados até: cabeçalho completo, TODOS os itens com
+quantidade (zero conta — numa contagem "não tem nenhum" é resposta), todo
+químico com quantidade com foto, e — na entrada — lote e validade dos
+perecíveis. A tarja acima dos botões diz o que falta.
+
+**O zero vai para a planilha.** `coletados()` manda todo item que tem valor,
+inclusive `0` — é o que diz "conferi e não tem nenhum". Sem essa linha o
+material desaparecia da janela da análise semanal e `consumoPeloChecklist` não
+tinha base nem fim para fechar o consumo daquele material.
+
+O `Code.gs` não precisou de mudança: ele já gravava `Number(item.qtd) || 0`, o
+upsert por Semana+Parque+Material+Tipo não filtra valor, e `coletarLotes_()`
+ignora linha sem validade — então perecível zerado não gera alerta falso. O
+efeito prático é que cada envio agora grava a lista inteira (45 a 47 linhas por
+cliente/parque/semana) em vez de só os itens com sobra.
+
+Cuidado ao mexer em `pendenciasLote()`: lote e validade só são cobrados de
+perecível com quantidade **maior que zero**. Sem esse filtro, desde que o
+`coletados()` passou a trazer os zeros, o app passaria a exigir rótulo de
+material que nem foi recebido.
+
+**Compartilhar gera o PDF no próprio aparelho.** `gerarPDF()` escreve o PDF à
+mão, sem biblioteca: o app precisa funcionar offline e a política de segurança
+da página não deixa carregar script de fora. São páginas A4 com Helvetica
+(WinAnsiEncoding, que cobre o português) e as fotos embutidas como JPEG via
+filtro `DCTDecode` — sem recompressão. Depois vai para o `navigator.share` com
+o arquivo anexado, que é o que abre o WhatsApp. Onde o navegador não sabe
+compartilhar arquivo, o PDF é baixado para anexar à mão.
+
+`Exportar CSV` e `Imprimir / PDF` saíram.
