@@ -381,7 +381,7 @@ const LISTA_NORDEX_GE = [
   'TOP COAT 12 — ALEXIT / Mankiewicz — 12 kg','HARDENER 12 — ALEXIT / Mankiewicz — 3 kg',
   'THINNER — Mankiewicz — 1 kg','TYVEK 60%','LOCTITE','LIXA OSCILANTE 80','LIXA ANGULAR 36',
   'LIXA OSCILANTE 120','COMBI','MACACÃO 100%','FITA CREPE LARGA','ÓLEO BOMBA DE VÁCUO',
-  'TOP COAT 12 RAL 3020 RED','TOP COAT 12 RED 3020','ROLO DE LÃ','ROLO DE PINTURA'
+  'TOP COAT 12 RAL 7035 (GRAY)','TOP COAT 12 RAL 7020 (RED)','ROLO DE LÃ','ROLO DE PINTURA'
 ];
 const LISTA_SIEMENS = [
   'COMBI 900','TECIDO BIAX 450','BALSA CORE 45MM/15','TECIDO UD 661',
@@ -429,7 +429,7 @@ const PERECIVEIS = new Set([
   /* Comuns aos três — massa de perfil e pintura */
   'BASE PUTTY PROFILE FILLER 3','ENDURECEDOR PUTTY PROFILE FILLER 3',
   'TOP COAT 12 — ALEXIT / Mankiewicz — 12 kg','HARDENER 12 — ALEXIT / Mankiewicz — 3 kg',
-  'THINNER — Mankiewicz — 1 kg','TOP COAT 12 RAL 3020 RED','TOP COAT 12 RED 3020'
+  'THINNER — Mankiewicz — 1 kg','TOP COAT 12 RAL 7035 (GRAY)','TOP COAT 12 RAL 7020 (RED)'
 ]);
 function ehPerecivel(nome){ return PERECIVEIS.has(nome); }
 
@@ -512,8 +512,8 @@ const UNIDADE_NORDEX_GE = {
   "MACACÃO 100%": "un",   /* consumível — a planilha diz KG/QUÍMICOS, é erro dela */
   "FITA CREPE LARGA": "un",   /* idem; na aba PADRÃO a "FITA CREPE" já é UN */
   "ÓLEO BOMBA DE VÁCUO": "L",
-  "TOP COAT 12 RAL 3020 RED": "kg",
-  "TOP COAT 12 RED 3020": "kg",
+  "TOP COAT 12 RAL 7035 (GRAY)": "kg",
+  "TOP COAT 12 RAL 7020 (RED)": "kg",
   "ROLO DE LÃ": "un",
   "ROLO DE PINTURA": "un",
 };
