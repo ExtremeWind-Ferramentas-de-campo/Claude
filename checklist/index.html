@@ -163,6 +163,37 @@
   .item .lote label{font-size:.66rem;color:var(--muted);font-weight:700;letter-spacing:.3px}
   .item .lote input{padding:7px 8px;font-size:.8rem}
   .item .lote input.falta{border-color:var(--amber)}
+
+  /* Unidade virou rótulo: ela vem da planilha, não é escolha de campo. */
+  .item .unit-fix{width:48px;flex-shrink:0;text-align:center;font-size:.76rem;font-weight:800;
+    color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent);
+    border-radius:8px;padding:7px 0;letter-spacing:.2px}
+
+  /* Terceira linha do item: foto do químico (só nos químicos) */
+  .item .foto{flex-basis:100%;display:none;gap:9px;align-items:center;
+    padding-top:8px;margin-top:2px;border-top:1px dashed var(--card-line)}
+  .item[data-quim="1"] .foto{display:flex}
+  .item .foto input[type=file]{display:none}
+  .item .foto .fbtn{display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+    font-size:.75rem;font-weight:700;padding:7px 11px;border-radius:9px;
+    border:1px solid var(--card-line);color:var(--muted);background:transparent}
+  .item .foto .fbtn.pede{border-color:var(--amber);color:var(--amber)}
+  .item .foto .fbtn.tem{border-color:#1d7a4b;color:#1d7a4b}
+  .item .foto img{height:46px;width:46px;object-fit:cover;border-radius:8px;
+    border:1px solid var(--card-line);display:none}
+  .item .foto img.on{display:block}
+  .item .foto .fdel{display:none;cursor:pointer;border:none;background:transparent;
+    color:var(--muted);font-size:.95rem;padding:4px 6px}
+  .item .foto .fdel.on{display:inline-block}
+
+  /* O que ainda falta para liberar o envio */
+  .pend{font-size:.78rem;line-height:1.5;color:var(--muted);border-radius:11px;padding:10px 12px;margin-bottom:10px;
+    background:color-mix(in srgb,var(--amber) 12%,transparent);
+    border:1px solid color-mix(in srgb,var(--amber) 45%,transparent)}
+  .pend.ok{background:color-mix(in srgb,#1d7a4b 12%,transparent);
+    border-color:color-mix(in srgb,#1d7a4b 45%,transparent)}
+  .pend b{color:var(--ink)}
+  .btn[disabled]{opacity:.42;cursor:not-allowed;filter:saturate(.35)}
   .val-tag{font-size:.66rem;font-weight:800;padding:3px 7px;border-radius:20px;white-space:nowrap;
     align-self:center;margin-bottom:2px}
   .val-tag.vencido{background:color-mix(in srgb,#d1495b 22%,transparent);color:#ff8fa0}
@@ -206,7 +237,8 @@
     body{background:#fff;color:#000} .panel{box-shadow:none;border:none;background:#fff;padding:0}
     .item{border:none;border-bottom:1px solid #ccc;border-radius:0;background:#fff!important;page-break-inside:avoid}
     .item.hidden{display:flex!important}
-    .item .num input,.item .unit select{border:1px solid #999;background:#fff;color:#000}
+    .item .num input{border:1px solid #999;background:#fff;color:#000}
+    .item .unit-fix{background:#fff;color:#000}
   }
 </style>
 <script src="../guard.js"></script>
@@ -301,11 +333,10 @@
     </div>
     <div class="items" id="lista"></div>
 
+    <div class="pend" id="pend"></div>
     <div class="btnrow">
-      <button class="btn btn-primary" onclick="enviarPlanilha()"><i class="fas fa-cloud-arrow-up"></i> Enviar para a planilha</button>
-      <button class="btn btn-ghost" onclick="compartilhar()"><i class="fas fa-share-nodes"></i> Compartilhar</button>
-      <button class="btn btn-ghost" onclick="exportarCSV()"><i class="fas fa-file-csv"></i> Exportar CSV</button>
-      <button class="btn btn-ghost" onclick="window.print()"><i class="fas fa-print"></i> Imprimir / PDF</button>
+      <button class="btn btn-primary" id="b-enviar" onclick="enviarPlanilha()"><i class="fas fa-cloud-arrow-up"></i> Enviar para a planilha</button>
+      <button class="btn btn-ghost" id="b-compartilhar" onclick="compartilhar()"><i class="fas fa-file-pdf"></i> Compartilhar (PDF)</button>
       <button class="btn btn-danger full" onclick="limpar()"><i class="fas fa-eraser"></i> Limpar QTDs</button>
     </div>
     <div id="sync-status" style="text-align:center;font-size:.78rem;color:var(--muted);margin-top:8px"></div>
@@ -402,6 +433,13 @@ const PERECIVEIS = new Set([
 ]);
 function ehPerecivel(nome){ return PERECIVEIS.has(nome); }
 
+/* Químico = resina, endurecedor, pintura, adesivo, massa, gel coat, diluente
+   e parafina — é exatamente a mesma lista dos perecíveis acima, porque o
+   critério é o mesmo: entra no cálculo de reparo e tem rótulo de lote.
+   São estes que pedem FOTO. Se um dia as duas listas divergirem, separe os
+   conjuntos aqui em vez de duplicar nomes. */
+function ehQuimico(nome){ return PERECIVEIS.has(nome); }
+
 /* Situação da validade: 'vencido', 'proximo' ou 'ok'.
    A validade vem como AAAA-MM (input month) e vale até o ÚLTIMO dia do mês.
    DIAS_ALERTA é o MESMO limite usado pela planilha (DIAS_ALERTA no Code.gs):
@@ -421,7 +459,113 @@ function statusValidade(v){
   return {classe:'ok', txt:dias+'d', dias:dias};
 }
 const NOME_CLI = { nordex:'Nordex', ge:'GE Vernova', siemens:'Siemens Gamesa' };
-const UNIDADES = ['un','kg','g','m','L','cx','pç','rolo','par','saco'];
+/* ══ UNIDADE DE MEDIDA — vem das planilhas de acompanhamento ══
+   Nordex/GE saem da aba "Contagem"; Siemens sai da aba "PADRÃO". A unidade é
+   FIXA, não escolhida em campo: se o app mandar "un" onde a planilha espera
+   "kg", a comparação semanal não fecha. Traduções: KG->kg, M²->m²,
+   ML (metro linear) e M -> m, UN/UND->un, LT->L.
+
+   Os seis itens marcados "fora da planilha" não existem em nenhuma das duas
+   abas (massa, gel coat e adesivo Siemens, e a fita 3M) — a unidade ali é
+   suposição nossa. Quando entrarem na planilha, confira. */
+const UNIDADE_NORDEX_GE = {
+  "TRIAX 1200": "kg",
+  "TECIDO BIAX 830": "kg",
+  "TECIDO BIAX 750": "kg",
+  "TECIDO BIAX 450": "kg",
+  "TECIDO UD 1000": "kg",
+  "TECIDO UD 661": "kg",
+  "TECIDO BIZERO 750": "kg",
+  "CSM 300": "kg",
+  "NYLON": "m²",
+  "BALSA CORE 15/20MM": "m²",
+  "BALSA CORE 50": "m²",
+  "ESPUMA 20MM": "m²",
+  "ESPUMA FLEXÍVEL DE PVC H60 GS 20MM": "m²",
+  "ESPUMA FLEXÍVEL PET FOAM 50MM": "m²",
+  "FILME PARA VÁCUO — FLEXNYL-WM / V-SHEET (75MY X2)": "m",
+  "PLÁSTICO PERFURADO AZUL": "m²",
+  "MANGUEIRA DE VÁCUO — VACUUMKLEER 090-16": "m",
+  "REGISTRO DE ESFERA PLÁSTICO": "un",
+  "CONEXÃO INFUSÃO T PLÁSTICA": "un",
+  "TUBO ESPIRAL": "m",
+  "BAMBAM — MAP TAPE 12N (3MM × 12MM × 15M)": "un",
+  "RESINA LR-135": "kg",
+  "ENDURECEDOR LH-135": "kg",
+  "RESINA SIKABIRESIN CH910": "kg",
+  "ENDURECEDOR SIKABIRESIN CH910": "kg",
+  "ADESIVO EPOXY 135G3": "kg",
+  "EPOXY ENDURECEDOR 137GF": "kg",
+  "RESINA LR 635": "kg",
+  "ENDURECEDOR LH 635": "kg",
+  "ENDURECEDOR PUTTY PROFILE FILLER 3": "kg",
+  "BASE PUTTY PROFILE FILLER 3": "kg",
+  "TOP COAT 12 — ALEXIT / Mankiewicz — 12 kg": "kg",
+  "HARDENER 12 — ALEXIT / Mankiewicz — 3 kg": "kg",
+  "THINNER — Mankiewicz — 1 kg": "kg",
+  "TYVEK 60%": "un",
+  "LOCTITE": "un",
+  "LIXA OSCILANTE 80": "un",
+  "LIXA ANGULAR 36": "un",
+  "LIXA OSCILANTE 120": "un",
+  "COMBI": "kg",
+  "MACACÃO 100%": "un",   /* consumível — a planilha diz KG/QUÍMICOS, é erro dela */
+  "FITA CREPE LARGA": "un",   /* idem; na aba PADRÃO a "FITA CREPE" já é UN */
+  "ÓLEO BOMBA DE VÁCUO": "L",
+  "TOP COAT 12 RAL 3020 RED": "kg",
+  "TOP COAT 12 RED 3020": "kg",
+  "ROLO DE LÃ": "un",
+  "ROLO DE PINTURA": "un",
+};
+const UNIDADE_SIEMENS = {
+  "COMBI 900": "m²",
+  "TECIDO BIAX 450": "m²",
+  "BALSA CORE 45MM/15": "un",
+  "TECIDO UD 661": "m²",
+  "FILME PARA VÁCUO — FLEXNYL-WM / V-SHEET (75MY X2)": "m²",
+  "NYLON": "m²",
+  "PLÁSTICO PERFURADO AZUL": "m²",
+  "MANGUEIRA DE VÁCUO — VACUUMKLEER 090-16": "m",
+  "REGISTRO DE ESFERA PLÁSTICO": "un",
+  "CONEXÃO INFUSÃO T PLÁSTICA": "un",
+  "ESPÁTULA CELULOIDE": "un",
+  "ABRAÇADEIRAS": "un",
+  "POTES TRANSPARENTES": "un",
+  "ROLO DE LAMINAÇÃO": "un",
+  "TUBO ESPIRAL": "m",
+  "BAMBAM — MAP TAPE 12N (3MM × 12MM × 15M)": "un",
+  "FITA CREPE": "un",
+  "TRINCHA / PINCEL": "un",
+  "LIXA OSCILANTE 40": "un",
+  "LIXA OSCILANTE 80": "un",
+  "LIXA OSCILANTE 120": "un",
+  "LIXA OSCILANTE 180": "un",
+  "LIXA OSCILANTE 220": "un",
+  "LIXA ANGULAR 36": "un",
+  "RESINA AROPOL 70452": "kg",
+  "ENDURECEDOR BUTANOX M-50": "kg",
+  "CYTEC — SCOTER TINTA GAMESA + ENDURECEDOR": "kg",
+  "PARAFINA": "kg",
+  "CSM 300": "kg",
+  "ESPUMA FLEXÍVEL BRANCA 50MM": "un",
+  "RESINA ALTERNATIVA DE BALANCEAMENTO EPÓXI": "kg",
+  "ENDURECEDOR ALTERNATIVO DE BALANCEAMENTO EPÓXI": "kg",
+  "TOP COAT 12 — ALEXIT / Mankiewicz — 12 kg": "kg",
+  "HARDENER 12 — ALEXIT / Mankiewicz — 3 kg": "kg",
+  "THINNER — Mankiewicz — 1 kg": "kg",
+  "BASE PUTTY PROFILE FILLER 3": "kg",
+  "ENDURECEDOR PUTTY PROFILE FILLER 3": "kg",
+  "TYVEK": "un",
+  "WPT2 W8751 CLEAR — FITA 3M (254MM × 33M)": "un",   /* fora da planilha */
+  "BASE MASSA — CRYSTIC X401": "kg",   /* fora da planilha */
+  "ENDURECEDOR MASSA — MEKP": "kg",   /* fora da planilha */
+  "BASE GEL COAT — CRYSTIC RAL 7035": "kg",   /* fora da planilha */
+  "ENDURECEDOR GEL COAT — MEKP": "kg",   /* fora da planilha */
+  "BASE ADESIVO — SIKAFORCE-818 L07": "kg",   /* fora da planilha */
+  "ENDURECEDOR ADESIVO — SIKAFORCE-050": "kg",   /* fora da planilha */
+};
+const UNIDADES_POR_CLI = { nordex:UNIDADE_NORDEX_GE, ge:UNIDADE_NORDEX_GE, siemens:UNIDADE_SIEMENS };
+function unidadeDe(nome){ return (UNIDADES_POR_CLI[clienteAtual] || {})[nome] || 'un'; }
 
 let clienteAtual = 'nordex';
 /* modoAtual: 'estoque' = contagem do que resta | 'entrada' = material recebido.
@@ -431,6 +575,9 @@ let modoAtual = 'estoque';
 const IDKEY = 'ew_checklist_id';
 /* 'ew_checklist_qtd_' preservado para o estoque = não perde o que já foi digitado */
 const qtdKey = (c, modo) => (( modo || modoAtual) === 'entrada' ? 'ew_checklist_ent_' : 'ew_checklist_qtd_') + c;
+/* Fotos moram em chave separada da quantidade: são pesadas e, se o navegador
+   estourar a cota gravando foto, não pode levar a contagem embora com ela. */
+const fotoKey = (c, modo) => (( modo || modoAtual) === 'entrada' ? 'ew_checklist_fent_' : 'ew_checklist_fest_') + c;
 
 const MODO_TXT = {
   estoque: { hint:'Informe <b>quanto ainda resta</b> de cada material no parque.', rotulo:'Estoque restante' },
@@ -462,11 +609,11 @@ function selecionarCliente(cli){
 function renderLista(){
   const itens = LISTAS[clienteAtual];
   const salvos = safeParse(qtdKey(clienteAtual));
-  const uOpts = UNIDADES.map(u=>`<option value="${u}">${u}</option>`).join('');
+  const fotos = safeParse(fotoKey(clienteAtual));
   const html = itens.map((nome,idx)=>{
     const reg = salvos[nome] || {};
     const q = reg.qtd!=null ? esc(reg.qtd) : '';
-    const uSel = UNIDADES.map(u=>`<option value="${u}"${(reg.un||'un')===u?' selected':''}>${u}</option>`).join('');
+    const un = unidadeDe(nome);
     /* Perecível ganha a segunda linha com lote e validade. Só é exigido quando
        há quantidade recebida — item zerado não precisa de lote. */
     const per = ehPerecivel(nome);
@@ -484,16 +631,41 @@ function renderLista(){
             class="${cobra&&!validade?'falta':''}" onchange="onValidade(this)"></div>
         ${st?`<span class="val-tag ${st.classe}">${st.txt}</span>`:''}
       </div>` : '';
-    return `<div class="item${q!==''&&Number(q)>0?' filled':''}" data-nome="${esc(nome)}" data-i="${idx}" data-per="${per?1:0}">
+    /* Químico ganha a linha da foto. Só é COBRADA quando há quantidade — item
+       zerado não tem tambor no parque para fotografar. */
+    const quim = ehQuimico(nome);
+    const temFoto = !!(fotos[nome] && fotos[nome].d);
+    const pedeFoto = quim && q!=='' && Number(q)>0 && !temFoto;
+    const blocoFoto = quim ? `
+      <div class="foto">
+        <label class="fbtn ${temFoto?'tem':(pedeFoto?'pede':'')}">
+          <i class="fas fa-camera"></i> <span class="ftxt">${temFoto?'Trocar foto':'Anexar foto'}</span>
+          <input type="file" accept="image/*" capture="environment" onchange="onFoto(this)">
+        </label>
+        <img class="${temFoto?'on':''}" alt="Foto de ${esc(nome)}">
+        <button type="button" class="fdel ${temFoto?'on':''}" title="Remover foto"
+          onclick="removerFoto(this)"><i class="fas fa-trash-can"></i></button>
+      </div>` : '';
+    /* "Preenchido" é ter valor, inclusive ZERO: numa contagem de estoque
+       "não tem nenhum" é resposta, e é o que libera o envio. */
+    return `<div class="item${q!==''?' filled':''}" data-nome="${esc(nome)}" data-i="${idx}" data-per="${per?1:0}" data-quim="${quim?1:0}">
       <span class="name">${esc(nome)}</span>
       <div class="num"><input type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${q}"
         oninput="onQtd(this)"></div>
-      <div class="unit"><select onchange="onUnit(this)">${uSel}</select></div>
+      <div class="unit-fix" title="Unidade da planilha">${esc(un)}</div>
       ${blocoLote}
+      ${blocoFoto}
     </div>`;
   }).join('');
   document.getElementById('lista').innerHTML = html;
+  /* As miniaturas entram depois do innerHTML: são data URLs de ~100 KB cada e
+     concatená-las na string de HTML deixava a lista visivelmente lenta. */
+  document.querySelectorAll('#lista .item[data-quim="1"]').forEach(it=>{
+    const f = fotos[it.dataset.nome];
+    if(f && f.d) it.querySelector('.foto img').src = f.d;
+  });
   aplicarFiltro();
+  atualizarAcoes();
 }
 
 function itemDe(el){ return el.closest('.item'); }
@@ -502,7 +674,7 @@ function guardar(store){ localStorage.setItem(qtdKey(clienteAtual), JSON.stringi
 function onQtd(input){
   const it = itemDe(input); const nome = it.dataset.nome;
   const val = input.value.trim();
-  const un = it.querySelector('.unit select').value;
+  const un = unidadeDe(nome);
   const store = safeParse(qtdKey(clienteAtual));
   if(val===''){
     /* Apagar a quantidade NÃO joga fora lote e validade já digitados — quem
@@ -516,28 +688,26 @@ function onQtd(input){
     store[nome] = Object.assign(store[nome]||{}, {qtd:val, un:un});
   }
   guardar(store);
-  it.classList.toggle('filled', val!=='' && Number(val)>0);
+  it.classList.toggle('filled', val!=='');
   marcarFaltas(it);
+  marcarFoto(it);
   atualizarContador();
-}
-function onUnit(sel){
-  const it = itemDe(sel); const nome = it.dataset.nome;
-  const store = safeParse(qtdKey(clienteAtual));
-  if(store[nome]){ store[nome].un = sel.value; guardar(store); }
+  atualizarAcoes();
 }
 function onLote(input){
   const it = itemDe(input); const nome = it.dataset.nome;
   const store = safeParse(qtdKey(clienteAtual));
   store[nome] = Object.assign(store[nome]||{}, {lote: input.value.trim()});
-  if(!store[nome].un) store[nome].un = it.querySelector('.unit select').value;
+  if(!store[nome].un) store[nome].un = unidadeDe(nome);
   guardar(store);
   marcarFaltas(it);
+  atualizarAcoes();
 }
 function onValidade(input){
   const it = itemDe(input); const nome = it.dataset.nome;
   const store = safeParse(qtdKey(clienteAtual));
   store[nome] = Object.assign(store[nome]||{}, {validade: input.value});
-  if(!store[nome].un) store[nome].un = it.querySelector('.unit select').value;
+  if(!store[nome].un) store[nome].un = unidadeDe(nome);
   guardar(store);
   /* Redesenha a tarja de validade (vencido / dias restantes) sem re-render geral */
   const st = statusValidade(input.value);
@@ -550,6 +720,148 @@ function onValidade(input){
     tag.textContent = st.txt;
   }
   marcarFaltas(it);
+  atualizarAcoes();
+}
+
+/* ══ FOTO DOS QUÍMICOS ══
+   Guardada como JPEG reduzido (1000 px no maior lado, qualidade 0,6): dá ~80 KB
+   por foto, legível para ler rótulo de lote, e ainda cabe no localStorage.
+   Guardamos largura e altura junto porque o gerador de PDF precisa delas e
+   não teria como medir sem recarregar a imagem. */
+const FOTO_MAX = 1000, FOTO_Q = 0.6;
+
+function onFoto(input){
+  const arq = input.files && input.files[0];
+  input.value = '';
+  if(!arq) return;
+  const it = itemDe(input), nome = it.dataset.nome;
+  toast('Processando foto...');
+  reduzirFoto(arq, reg=>{
+    if(!reg){ toast('Não consegui ler essa imagem','error'); return; }
+    const fotos = safeParse(fotoKey(clienteAtual));
+    const antes = fotos[nome];
+    fotos[nome] = reg;
+    if(!guardarFotos(fotos)){
+      if(antes) fotos[nome] = antes; else delete fotos[nome];
+      guardarFotos(fotos);
+      return;
+    }
+    it.querySelector('.foto img').src = reg.d;
+    marcarFoto(it);
+    atualizarAcoes();
+    toast('Foto anexada','success');
+  });
+}
+
+function removerFoto(btn){
+  const it = itemDe(btn), nome = it.dataset.nome;
+  const fotos = safeParse(fotoKey(clienteAtual));
+  delete fotos[nome];
+  guardarFotos(fotos);
+  const img = it.querySelector('.foto img');
+  img.removeAttribute('src');
+  marcarFoto(it);
+  atualizarAcoes();
+}
+
+function guardarFotos(store){
+  try{
+    localStorage.setItem(fotoKey(clienteAtual), JSON.stringify(store));
+    return true;
+  }catch(e){
+    /* Cota do navegador cheia. Não dá para "abrir espaço" sozinho sem apagar
+       trabalho de alguém, então avisa e devolve o controle. */
+    toast('Memória do aparelho cheia — envie e limpe antes de anexar mais fotos','error');
+    return false;
+  }
+}
+
+function reduzirFoto(arq, cb){
+  const fr = new FileReader();
+  fr.onerror = ()=>cb(null);
+  fr.onload = ()=>{
+    const img = new Image();
+    img.onerror = ()=>cb(null);
+    img.onload = ()=>{
+      try{
+        const k = Math.min(1, FOTO_MAX / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width*k)), h = Math.max(1, Math.round(img.height*k));
+        const cv = document.createElement('canvas'); cv.width=w; cv.height=h;
+        const cx = cv.getContext('2d');
+        cx.fillStyle='#fff'; cx.fillRect(0,0,w,h);      // JPEG não tem transparência
+        cx.drawImage(img,0,0,w,h);
+        cb({d: cv.toDataURL('image/jpeg', FOTO_Q), w:w, h:h});
+      }catch(e){ cb(null); }
+    };
+    img.src = fr.result;
+  };
+  fr.readAsDataURL(arq);
+}
+
+/* Pinta o botão da foto: âmbar quando é cobrada, verde quando já tem */
+function marcarFoto(it){
+  const bloco = it.querySelector('.foto');
+  if(!bloco) return;
+  const img = bloco.querySelector('img');
+  const tem = !!(img.getAttribute('src'));
+  const qtd = Number(it.querySelector('.num input').value);
+  const btn = bloco.querySelector('.fbtn');
+  btn.classList.toggle('tem', tem);
+  btn.classList.toggle('pede', !tem && qtd > 0);
+  btn.querySelector('.ftxt').textContent = tem ? 'Trocar foto' : 'Anexar foto';
+  img.classList.toggle('on', tem);
+  bloco.querySelector('.fdel').classList.toggle('on', tem);
+}
+
+/* ══ O QUE FALTA PARA LIBERAR O ENVIO ══
+   Regra: toda a lista precisa de um número (zero vale) e todo químico com
+   quantidade precisa de foto. Na ENTRADA, perecível também precisa de lote e
+   validade — regra que já existia. */
+function pendencias(){
+  const lista = LISTAS[clienteAtual];
+  /* Cabeçalho entra na trava: o Parque é o que vira aba na planilha, e um PDF
+     sem parque, responsável e data não serve para nada no grupo do WhatsApp. */
+  const cab = [];
+  if(!val('i-parque')) cab.push('Parque / Projeto');
+  if(!val('i-resp'))   cab.push('Responsável');
+  if(!val('i-data'))   cab.push('Data');
+  const store = safeParse(qtdKey(clienteAtual));
+  const fotos = safeParse(fotoKey(clienteAtual));
+  const temQtd = n => store[n] && String(store[n].qtd==null?'':store[n].qtd).trim()!=='';
+  const semQtd  = lista.filter(n=>!temQtd(n));
+  const semFoto = lista.filter(n=>ehQuimico(n) && temQtd(n) && Number(store[n].qtd)>0
+                                  && !(fotos[n] && fotos[n].d));
+  const semLote = modoAtual==='entrada' ? pendenciasLote() : [];
+  return {cab, semQtd, semFoto, semLote,
+          ok: !cab.length && !semQtd.length && !semFoto.length && !semLote.length,
+          total: lista.length, feitos: lista.length - semQtd.length};
+}
+
+function atualizarAcoes(){
+  const p = pendencias();
+  const cx = document.getElementById('pend');
+  const bE = document.getElementById('b-enviar');
+  const bC = document.getElementById('b-compartilhar');
+  if(!cx || !bE || !bC) return;
+  bE.disabled = !p.ok; bC.disabled = !p.ok;
+  if(p.ok){
+    cx.className = 'pend ok';
+    cx.innerHTML = '<b>Lista completa</b> — '+p.total+' itens contados. '
+      + 'Já pode enviar para a planilha e compartilhar o PDF.';
+    return;
+  }
+  cx.className = 'pend';
+  const partes = [];
+  if(p.cab.length) partes.push('Falta preencher: <b>'+p.cab.join(', ')+'</b>');
+  partes.push('<b>'+p.feitos+'/'+p.total+'</b> itens com quantidade'
+    + (p.semQtd.length ? ' — faltam '+p.semQtd.length+' (zero também conta)' : ''));
+  if(p.semFoto.length) partes.push('<b>'+p.semFoto.length+'</b> químico(s) sem foto: '+resumoNomes(p.semFoto));
+  if(p.semLote.length) partes.push('<b>'+p.semLote.length+'</b> sem lote/validade: '+resumoNomes(p.semLote));
+  cx.innerHTML = partes.join('<br>');
+}
+function resumoNomes(arr){
+  const n = arr.slice(0,3).map(esc).join(' · ');
+  return arr.length>3 ? n+' e mais '+(arr.length-3) : n;
 }
 
 /* Realça em âmbar o que falta preencher num perecível que tem quantidade */
@@ -563,10 +875,12 @@ function marcarFaltas(it){
   iVal.classList.toggle('falta', cobra && !iVal.value);
 }
 
-/* Perecíveis com quantidade recebida mas sem lote ou sem validade */
+/* Perecíveis com quantidade recebida mas sem lote ou sem validade.
+   O filtro de quantidade > 0 passou a ser essencial quando o coletados() começou
+   a trazer os zeros: perecível zerado não foi recebido, logo não tem rótulo. */
 function pendenciasLote(){
   return coletados()
-    .filter(i => i.perecivel && (!i.lote || !i.validade))
+    .filter(i => i.perecivel && Number(i.qtd) > 0 && (!i.lote || !i.validade))
     .map(i => i.nome);
 }
 
@@ -585,7 +899,8 @@ function aplicarFiltro(){
 function atualizarContador(){
   const all = LISTAS[clienteAtual].length;
   const store = safeParse(qtdKey(clienteAtual));
-  const preench = Object.keys(store).filter(k=>Number(store[k].qtd)>0).length;
+  const preench = Object.keys(store)
+    .filter(k=>String(store[k].qtd==null?'':store[k].qtd).trim()!=='').length;
   document.getElementById('count').textContent = `${preench}/${all} preenchidos`;
 }
 
@@ -595,6 +910,7 @@ function salvarEstado(){
     parque: val('i-parque'), resp: val('i-resp'), data: val('i-data')
   };
   localStorage.setItem(IDKEY, JSON.stringify(id));
+  atualizarAcoes();
 }
 function carregarEstado(){
   const id = safeParseObj(IDKEY);
@@ -606,12 +922,17 @@ function val(id){ return (document.getElementById(id).value||'').trim(); }
 function setv(id,v){ document.getElementById(id).value=v; }
 
 /* ══ AÇÕES ══ */
+/* Tudo o que TEM VALOR, inclusive ZERO. O zero é resposta, não ausência de
+   dado: numa contagem de estoque é ele que diz "conferi e não tem nenhum", e a
+   análise semanal precisa disso — sem a linha de zero o material desaparece da
+   janela e o consumo daquela semana não fecha.
+   Serve à planilha E ao PDF: uma lista só, para as duas não divergirem. */
 function coletados(){
   const store = safeParse(qtdKey(clienteAtual));
   return LISTAS[clienteAtual]
-    .filter(n=>store[n] && String(store[n].qtd).trim()!=='' && Number(store[n].qtd)>0)
-    .map(n=>({nome:n, qtd:store[n].qtd, un:store[n].un||'un',
-              perecivel:ehPerecivel(n),
+    .filter(n=>store[n] && String(store[n].qtd==null?'':store[n].qtd).trim()!=='')
+    .map(n=>({nome:n, qtd:store[n].qtd, un:unidadeDe(n),
+              quimico:ehQuimico(n), perecivel:ehPerecivel(n),
               lote:(store[n].lote||''), validade:(store[n].validade||'')}));
 }
 /* AAAA-MM -> MM/AAAA, para texto e CSV */
@@ -633,9 +954,9 @@ function cabecalhoTexto(){
 }
 function formatarData(iso){ if(!iso) return ''; const p=iso.split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:iso; }
 
-function compartilhar(){
+/* Mensagem que acompanha o PDF no WhatsApp */
+function resumoTexto(){
   const itens = coletados();
-  if(!itens.length){ toast('Preencha ao menos uma QTD','error'); return; }
   let txt = cabecalhoTexto() + '\n\nMATERIAIS:\n';
   txt += itens.map(i=>{
     let l = `• ${i.nome}: ${i.qtd} ${i.un}`;
@@ -648,11 +969,55 @@ function compartilhar(){
     return l;
   }).join('\n');
   txt += `\n\n(${itens.length} itens · Extreme Wind Blade Services)`;
-  if(navigator.share){
-    navigator.share({title:'Checklist de Materiais — EW', text:txt})
-      .then(()=>toast('Compartilhado','success'))
-      .catch(e=>{ if(e.name!=='AbortError') copiar(txt); });
-  } else copiar(txt);
+  return txt;
+}
+
+function nomeArquivo(ext){
+  const id = safeParseObj(IDKEY);
+  const base = (id.parque||'').replace(/[^a-zA-Z0-9]/g,'_')
+            || (id.data||new Date().toISOString().slice(0,10));
+  return (modoAtual==='entrada'?'entrada':'checklist')+'_'+clienteAtual+'_'+base+'.'+ext;
+}
+
+function baixarBlob(blob, nome){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = nome;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+}
+
+/* Compartilhar = gerar o PDF e entregá-lo ao WhatsApp. Só é liberado com a
+   lista completa (ver pendencias()). Onde o navegador não sabe compartilhar
+   arquivo, o PDF é baixado para o técnico anexar à mão. */
+function compartilhar(){
+  const p = pendencias();
+  if(!p.ok){
+    atualizarAcoes();
+    toast('Complete a lista antes de compartilhar','error');
+    document.getElementById('pend').scrollIntoView({block:'center'});
+    return;
+  }
+  let blob;
+  try{ blob = gerarPDF(); }
+  catch(e){ toast('Falha ao gerar o PDF: '+e.message,'error'); return; }
+
+  const nome = nomeArquivo('pdf');
+  const texto = resumoTexto();
+  let arq = null;
+  try{ arq = new File([blob], nome, {type:'application/pdf'}); }catch(e){}
+
+  if(arq && navigator.canShare && navigator.canShare({files:[arq]}) && navigator.share){
+    navigator.share({files:[arq], title:'Checklist de Materiais — EW', text:texto})
+      .then(()=>toast('PDF compartilhado','success'))
+      .catch(e=>{
+        if(e.name==='AbortError') return;
+        baixarBlob(blob, nome);
+        toast('PDF salvo no aparelho — anexe no WhatsApp','success');
+      });
+    return;
+  }
+  baixarBlob(blob, nome);
+  toast('PDF salvo no aparelho — anexe no WhatsApp','success');
 }
 function copiar(txt){
   if(navigator.clipboard){ navigator.clipboard.writeText(txt).then(()=>toast('Copiado para a área de transferência','success')).catch(()=>fallbackCopy(txt)); }
@@ -664,29 +1029,211 @@ function fallbackCopy(txt){
   document.body.removeChild(ta);
 }
 
-function exportarCSV(){
-  const itens = coletados();
-  if(!itens.length){ toast('Sem QTDs para exportar','error'); return; }
-  const id = safeParseObj(IDKEY);
-  const tipoTxt = modoAtual==='entrada' ? 'ENTRADA' : 'ESTOQUE';
-  const cab = 'Cliente;Parque/Projeto;Responsável;Data;Tipo;Material;QTD;Unidade;Lote;Validade\n';
-  const linhas = itens.map(i=>
-    `"${NOME_CLI[clienteAtual]}";"${id.parque||''}";"${id.resp||''}";"${formatarData(id.data)}";"${tipoTxt}";"${i.nome}";"${String(i.qtd).replace('.',',')}";"${i.un}";"${i.lote||''}";"${validadeBR(i.validade)}"`
-  ).join('\n');
-  const blob = new Blob(['﻿'+cab+linhas],{type:'text/csv;charset=utf-8'});
-  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
-  const dt = (id.data|| new Date().toISOString().split('T')[0]);
-  a.download = `${modoAtual==='entrada'?'entrada':'checklist'}_${clienteAtual}_${(id.parque||'').replace(/[^a-zA-Z0-9]/g,'_')||dt}.csv`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
-  toast('CSV baixado','success');
-}
-
 function limpar(){
   const oQue = modoAtual==='entrada' ? 'as ENTRADAS' : 'a CONTAGEM DE ESTOQUE';
   if(!confirm(`Apagar ${oQue} de ${NOME_CLI[clienteAtual]}?\n\n(o outro modo não é afetado)`)) return;
   localStorage.removeItem(qtdKey(clienteAtual));   // apaga só o modo atual
+  localStorage.removeItem(fotoKey(clienteAtual));  // e as fotos dele, que sem QTD ficariam órfãs
   renderLista();
   toast('Valores apagados','success');
+}
+
+/* ══ PDF ══
+   Escrito à mão, sem biblioteca: o app precisa funcionar offline e a política
+   de segurança da página não deixa carregar script de fora. São páginas A4
+   com texto Helvetica e as fotos embutidas como JPEG (filtro DCTDecode, que é
+   o próprio JPEG — não há recompressão).
+
+   O texto usa WinAnsiEncoding, que cobre o português. Os caracteres que o
+   WinAnsi guarda fora do Latin-1 (travessão, aspas curvas, bolinha) são
+   traduzidos abaixo; o que sobrar de fora vira '?'. */
+const PDF_WIN = {'—':'\u0097','–':'\u0096','‘':'\u0091','’':'\u0092','“':'\u0093','”':'\u0094',
+  '•':'\u0095','…':'\u0085','⚠':'!','✓':'OK','×':'x'};
+function pdfWin(v){
+  let o='';
+  for(const ch of String(v)){
+    const m = PDF_WIN[ch];
+    if(m!==undefined) o+=m;
+    else if(ch.charCodeAt(0)<=255) o+=ch;
+    else o+='?';
+  }
+  return o;
+}
+function pdfTxt(v){ return pdfWin(v).replace(/[\\()]/g, m=>'\\'+m); }
+function pdfBytes(str){
+  const a = new Uint8Array(str.length);
+  for(let i=0;i<str.length;i++) a[i] = str.charCodeAt(i) & 0xff;
+  return a;
+}
+function b64Bytes(b64){
+  const bin = atob(b64);
+  const a = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) a[i] = bin.charCodeAt(i);
+  return a;
+}
+function n2(v){ return (Math.round(v*100)/100).toString(); }
+/* Largura aproximada de um texto em Helvetica, só para truncar nome comprido
+   sem invadir a coluna da quantidade. 0.5 do corpo é a média da fonte. */
+function larguraAprox(txt, tam){ return String(txt).length * tam * 0.5; }
+function cortar(txt, tam, limite){
+  let t = String(txt);
+  while(t.length>4 && larguraAprox(t,tam) > limite) t = t.slice(0,-1);
+  return t.length < String(txt).length ? t.slice(0,-1)+'…' : t;
+}
+
+function gerarPDF(){
+  const LARG = 595.28, ALT = 841.89, MARG = 42;
+  const id = safeParseObj(IDKEY);
+  const itens = coletados();
+  const fotos = safeParse(fotoKey(clienteAtual));
+  const ent = modoAtual === 'entrada';
+
+  const paginas = [], imgs = [];
+  let pg = null, y = 0;
+
+  function nova(){ pg = {ops:[], usa:[]}; paginas.push(pg); y = ALT - MARG; }
+  function precisa(h){ if(!pg || y - h < MARG) { nova(); return true; } return false; }
+  function txt(v, x, tam, bold, cinza){
+    pg.ops.push((cinza?'0.36 0.42 0.5 rg ':'0 0 0 rg ')
+      + 'BT /'+(bold?'F2':'F1')+' '+tam+' Tf 1 0 0 1 '+n2(x)+' '+n2(y)+' Tm ('+pdfTxt(v)+') Tj ET');
+  }
+  function regua(){
+    pg.ops.push('0.7 w 0.78 0.82 0.86 RG '+n2(MARG)+' '+n2(y)+' m '+n2(LARG-MARG)+' '+n2(y)+' l S');
+  }
+
+  /* ── cabeçalho ── */
+  nova();
+  txt(ent ? 'ENTRADA DE MATERIAIS' : 'CHECKLIST DE MATERIAIS — CONTAGEM DE ESTOQUE', MARG, 14, true);
+  y -= 17;
+  txt('Extreme Wind Blade Services  ·  '+NOME_CLI[clienteAtual], MARG, 9.5, false, true);
+  y -= 13; regua(); y -= 15;
+  txt('Parque / Projeto: '+(id.parque||'—'), MARG, 10); y -= 14;
+  txt('Responsável: '+(id.resp||'—'), MARG, 10);
+  txt('Data: '+(formatarData(id.data)||''), MARG+250, 10); y -= 22;
+
+  /* ── colunas ── */
+  const cQtd = LARG - MARG - (ent ? 250 : 90);
+  const cUn  = cQtd + 46;
+  const cLot = cUn + 34;
+  const cVal = cLot + 92;
+  const larguraNome = cQtd - MARG - 10;
+
+  function cabecalhoTabela(){
+    txt('MATERIAL', MARG, 8, true, true);
+    txt('QTD', cQtd, 8, true, true);
+    txt('UN', cUn, 8, true, true);
+    if(ent){ txt('LOTE', cLot, 8, true, true); txt('VALIDADE', cVal, 8, true, true); }
+    y -= 5; regua(); y -= 12;
+  }
+  cabecalhoTabela();
+
+  itens.forEach(i=>{
+    if(precisa(16)) cabecalhoTabela();
+    txt(cortar(i.nome, 9, larguraNome), MARG, 9);
+    txt(String(i.qtd), cQtd, 9, true);
+    txt(i.un, cUn, 9, false, true);
+    if(ent){
+      txt(i.perecivel ? (i.lote||'—') : '', cLot, 8.5);
+      const st = statusValidade(i.validade);
+      let v = i.perecivel ? (validadeBR(i.validade)||'—') : '';
+      if(st && st.classe==='vencido') v += ' VENCIDO';
+      else if(st && st.classe==='proximo') v += ' ('+st.dias+'d)';
+      txt(v, cVal, 8.5);
+    }
+    y -= 14;
+  });
+
+  /* O rodapé precisa do mesmo cuidado das linhas: sem isto, uma tabela que
+     termina rente à margem escreveria o resumo fora da página. */
+  precisa(20);
+  y -= 4; regua(); y -= 13;
+  txt(itens.length+' itens · gerado pelo app em '+new Date().toLocaleString('pt-BR'), MARG, 8, false, true);
+
+  /* ── fotos dos químicos, duas por linha ── */
+  const comFoto = itens.filter(i=>i.quimico && fotos[i.nome] && fotos[i.nome].d);
+  if(comFoto.length){
+    nova();
+    txt('FOTOS DOS QUÍMICOS', MARG, 12, true); y -= 6; regua(); y -= 16;
+    const CEL = (LARG - 2*MARG - 16) / 2, MAXH = 168;
+    for(let k=0; k<comFoto.length; k+=2){
+      const par = comFoto.slice(k, k+2);
+      /* Altura da linha = a maior das duas fotos, senão a segunda coluna
+         desalinha e a legenda cai sobre a foto de baixo. */
+      const cxs = par.map(i=>{
+        const f = fotos[i.nome];
+        const k2 = Math.min(CEL/f.w, MAXH/f.h);
+        return {i:i, f:f, w:f.w*k2, h:f.h*k2};
+      });
+      const hLinha = Math.max.apply(null, cxs.map(c=>c.h)) + 30;
+      if(precisa(hLinha)){ txt('FOTOS DOS QUÍMICOS (continuação)', MARG, 12, true); y -= 6; regua(); y -= 16; }
+      cxs.forEach((c,col)=>{
+        const x = MARG + col*(CEL+16);
+        const idx = imgs.length;
+        imgs.push({bytes: b64Bytes(c.f.d.split(',')[1]), w:c.f.w, h:c.f.h});
+        pg.usa.push(idx);
+        pg.ops.push('q '+n2(c.w)+' 0 0 '+n2(c.h)+' '+n2(x)+' '+n2(y-c.h)+' cm /Im'+idx+' Do Q');
+        const yTexto = y - c.h - 11;
+        pg.ops.push('0 0 0 rg BT /F1 7.5 Tf 1 0 0 1 '+n2(x)+' '+n2(yTexto)+' Tm ('
+          + pdfTxt(cortar(c.i.nome, 7.5, CEL)) + ') Tj ET');
+        pg.ops.push('0.36 0.42 0.5 rg BT /F1 7 Tf 1 0 0 1 '+n2(x)+' '+n2(yTexto-9)+' Tm ('
+          + pdfTxt(c.i.qtd+' '+c.i.un + (ent && c.i.lote ? '  ·  lote '+c.i.lote : '')) + ') Tj ET');
+      });
+      y -= hLinha;
+    }
+  }
+
+  /* ── serialização ── */
+  const objs = [];                 // 1-based; objs[0] fica vazio de propósito
+  const CAT = 1, PGS = 2, FN1 = 3, FN2 = 4;
+  const oImg = imgs.map((_,i)=> 5 + i);
+  const base = 5 + imgs.length;
+  const oPg  = paginas.map((_,i)=> base + 2*i);
+  const oCt  = paginas.map((_,i)=> base + 2*i + 1);
+
+  objs[CAT] = {t:'<< /Type /Catalog /Pages '+PGS+' 0 R >>'};
+  objs[PGS] = {t:'<< /Type /Pages /Count '+paginas.length+' /Kids ['
+                 + oPg.map(n=>n+' 0 R').join(' ')+'] >>'};
+  objs[FN1] = {t:'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'};
+  objs[FN2] = {t:'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'};
+  imgs.forEach((im,i)=>{
+    objs[oImg[i]] = {t:'<< /Type /XObject /Subtype /Image /Width '+im.w+' /Height '+im.h
+      +' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+im.bytes.length+' >>',
+      bin: im.bytes};
+  });
+  paginas.forEach((p,i)=>{
+    const xo = p.usa.length
+      ? ' /XObject << '+p.usa.map(k=>'/Im'+k+' '+oImg[k]+' 0 R').join(' ')+' >>' : '';
+    objs[oPg[i]] = {t:'<< /Type /Page /Parent '+PGS+' 0 R /MediaBox [0 0 '+n2(LARG)+' '+n2(ALT)+']'
+      +' /Resources << /Font << /F1 '+FN1+' 0 R /F2 '+FN2+' 0 R >>'+xo+' >>'
+      +' /Contents '+oCt[i]+' 0 R >>'};
+    const cs = p.ops.join('\n');
+    objs[oCt[i]] = {t:'<< /Length '+cs.length+' >>', bin: pdfBytes(cs)};
+  });
+
+  const partes = []; const off = []; let pos = 0;
+  function põe(x){
+    const b = (typeof x === 'string') ? pdfBytes(x) : x;
+    partes.push(b); pos += b.length;
+  }
+  põe('%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n');
+  for(let n=1; n<objs.length; n++){
+    off[n] = pos;
+    põe(n+' 0 obj\n'+objs[n].t+'\n');
+    if(objs[n].bin){ põe('stream\n'); põe(objs[n].bin); põe('\nendstream\n'); }
+    põe('endobj\n');
+  }
+  const inicioXref = pos;
+  let x = 'xref\n0 '+objs.length+'\n0000000000 65535 f \n';
+  for(let n=1; n<objs.length; n++){
+    x += ('0000000000'+off[n]).slice(-10)+' 00000 n \n';
+  }
+  põe(x);
+  põe('trailer\n<< /Size '+objs.length+' /Root '+CAT+' 0 R >>\nstartxref\n'+inicioXref+'\n%%EOF\n');
+
+  let total = 0; partes.forEach(b=>total+=b.length);
+  const saida = new Uint8Array(total); let o = 0;
+  partes.forEach(b=>{ saida.set(b,o); o += b.length; });
+  return new Blob([saida], {type:'application/pdf'});
 }
 
 /* ══ UTIL ══ */

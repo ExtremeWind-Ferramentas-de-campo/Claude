@@ -125,16 +125,23 @@
     .brand-pill{padding:10px 16px}
     .brand-pill img{height:38px}
     h1{font-size:1.4rem}
-    .subtitle{font-size:.9rem}
+    .subtitle{font-size:.9rem;margin-top:8px}
     .picker{padding:20px 14px 22px;border-radius:20px}
     .picker h2{font-size:1.05rem}
     .picker .hint{margin-bottom:16px;font-size:.85rem}
     .cards{grid-template-columns:1fr;gap:12px}
-    .opt-card{min-height:0;padding:22px 18px;flex-direction:row;text-align:left;align-items:center;gap:16px}
+    .opt-card{min-height:0;padding:20px 16px;flex-direction:row;text-align:left;align-items:center;gap:14px}
     .opt-card .ico{width:58px;height:58px;font-size:1.5rem;flex-shrink:0}
-    .opt-card .txt{display:flex;flex-direction:column;gap:4px;flex:1}
-    .opt-card .go{margin-top:2px}
-    .selo{position:static;align-self:center}
+    .opt-card .txt{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+    .opt-card .go{margin-top:2px;flex-shrink:0}
+    /* No celular o cartão é uma linha só: ícone, texto e um rótulo à direita.
+       No cartão "em breve" quem ocupa esse lugar é o selo — o "Indisponível"
+       sairia sobrando e apertaria o texto até quebrar palavra por palavra. */
+    .selo{position:static;order:3;flex-shrink:0;white-space:nowrap;align-self:center}
+    .opt-card.breve .go{display:none}
+    /* Sobra pouca largura para o texto em 375px: o rotulo vira so a seta,
+       que e o que o dedo entende de qualquer forma. */
+    .opt-card .go .rot{display:none}
   }
 </style>
 <script src="../guard.js"></script>
@@ -214,9 +221,9 @@
         <span class="ico"><i class="fas fa-warehouse"></i></span>
         <span class="txt">
           <span class="opt-title">Almoxarifado — Segurança</span>
-          <span class="opt-desc">Materiais, EPI, ferramentas, plataforma e kit LOTO</span>
+          <span class="opt-desc">Materiais, EPI, Ferramentas, Plataforma e Kit LOTO</span>
         </span>
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
+        <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-right"></i></span>
       </a>
 
       <div class="opt-card breve" style="--c:#5b5f66" aria-disabled="true">
@@ -224,7 +231,7 @@
         <span class="ico"><i class="fas fa-truck"></i></span>
         <span class="txt">
           <span class="opt-title">Frotas</span>
-          <span class="opt-desc">Checklists de veículos — em preparação</span>
+          <span class="opt-desc">Checklists de veículos</span>
         </span>
         <span class="go">Indisponível <i class="fas fa-hourglass-half"></i></span>
       </div>

@@ -118,15 +118,18 @@
     .brand-pill{padding:10px 16px}
     .brand-pill img{height:38px}
     h1{font-size:1.4rem}
-    .subtitle{font-size:.9rem}
+    .subtitle{font-size:.9rem;margin-top:8px}
     .picker{padding:20px 14px 22px;border-radius:20px}
     .picker h2{font-size:1.05rem}
     .picker .hint{margin-bottom:16px;font-size:.85rem}
     .cards{grid-template-columns:1fr;gap:12px}
     .opt-card{min-height:0;padding:20px 16px;flex-direction:row;text-align:left;align-items:center;gap:16px}
     .opt-card .ico{width:56px;height:56px;font-size:1.45rem;flex-shrink:0}
-    .opt-card .txt{display:flex;flex-direction:column;gap:4px;flex:1}
-    .opt-card .go{margin-top:2px}
+    .opt-card .txt{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+    .opt-card .go{margin-top:2px;flex-shrink:0}
+    /* Sobra pouca largura para o texto em 375px: o rotulo vira so a seta,
+       que e o que o dedo entende de qualquer forma. */
+    .opt-card .go .rot{display:none}
   }
 </style>
 <script src="../guard.js"></script>
@@ -208,7 +211,7 @@
           <span class="opt-title">Materiais</span>
           <span class="opt-desc">Lista de materiais por cliente para preencher a QTD</span>
         </span>
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
+        <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-right"></i></span>
       </a>
 
       <a class="opt-card" href="https://099hu7e7.forms.app/checklistquipamentosindividuais-1"
@@ -218,7 +221,7 @@
           <span class="opt-title">Acesso por Cordas</span>
           <span class="opt-desc">Inspeção dos equipamentos de acesso por cordas</span>
         </span>
-        <span class="go">Abrir <i class="fas fa-arrow-up-right-from-square"></i></span>
+        <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-up-right-from-square"></i></span>
       </a>
 
       <a class="opt-card" href="https://099hu7e7.forms.app/checklistquipamentosindividuais"
@@ -228,7 +231,7 @@
           <span class="opt-title">Equipamentos Individuais</span>
           <span class="opt-desc">Trabalhos internos e plataforma — EPI do técnico</span>
         </span>
-        <span class="go">Abrir <i class="fas fa-arrow-up-right-from-square"></i></span>
+        <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-up-right-from-square"></i></span>
       </a>
 
       <a class="opt-card" href="https://checklist.forms.app/formulario-de-ferramentas"
@@ -238,7 +241,7 @@
           <span class="opt-title">Ferramentas Gerais</span>
           <span class="opt-desc">Conferência das ferramentas da equipe</span>
         </span>
-        <span class="go">Abrir <i class="fas fa-arrow-up-right-from-square"></i></span>
+        <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-up-right-from-square"></i></span>
       </a>
 
       <a class="opt-card" href="https://checklist.forms.app/formulario-plataforma-"
@@ -248,7 +251,7 @@
           <span class="opt-title">Plataforma</span>
           <span class="opt-desc">Conferência da plataforma de trabalho</span>
         </span>
-        <span class="go">Abrir <i class="fas fa-arrow-up-right-from-square"></i></span>
+        <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-up-right-from-square"></i></span>
       </a>
 
       <a class="opt-card" href="https://checklist.forms.app/formulario-de-ferramentas-1"
@@ -258,7 +261,7 @@
           <span class="opt-title">Kit LOTO</span>
           <span class="opt-desc">Bloqueio e etiquetagem — conferência do kit</span>
         </span>
-        <span class="go">Abrir <i class="fas fa-arrow-up-right-from-square"></i></span>
+        <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-up-right-from-square"></i></span>
       </a>
 
     </div>
