@@ -17,7 +17,7 @@
    IMPORTANTE: ao atualizar arquivos do app, incremente o número do CACHE
    abaixo — é o que descarta o cache antigo e força a atualização.
    ───────────────────────────────────────────────────────────── */
-const CACHE = 'ew-site-v25';
+const CACHE = 'ew-site-v27';
 
 const CORE = [
   './',
@@ -39,19 +39,33 @@ const CORE = [
   'calculadora/calculadora-nordex.html',
   'calculadora/calculadora-ge.html',
   'calculadora/calculadora-siemens.html',
-  'checklist/menu.html',                     // submenu: Almoxarifado/Segurança e Frotas
-  'checklist/almoxarifado-seguranca.html',   // materiais + 5 checklists de inspeção
-  'checklist/index.html'
+  'Checklist Almoxarifado/menu.html',                   // submenu: Almoxarifado/Segurança e Frotas
+  'Checklist Almoxarifado/almoxarifado-seguranca.html', // materiais + 5 checklists de inspeção
+  'Checklist Almoxarifado/index.html'
+];
+/* Frotas fica fora do CORE de propósito: addAll é tudo-ou-nada, e um 404 aqui
+   (pasta ainda não publicada, nome com espaço mal servido) derrubaria o cache
+   do site inteiro. Aqui é melhor esforço — se faltar, só essas páginas ficam
+   sem offline. */
+const FROTAS = [
+  'Checklist Frotas/index.html',             // seletor dos 3 checklists de frota
+  'Checklist Frotas/gerador-eletrico.html',
+  'Checklist Frotas/plataforma.html',
+  'Checklist Frotas/veiculo.html'
 ];
 const EXTRA = [
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2'
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2',
+  // jsPDF — os checklists de Frotas montam o PDF no próprio aparelho.
+  // Sem esta linha, a primeira abertura offline não gera nada.
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 ];
 
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
     await c.addAll(CORE);                                   // essenciais (locais) — obrigatório
+    await Promise.allSettled(FROTAS.map(u => c.add(u)));    // Frotas — melhor esforço
     await Promise.allSettled(EXTRA.map(u => c.add(u)));     // CDN — melhor esforço
     self.skipWaiting();
   })());
