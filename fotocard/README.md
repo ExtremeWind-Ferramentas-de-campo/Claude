@@ -4,7 +4,7 @@ App PWA para registro fotográfico de inspeção e reparo de pás eólicas.
 
 ## Versão
 
-**v40 · 27/08/2026** — o número aparece na tela do app, embaixo do título, ao
+**v41 · 27/08/2026** — o número aparece na tela do app, embaixo do título, ao
 lado do aviso de modo offline. É por ele que se sabe, olhando o celular, se o
 aparelho já carregou o código novo.
 
@@ -23,6 +23,7 @@ versão em campo; sem o `CACHE` o arquivo novo nem chega ao aparelho.
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| v41 | 27/08/2026 | Correção: o carimbo não podia ser arrastado da posição padrão na câmera — o rodapé reorganizado na v40 engolia o toque. Área de toque mínima de 44 px para o carimbo, e a aba desempata quando card e carimbo se sobrepõem. |
 | v40 | 27/08/2026 | Os ajustes da tela da galeria passam a valer também **na câmera**: abas Fotocard / Carimbo, tamanho e ângulo dos dois, ↻ e ↺, painel recolhível pelo ⚙. Rodapé da câmera reorganizado em coluna. |
 | v39 | 25/08/2026 | Zoom da câmera 0,5× / 1× / 2×. Foto da galeria passa por tela de ajuste: lugar, tamanho e ângulo do fotocard e do carimbo. Carimbo passa a ser arrastável também na câmera. |
 | v38 | 18/08/2026 | Versão anterior. |
@@ -178,33 +179,56 @@ dois arquivos de mesmo nome não se sobrescrevem.
 
 ### Ajuste manual na tela da câmera
 
-**Tamanho** — de **20% a 70%** do lado menor da foto: slider, botões **−** / **+**
-(passo de 2%) ou **pinça de dois dedos** em cima da imagem.
+Vale para o **fotocard** e para o **carimbo** — as abas escolhem em qual. Ver
+também "Ajuste do card e do carimbo na câmera", mais abaixo.
 
-**Posição** — **arraste o card com um dedo** para onde quiser: qualquer canto,
-meio, em cima do céu, longe do dano. O arraste só começa se o dedo encostar no
-card, então segurar o celular não sai movendo nada; e tocar nos botões ou no
-slider também não arrasta.
+**Tamanho** — card de **20% a 70%** do lado menor da foto; carimbo de **40% a
+200%** do corpo automático. Slider `Tam`, botões **−** / **+** ou **pinça de
+dois dedos** em cima da imagem (a pinça mexe no alvo selecionado).
 
-**Voltar ao padrão** — toque no valor (38%, canto superior direito).
+**Posição** — **arraste com um dedo** para onde quiser: qualquer canto, meio,
+em cima do céu, longe do dano. O arraste só começa se o dedo encostar no card
+ou no carimbo, então segurar o celular não sai movendo nada.
+
+**Ângulo** — slider `Âng`, **−** / **+** (passo de 5°) ou **↻** (quarto de
+volta).
+
+**Voltar ao padrão** — botão **↺**.
+
+#### O que engole o toque, e o que não
+
+Só **botões e sliders** têm prioridade sobre o arraste. O fundo do rodapé,
+não: o carimbo mora no canto inferior direito e fica por cima dessa faixa —
+tratar o rodapé inteiro como controle deixava o carimbo **preso na posição
+padrão**, sem como arrastá-lo (foi o bug da v40, corrigido na v41).
+
+Duas regras completam isso:
+
+- **área mínima de toque de 44 px** (`PEGA_MIN`) para o carimbo: ele é uma
+  linha de texto de ~30 px, e acertar isso com luva, em cima de uma pá, não
+  dá;
+- quando **card e carimbo se sobrepõem**, ganha o que estiver selecionado na
+  aba — sem isso, um carimbo arrastado para debaixo do card ficava preso lá.
+
+#### Por que fração, e não pixels
 
 A posição é guardada como **fração do espaço livre** (0 a 1 em cada eixo), não
 em pixels. Por isso a mesma posição vale na tela e na foto, em qualquer
 resolução e nas duas orientações: canto na tela = canto na foto, meio = meio.
 
-O rótulo mostra `38% · 821 px`: a porcentagem e a **largura real que o card vai
-ter na foto**. Como o card é vetorial, ele é *redesenhado* nesse tamanho — não
-esticado. Em foto de 4K, 20% dá 432 px e 70% dá 1512 px, os dois igualmente
-nítidos; o que muda é só o quanto ele cobre da pá.
+O rótulo do `Tam` mostra `50% · 1080px`: a porcentagem e a **largura real que
+o card vai ter na foto**. Como o card é vetorial, ele é *redesenhado* nesse
+tamanho — não esticado. Em foto de 4K, 20% dá 432 px e 70% dá 1512 px, os dois
+igualmente nítidos; o que muda é só o quanto ele cobre da pá.
 
-O overlay ao vivo mostra o card no tamanho real que ele terá na foto (converte
-pela escala do `object-fit:cover` do vídeo), então o ajuste é visual — não
-precisa tirar a foto para conferir. Tamanho e posição ficam guardados no
-aparelho (`localStorage`), então só precisam ser ajustados uma vez.
+O overlay ao vivo mostra card e carimbo no tamanho, na posição e no ângulo
+reais que terão na foto (converte pela escala do `object-fit:cover` do vídeo),
+então o ajuste é visual — não precisa tirar a foto para conferir. Tudo fica
+guardado no aparelho (`localStorage`), então só precisa ser ajustado uma vez.
 
 Quando o tamanho é escolhido à mão, o piso `MINW` sai de cena: a escolha da
-pessoa manda, mesmo que deixe o card pequeno. O "voltar ao padrão" devolve o
-modo automático.
+pessoa manda, mesmo que deixe o card pequeno. O **↺** devolve o modo
+automático.
 
 ### Constantes de ajuste (topo do módulo `FC`, no `index.html`)
 
