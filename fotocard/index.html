@@ -521,7 +521,7 @@ var curState={}, camStream=null, facingMode='environment', isOnline=navigator.on
      3. o histórico no README.md
    Sem o passo 1 o técnico não tem como saber, olhando a tela, qual versão o
    aparelho carregou. */
-var APP_VERSAO = 'v40 · 27/08/2026';
+var APP_VERSAO = 'v41 · 27/08/2026';
 
 /* ─── Service Worker ─── */
 (function(){
@@ -1534,13 +1534,13 @@ var drag=null;
 function pontoNoCard(x,y){ return dentroGirado(camCardBox,x,y); }
 
 function iniciaArraste(x,y){
-  /* O card é testado antes do carimbo: se os dois se sobrepuserem, quem sai
-     do lugar é o card, que é o maior e o que mais atrapalha.
-     O teste é no retângulo REAL, já girado — com ângulo manual a caixa
+  /* Quando os dois se sobrepõem, ganha o que estiver SELECIONADO na aba —
+     sem isso, um carimbo arrastado para debaixo do card ficava preso lá,
+     porque o card sempre vencia o desempate.
+     O teste é no retângulo REAL, já girado: com ângulo manual a caixa
      alinhada aos eixos é bem maior que o card, e o dedo pegaria no vazio. */
-  var alvo=null;
-  if(pontoNoCard(x,y)) alvo='card';
-  else if(dentroGirado(camStampBox,x,y)) alvo='carimbo';
+  var noCard=pontoNoCard(x,y), noStamp=dentroGirado(camStampBox,x,y,PEGA_MIN);
+  var alvo = (noCard&&noStamp) ? alvoSel : (noCard?'card':(noStamp?'carimbo':null));
   if(!alvo) return false;
   selecionaAlvo(alvo);     /* pegar no elemento já aponta os sliders para ele */
   var b=(alvo==='card'?camCardBox:camStampBox);
@@ -1580,7 +1580,11 @@ function distDedos(t){
 function ligarGestos(){
   var el=document.getElementById('cam-view');
   /* toques nos botões, nos sliders e nas abas não são gesto do card */
-  function ehControle(t){ return !!(t&&t.closest&&t.closest('#cam-bottom')); }
+  /* Só os elementos que REAGEM ao toque (botões e sliders) engolem o gesto.
+     O fundo do rodapé, não: o carimbo mora no canto inferior direito e fica
+     por cima dessa faixa — bloquear o rodapé inteiro tornava impossível
+     arrastá-lo da posição padrão. */
+  function ehControle(t){ return !!(t&&t.closest&&t.closest('button,input')); }
 
   el.addEventListener('touchstart',function(e){
     if(ehControle(e.target)) return;
@@ -2596,20 +2600,26 @@ function galPonto(e){
 /* O dedo pegou o elemento? Com o ângulo manual, testar a caixa girada seria
    generoso demais (um card a 45° tem caixa quase o dobro): o ponto é levado
    para o sistema do próprio elemento e comparado com o retângulo de verdade. */
-function dentroGirado(b,px,py){
+function dentroGirado(b,px,py,min){
   if(!b) return false;
   var a=b.ang*Math.PI/180, dx=px-b.cx, dy=py-b.cy;
   var lx= dx*Math.cos(a)+dy*Math.sin(a);
   var ly=-dx*Math.sin(a)+dy*Math.cos(a);
-  return Math.abs(lx)<=b.pw/2+10 && Math.abs(ly)<=b.ph/2+10;
+  /* "min" garante uma área de toque decente para o que é fino: o carimbo tem
+     uma linha de texto de ~30 px de altura, e acertar isso com luva, em cima
+     de uma pá, não dá. 44 px é o mínimo confortável para o dedo. */
+  min=min||0;
+  var w=Math.max(b.pw,min), h=Math.max(b.ph,min);
+  return Math.abs(lx)<=w/2+10 && Math.abs(ly)<=h/2+10;
 }
+var PEGA_MIN=44;   /* área mínima de toque, em pixels de tela */
 
 function galInicia(p){
   if(!galBmp) return false;
-  var B=caixasGaleria(), alvo=null;
-  /* card primeiro: sobrepostos, quem sai do lugar é o maior */
-  if(dentroGirado(B.card,p.x,p.y)) alvo='card';
-  else if(dentroGirado(B.carimbo,p.x,p.y)) alvo='carimbo';
+  var B=caixasGaleria();
+  /* sobrepostos, ganha o que estiver selecionado na aba — igual à câmera */
+  var noCard=dentroGirado(B.card,p.x,p.y), noStamp=dentroGirado(B.carimbo,p.x,p.y,PEGA_MIN);
+  var alvo = (noCard&&noStamp) ? alvoSel : (noCard?'card':(noStamp?'carimbo':null));
   if(!alvo) return false;
   selecionaAlvo(alvo);         /* pegar no elemento já aponta os sliders para ele */
   galDrag={alvo:alvo, x0:p.x, y0:p.y,
