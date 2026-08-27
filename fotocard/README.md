@@ -4,7 +4,7 @@ App PWA para registro fotográfico de inspeção e reparo de pás eólicas.
 
 ## Versão
 
-**v39 · 25/08/2026** — o número aparece na tela do app, embaixo do título, ao
+**v40 · 27/08/2026** — o número aparece na tela do app, embaixo do título, ao
 lado do aviso de modo offline. É por ele que se sabe, olhando o celular, se o
 aparelho já carregou o código novo.
 
@@ -23,6 +23,7 @@ versão em campo; sem o `CACHE` o arquivo novo nem chega ao aparelho.
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| v40 | 27/08/2026 | Os ajustes da tela da galeria passam a valer também **na câmera**: abas Fotocard / Carimbo, tamanho e ângulo dos dois, ↻ e ↺, painel recolhível pelo ⚙. Rodapé da câmera reorganizado em coluna. |
 | v39 | 25/08/2026 | Zoom da câmera 0,5× / 1× / 2×. Foto da galeria passa por tela de ajuste: lugar, tamanho e ângulo do fotocard e do carimbo. Carimbo passa a ser arrastável também na câmera. |
 | v38 | 18/08/2026 | Versão anterior. |
 
@@ -268,6 +269,50 @@ posição fica guardada no aparelho (`ew_stamp_pos`) e vale para os dois caminho
 Tocar no rótulo de tamanho ("50 %") devolve tudo ao padrão: card no canto
 superior direito, carimbo no inferior direito.
 
+## Ajuste do card e do carimbo na câmera
+
+O painel de ajustes da câmera tem os **mesmos controles** da tela da galeria —
+abas **🪪 Fotocard** / **🕐 Carimbo**, sliders `Tam` e `Âng`, botão **↻**
+(quarto de volta) e **↺** (voltar ao padrão). Além deles, na câmera valem os
+gestos: **um dedo arrasta** o card ou o carimbo, **dois dedos (pinça)**
+redimensionam o alvo selecionado. Tocar no card ou no carimbo também troca a
+aba.
+
+O botão **⚙** ao lado do 🔄 **recolhe o painel**. Fechado, o rodapé fica só com
+o zoom e os botões e sobra bem mais tela para enxergar a pá — em 375×812 o
+rodapé cai de 275 px para 159 px. A escolha fica guardada no aparelho
+(`ew_cam_ferramentas`).
+
+### O ângulo na câmera é um acréscimo, não um valor absoluto
+
+Na câmera o card e o carimbo **giram sozinhos com o sensor de orientação** do
+celular — é isso que impede a marcação de sair deitada numa foto tirada na
+horizontal. O ajuste manual **soma** a esse giro:
+
+```
+giro na tela = −orientação do celular + ângulo escolhido
+```
+
+Com o ângulo em 0° o comportamento é exatamente o de sempre. Com o celular
+deitado (90°) e ajuste de 30°, o card sai a −60°. A mesma conta vale no
+overlay ao vivo e na foto gravada — é literalmente a mesma linha de código
+(`R`, `bboxGirada`, `centroNoLivre`), então o que se vê na tela é o que grava.
+
+Na galeria o ângulo é absoluto: a imagem já vem na orientação final e não há
+tela girando.
+
+### Rodapé em coluna
+
+Toast, zoom, painel de ajustes e botões ficam empilhados num `#cam-bottom`.
+Antes cada barra tinha um `bottom:` fixo em pixels e, com o painel aberto, uma
+cobriria a outra. Empilhadas, cada uma acha o seu lugar sozinha, e o toast
+fica ancorado no topo do rodapé (`bottom: calc(100% + 10px)`), subindo e
+descendo junto.
+
+O painel tem fundo escuro próprio porque o carimbo ao vivo passa **por cima**
+dele (z-index 21) — sobre o degradê sozinho, os sliders ficavam ilegíveis
+quando o técnico arrastava o carimbo para essa faixa.
+
 ## Zoom da câmera — 0,5× · 1× · 2×
 
 Em pá eólica a distância de trabalho muda muito: dentro da plataforma não dá
@@ -323,14 +368,10 @@ passam a mexer naquele. O selecionado fica com contorno tracejado azul.
 O ângulo serve para acompanhar uma pá deitada no quadro, ou para deitar a
 marcação numa faixa estreita de céu em vez de cobrir o dano.
 
-**Na câmera não há ângulo manual**: lá o card e o carimbo giram sozinhos com o
-sensor de orientação do celular, e um ângulo fixo brigaria com isso. Na foto
-importada não há tela girando — a imagem já vem na orientação final — então o
-giro passa a ser escolha do técnico. O tamanho do carimbo também é exclusivo
-desta tela; na câmera ele continua automático (3,8 % do lado menor).
-
-Lugar, tamanho e ângulo ficam guardados no aparelho e valem para a próxima
-foto, para não ter de reajustar uma a uma.
+**Os mesmos controles existem na câmera** — ver a seção abaixo. Lugar, tamanho
+e ângulo são um estado só: o que se ajusta num caminho vale no outro, fica
+guardado no aparelho e serve para a próxima foto, sem ter de reajustar uma a
+uma.
 
 ### Por que o que se vê é o que grava
 
@@ -382,9 +423,10 @@ enquadramento — não perde definição nem em foto de 12 MP.
 2. Toque **📷 Abrir Câmera com Fotocard**
 3. Posicione a câmera → o fotocard aparece no canto superior direito
 4. Escolha o enquadramento: **0,5× · 1× · 2×**
-5. Se precisar, ajuste o card: **arraste com o dedo** para mudar de lugar,
-   **pinça ou slider** para o tamanho — o carimbo também se arrasta. Só na
-   primeira vez: o app lembra
+5. Se precisar, ajuste: **arraste com o dedo** para mudar de lugar, **pinça ou
+   slider `Tam`** para o tamanho, **`Âng` ou ↻** para girar. As abas escolhem
+   entre fotocard e carimbo; **⚙** recolhe o painel. Só na primeira vez: o app
+   lembra
 6. Toque o botão de captura → confira na tela de revisão → **✓ Usar esta foto**
 7. Foto já tirada antes: **🖼️ Carregar foto da galeria** → escolha a aba
    (Fotocard ou Carimbo) → arraste, mude tamanho e ângulo → **✓ Aplicar**
