@@ -24,6 +24,204 @@
 const ID_DESTINO = "1Bpnv7ho9zDcP9A-oHCrwL9dRupCl3cVjBcl7eH-8ku0";
 
 // ═══════════════════════════════════════════════════════════
+//  PREÇO UNITÁRIO (R$) — é daqui que sai todo valor em reais
+//
+//  FONTE: lista mestra de materiais (colunas TIPO / ID / QUÍMICOS E
+//  CONSUMÍVEIS / UM / CLASSE / DEMANDA / ESTOQUE ATUAL / ÚLTIMA COMPRA),
+//  conferida com a engenharia em 26/08/2026. O valor usado é o da
+//  ÚLTIMA COMPRA. Onde a lista mestra não tem o item, ficou o valor da lista
+//  Siemens ("ACOMPANHAMENTO DE MATERIAIS GAMESA") — está marcado item por item.
+//
+//  A CHAVE é o nome do material NA GRAFIA DO CHECKLIST. Na lista mestra quase
+//  nenhum nome é igual (ela diz "TRIAX 1170/1200G", o checklist diz
+//  "TRIAX 1200"), então o nome de lá vai no comentário ao lado, com o ID, para
+//  dar para conferir. A busca passa por norm(), e o material que vem da
+//  CALCULADORA é traduzido por traduzirMaterial() antes — uma tabela serve às
+//  duas fontes.
+//
+//  PREÇO É POR UNIDADE DA PLANILHA: kg para químico, m² para tecido e núcleo,
+//  m para mangueira e tubo, un para o resto. A quantidade do checklist já vem
+//  nessa unidade (o app fixa a unidade pela planilha), então é multiplicação
+//  direta.
+//
+//  A TABELA É POR CLIENTE porque a lista Siemens tem preço próprio de alguns
+//  itens (CYTEC e TYVEK, que não estão na lista mestra). Onde a lista mestra
+//  tem o item, os dois clientes usam o MESMO valor dela.
+//
+//  ⚠️ FALTAM 4 ITENS (3 na Nordex/GE, 1 na Siemens), listados no fim de cada
+//  tabela. O que falta aparece na aba de gasto, no bloco "MATERIAIS SEM PREÇO",
+//  com o consumo certo e gasto zero — nunca escondido. Enquanto houver nome
+//  nesse bloco, o total em R$ está subestimado.
+//
+//  PARA ATUALIZAR: mexa só nos números. Nome novo precisa bater com a grafia
+//  do checklist.html.
+// ═══════════════════════════════════════════════════════════
+const PRECO_NORDEX_GE = {
+  /* ── tecidos e núcleo ── */
+  "TRIAX 1200":                                        39.32,   /* 169 TRIAX 1170/1200G */
+  "TECIDO BIAX 830":                                   39.14,   /* 160 TECIDO BIAX 830 */
+  "TECIDO BIAX 750":                                   39.14,   /* a lista não tem BIAX 750; decisão da
+                                                                   engenharia (26/08/2026): mesmo valor do
+                                                                   BIAX 800/830 */
+  "TECIDO BIAX 450":                                   44.20,   /* 335 MATERIAL COMBINADO X1300 - BIAX 450G */
+  "TECIDO UD 1000":                                    36.82,   /* 174 TECIDO UD 1000 */
+  "TECIDO UD 661":                                     44.20,   /* 337 TECIDO UNIDIRECIONAL 661 - GAMESA */
+  "TECIDO BIZERO 750":                                 37.80,   /* 367 TECIDO TRIAXIAL TV1800 - TRIAX 750 BIZERO */
+  "COMBI":                                             44.20,   /* 334 COMBI 900. A lista traz esse valor em
+                                                                   METRO e o checklist conta em KG: a
+                                                                   engenharia confirmou (26/08/2026) que para
+                                                                   este material metro e quilo são
+                                                                   equivalentes, então o valor serve nas duas
+                                                                   unidades sem conversão. */
+  "CSM 300":                                           22.00,   /* 253 CSM 300 */
+  "NYLON":                                             11.27,   /* 177 NYLON */
+  "BALSA CORE 15/20MM":                               445.06,   /* 168 BALSA CORE 15MM */
+  "BALSA CORE 50":                                    550.20,   /* 363 BALSA CORE 45MM */
+  "ESPUMA 20MM":                                      232.50,   /* 202 ESPUMA S/ GROOVING 20MM - RIGIDA AIREX */
+  "ESPUMA FLEXÍVEL DE PVC H60 GS 20MM":               285.24,   /* 540 ESPUMA DE PVC H60 GS 20MM 1200x800 FLEXÍVEL */
+  "ESPUMA FLEXÍVEL PET FOAM 50MM":                   1130.49,   /* 362 ESPUMA 45MM 1.500x1.000 */
+  /* ── consumível de infusão ── */
+  "FILME PARA VÁCUO — FLEXNYL-WM / V-SHEET (75MY X2)": 11.70,   /* 241 */
+  "PLÁSTICO PERFURADO AZUL":                            0.10,   /* 107 */
+  "MANGUEIRA DE VÁCUO — VACUUMKLEER 090-16":            2.00,   /* 245 */
+  "REGISTRO DE ESFERA PLÁSTICO":                        5.80,   /* 240 */
+  "CONEXÃO INFUSÃO T PLÁSTICA":                         4.50,   /* 242 */
+  "TUBO ESPIRAL":                                       7.23,   /* 178 */
+  "BAMBAM — MAP TAPE 12N (3MM × 12MM × 15M)":          73.00,   /* 247 */
+  /* ── químicos ── */
+  "RESINA LR-135":                                    265.23,   /* 115 (descontinuada na lista) */
+  "ENDURECEDOR LH-135":                               265.00,   /* 50 ENDURECEDOR LH135 (descontinuada) */
+  "RESINA SIKABIRESIN CH910":                         315.37,   /* 271 RESINA SIKABRESIN CR910 */
+  "ENDURECEDOR SIKABIRESIN CH910":                    366.98,   /* 272 ENDURECEDOR SIKA CH910 */
+  "ADESIVO EPOXY 135G3":                              313.52,   /* 20 */
+  "EPOXY ENDURECEDOR 137GF":                          303.65,   /* 53 */
+  "RESINA LR 635":                                    278.47,   /* 378 */
+  "ENDURECEDOR LH 635":                               287.23,   /* 379 ENDURECEDOR LH635 */
+  "ENDURECEDOR PUTTY PROFILE FILLER 3":               250.93,   /* 270 END PUTTY PRO FILLER 3 */
+  "BASE PUTTY PROFILE FILLER 3":                      260.01,   /* 212 PUTTING PRO FILLER 3 */
+  "TOP COAT 12 — ALEXIT / Mankiewicz — 12 kg":        298.11,   /* 143 */
+  "HARDENER 12 — ALEXIT / Mankiewicz — 3 kg":         438.42,   /* 67 */
+  "THINNER — Mankiewicz — 1 kg":                      257.34,   /* 140 */
+  "TOP COAT 12 RAL 3020 (RED)":                       392.40,   /* 348 TOP COAT 12 RAL 3020 VERMELHO - MANKIEWICZ */
+  "TOP COAT 12 RAL 7035 (GRAY)":                      392.40,   /* a lista não tem top coat 12 em RAL 7035;
+                                                                   decisão da engenharia (26/08/2026): mesmo
+                                                                   valor do vermelho */
+  /* ── ferramenta e consumível de oficina ── */
+  "LOCTITE":                                          169.90,   /* 365 LOCTITE 243 */
+  "ÓLEO BOMBA DE VÁCUO":                               66.89,   /* 535 ÓLEO P/ BOMBA DE VÁCUO 1L */
+  "FITA CREPE LARGA":                                  13.00,   /* 351 */
+  "LIXA OSCILANTE 80":                                  3.50,   /* 249 LIXA OSCILANTE 80 - 125mm */
+  "LIXA OSCILANTE 120":                                 3.50,   /* 248 LIXA OSCILANTE 120 - 125mm */
+  "LIXA ANGULAR 36":                                    2.97,   /* 279 DISCO DE LIXA 36 - 4.1/2 */
+  "ROLO DE LÃ":                                        11.90,   /* 199 ROLO LAMINAÇÃO - LÃ 9cm */
+  "ROLO DE PINTURA":                                    8.90,   /* 198 ROLO PINTURA - ESPUMA 9cm */
+  /* ── EPI ── */
+  "TYVEK 60%":                                         20.80,   /* lista Nordex antiga; não está na lista mestra */
+  "MACACÃO 100%":                                      20.80    /* = "TYVEK 100%" da lista Nordex antiga. CONFIRMAR */
+  /* Os 47 itens da lista Nordex/GE têm preço. Três não vieram direto da lista
+     mestra e foram decididos pela engenharia em 26/08/2026: TECIDO BIAX 750
+     (= BIAX 830), COMBI (= COMBI 900, com a ressalva da unidade) e
+     TOP COAT 12 RAL 7035 GRAY (= o vermelho). */
+};
+
+const PRECO_SIEMENS = {
+  /* Onde a lista mestra tem o item, o valor é o dela — os dois clientes usam
+     o mesmo. Só CYTEC e TYVEK seguem com o valor da lista Siemens, porque não
+     aparecem na lista mestra. */
+  "COMBI 900":                                         44.20,   /* 334 COMBI 900 */
+  "TECIDO BIAX 450":                                   44.20,   /* 335 */
+  "BALSA CORE 45MM/15":                               550.20,   /* 363 BALSA CORE 45MM */
+  "TECIDO UD 661":                                     44.20,   /* 337 */
+  "FILME PARA VÁCUO — FLEXNYL-WM / V-SHEET (75MY X2)": 11.70,   /* 241 */
+  "NYLON":                                             11.27,   /* 177 */
+  "PLÁSTICO PERFURADO AZUL":                            0.10,   /* 107 */
+  "MANGUEIRA DE VÁCUO — VACUUMKLEER 090-16":            2.00,   /* 245 */
+  "REGISTRO DE ESFERA PLÁSTICO":                        5.80,   /* 240 */
+  "CONEXÃO INFUSÃO T PLÁSTICA":                         4.50,   /* 242 */
+  "ESPÁTULA CELULOIDE":                                 1.99,   /* 194 */
+  "ABRAÇADEIRAS":                                       2.00,   /* 195 */
+  "POTES TRANSPARENTES":                                1.00,   /* 197 POTES TRANPARENTES */
+  "ROLO DE LAMINAÇÃO":                                 11.90,   /* 199 ROLO LAMINAÇÃO - LÃ 9cm */
+  "TUBO ESPIRAL":                                       7.23,   /* 178 */
+  "BAMBAM — MAP TAPE 12N (3MM × 12MM × 15M)":          73.00,   /* 247 */
+  "FITA CREPE":                                        13.00,   /* 351 FITA CREPE LARGA */
+  "TRINCHA / PINCEL":                                  11.75,   /* 274 TRINCHA/PINCEL 3' */
+  "LIXA OSCILANTE 40":                                  3.50,   /* 355 */
+  "LIXA OSCILANTE 80":                                  3.50,   /* 249 */
+  "LIXA OSCILANTE 120":                                 3.50,   /* 248 */
+  "LIXA OSCILANTE 180":                                 3.50,   /* 360 */
+  "LIXA OSCILANTE 220":                                 4.50,   /* 354 LIXA OSCILANTE 220 - 125mm */
+  "LIXA ANGULAR 36":                                    2.97,   /* 279 DISCO DE LIXA 36 */
+  "RESINA AROPOL 70452":                               63.00,   /* 341 */
+  "ENDURECEDOR BUTANOX M-50":                          55.00,   /* 252 ENDURECEDOR BUTANOX M50 */
+  "CYTEC — SCOTER TINTA GAMESA + ENDURECEDOR":         26.00,   /* lista Siemens; não está na lista mestra */
+  "PARAFINA":                                          45.00,   /* 343 SOLUÇÃO DE PARAFINA */
+  "CSM 300":                                           22.00,   /* 253 */
+  "ESPUMA FLEXÍVEL BRANCA 50MM":                     1130.49,   /* 362 ESPUMA 45MM 1.500x1.000 */
+  "RESINA ALTERNATIVA DE BALANCEAMENTO EPÓXI":         50.33,   /* 720 RESINA ALTERNATIVA */
+  "ENDURECEDOR ALTERNATIVO DE BALANCEAMENTO EPÓXI":    70.56,   /* 721 ENDURECEDOR ALTERNATIVO */
+  "TOP COAT 12 — ALEXIT / Mankiewicz — 12 kg":        298.11,   /* 143 */
+  "HARDENER 12 — ALEXIT / Mankiewicz — 3 kg":         438.42,   /* 67 */
+  "THINNER — Mankiewicz — 1 kg":                      257.34,   /* 140 */
+  "BASE PUTTY PROFILE FILLER 3":                      260.01,   /* 212 */
+  "ENDURECEDOR PUTTY PROFILE FILLER 3":               250.93,   /* 270 */
+  "TYVEK":                                             22.00,   /* lista Siemens; não está na lista mestra */
+  "WPT2 W8751 CLEAR — FITA 3M (254MM × 33M)":        1083.00,   /* 539 WPT2 W8751 CLEAR 254MMx33MM FITA 3M */
+  "BASE ADESIVO — SIKAFORCE-818 L07":                 212.00,   /* 338 SIKAFORCE-818 L07(AB)(+12MIX) /12 CTR 195 */
+  "BASE GEL COAT — CRYSTIC RAL 7035":                  57.50,   /* 339 CRYSTIC 0209 RAL 7035 - SCOTT BADER - GEL COAT */
+  /* Os três abaixo são casamento por tipo de produto, não por nome igual.
+     CONFERIR antes de confiar no valor: */
+  "BASE MASSA — CRYSTIC X401":                         36.00,   /* 340 MASSA PUTTY GAMESA- MAX */
+  "ENDURECEDOR MASSA — MEKP":                          55.00,   /* MEKP = 252 ENDURECEDOR BUTANOX M50 */
+  "ENDURECEDOR GEL COAT — MEKP":                       55.00,   /* idem */
+  /* ⚠️ ESTIMATIVA — NÃO É PREÇO DE COMPRA.
+     O SikaForce-050 (B) não tem preço público: windsourcing e Castro
+     Composites só mostram valor após login, e o único número aberto que achei
+     foi € 56,55 pelo cartucho de 195 ml do 818 L07 já misturado — preço de
+     cartucho fica 2 a 3 vezes acima do barril por quilo, então não serve.
+     O valor abaixo está ancorado no material COMPARÁVEL da própria lista da
+     EW: EPOXY ENDURECEDOR 137GF, endurecedor de adesivo estrutural de pá, a
+     R$ 303,65/kg (o END PUTTY fica em R$ 250,93/kg). Arredondado para 300.
+     TROCAR pelo valor real na primeira nota fiscal do produto. */
+  "ENDURECEDOR ADESIVO — SIKAFORCE-050":              300.00
+};
+
+/* Índice normalizado, montado uma vez por execução. Sem ele, a busca falharia
+   sempre que o travessão do checklist não fosse byte a byte igual ao da tabela
+   — o mesmo problema que o norm() já resolve para o MAPA_MAT. */
+var PRECO_IDX = null;
+function precoIndice_() {
+  if (PRECO_IDX) return PRECO_IDX;
+  PRECO_IDX = { NORDEX: {}, GE: {}, SIEMENS: {} };
+  Object.keys(PRECO_NORDEX_GE).forEach(k => {
+    PRECO_IDX.NORDEX[norm(k)] = PRECO_NORDEX_GE[k];
+    PRECO_IDX.GE[norm(k)] = PRECO_NORDEX_GE[k];
+  });
+  Object.keys(PRECO_SIEMENS).forEach(k => { PRECO_IDX.SIEMENS[norm(k)] = PRECO_SIEMENS[k]; });
+  return PRECO_IDX;
+}
+function chaveCliente_(cliente) {
+  const c = norm(cliente);
+  if (c.indexOf("SIEMENS") >= 0) return "SIEMENS";
+  if (c.indexOf("GE") >= 0) return "GE";
+  return "NORDEX";
+}
+/** Preço unitário do material, ou null quando não há preço cadastrado. */
+function precoDe_(cliente, material) {
+  const tab = precoIndice_()[chaveCliente_(cliente)] || {};
+  const p = tab[norm(material)];
+  return (typeof p === "number" && isFinite(p)) ? p : null;
+}
+/** "R$ 1.234,56" — formatação brasileira, para texto de aviso e e-mail. */
+function brl_(v) {
+  const n = Number(v) || 0;
+  const neg = n < 0;
+  const partes = Math.abs(n).toFixed(2).split(".");
+  partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return (neg ? "-R$ " : "R$ ") + partes[0] + "," + partes[1];
+}
+
+// ═══════════════════════════════════════════════════════════
 //  AVISOS — funcionam COM e SEM interface
 //
 //  SpreadsheetApp.getUi() só existe quando o código roda a partir da planilha
@@ -57,6 +255,8 @@ function onOpen() {
     .addSeparator()
     .addItem('Atualizar comparativos por parque', 'atualizarTodosParques')
     .addItem('📊 Gerar Análise Mensal (1ª→última semana)', 'analisarMensal')
+    .addItem('💰 Gasto semanal em R$', 'gerarGastoSemanal')
+    .addItem('💰 Gasto mensal em R$', 'gerarGastoMensal')
     .addItem('Gerar Análise vs Realizado (com mês anterior)', 'analisarConsumoVsDelta')
     .addItem('⏳ Conferir validade dos lotes', 'verificarValidades')
     .addSeparator()
@@ -217,10 +417,18 @@ function parseDataFlexivel(v) {
    COL_TIPO continua 7 e as linhas já gravadas seguem válidas. Só a ENTRADA de
    material perecível preenche esses dois campos (resina, endurecedor, adesivo,
    massa, tinta, diluente); núcleo, tecido e contagem de estoque ficam vazios. */
-const CAB_CHECKLIST = ["Semana", "Data do envio", "Parque", "Responsável", "Material", "Unidade", "QTD", "Tipo", "Lote", "Validade"];
+/* Valor unitário e valor total entram no FIM, pelo mesmo motivo de Tipo, Lote e
+   Validade: nada do que já está gravado sai de lugar, e getOuCriaAba() alarga a
+   aba existente e completa só as células de cabeçalho vazias.
+   O valor gravado aqui é o da LINHA (QTD × preço): numa linha de ESTOQUE é
+   quanto vale o que está no parque, e numa de ENTRADA é quanto entrou de
+   material. O GASTO não é isto — é consumo × preço, e sai nas abas de gasto. */
+const CAB_CHECKLIST = ["Semana", "Data do envio", "Parque", "Responsável", "Material", "Unidade", "QTD", "Tipo", "Lote", "Validade", "Valor unit (R$)", "Valor total (R$)"];
 const COL_TIPO = 7;   // índice 0-based da coluna "Tipo"
 const COL_LOTE = 8;
 const COL_VALIDADE = 9;
+const COL_PRECO = 10;
+const COL_VALOR = 11;
 
 /* AAAA-MM -> "MM/AAAA" (texto). Aceita também o que já vier em MM/AAAA. */
 function formatarValidade_(v) {
@@ -251,7 +459,9 @@ function gravarChecklistSnapshot(envio) {
   const responsavel = String(envio.responsavel || "").trim();
 
   const lastRow = sh.getLastRow();
-  const dados = lastRow > 1 ? sh.getRange(2, 1, lastRow - 1, CAB_CHECKLIST.length).getValues() : [];
+  const dados = lastRow > 1
+    ? sh.getRange(2, 1, lastRow - 1, Math.min(CAB_CHECKLIST.length, sh.getMaxColumns())).getValues()
+    : [];
 
   // "estoque" (contagem) ou "entrada" (material recebido) — o app manda em envio.registro
   const tipo = norm(envio.registro) === "ENTRADA" ? "ENTRADA" : "ESTOQUE";
@@ -277,7 +487,12 @@ function gravarChecklistSnapshot(envio) {
           norm(dados[i][4]) === norm(material) &&
           tipoLinha === tipo) { linhaExistente = i; break; }
     }
-    const novaLinha = [semana, dataEnvio, parque, responsavel, material, unidade, qtd, tipo, lote, validade];
+    /* Preço em branco (e não zero) quando o material não tem valor cadastrado:
+       zero somaria como "custou nada" e esconderia a falta do cadastro. */
+    const preco = precoDe_(envio.cliente, material);
+    const valor = (preco === null) ? "" : Math.round(qtd * preco * 100) / 100;
+    const novaLinha = [semana, dataEnvio, parque, responsavel, material, unidade, qtd, tipo, lote, validade,
+                       (preco === null ? "" : preco), valor];
     if (linhaExistente >= 0) {
       sh.getRange(linhaExistente + 2, 1, 1, CAB_CHECKLIST.length).setValues([novaLinha]);
       dados[linhaExistente] = novaLinha;
@@ -349,7 +564,8 @@ function lerChecklistCombinado() {
   [["Checklist_Nordex","Nordex"], ["Checklist_GE","GE Vernova"], ["Checklist_Siemens","Siemens Gamesa"]].forEach(([nomeAba, cliente]) => {
     const sh = getAba(ss, nomeAba);
     if (!sh || sh.getLastRow() < 2) return;
-    const dados = sh.getRange(2, 1, sh.getLastRow() - 1, CAB_CHECKLIST.length).getValues();
+    const nCols = Math.min(CAB_CHECKLIST.length, sh.getMaxColumns());
+    const dados = sh.getRange(2, 1, sh.getLastRow() - 1, nCols).getValues();
     dados.forEach(l => {
       const parque = nomeAbaSeguro(l[2]);
       const material = String(l[4] || "").trim();
@@ -436,8 +652,15 @@ function atualizarTodosParques() {
 // Mais específico PRIMEIRO — ver comentário original sobre por que
 // a ordem importa (ex.: "TOP COAT 12" genérico capturaria o SBI).
 const MAPA_MAT = [
-  ["TOP COAT 12 RAL 3020 RED",  "TOP COAT 12 RAL 3020 RED"],
-  ["TOP COAT 12 RED 3020",      "TOP COAT 12 RED 3020"],
+  /* Top coat colorido: tem de vir ANTES do "TOP COAT 12" genérico, senão o
+     genérico captura por substring e o consumo do colorido é creditado ao
+     cinza. O nome do checklist mudou em 26/08/2026 (era "RAL 3020 RED" e
+     "RED 3020"); as duas grafias antigas continuam aqui como origem, para
+     registro de calculadora antigo não deixar de casar. */
+  ["TOP COAT 12 RAL 7020",      "TOP COAT 12 RAL 3020 (RED)"],
+  ["TOP COAT 12 RAL 3020",      "TOP COAT 12 RAL 3020 (RED)"],
+  ["TOP COAT 12 RED 3020",      "TOP COAT 12 RAL 3020 (RED)"],
+  ["TOP COAT 12 RAL 7035",      "TOP COAT 12 RAL 7035 (GRAY)"],
   ["BLADEREP HARDENER FILLER",  "ENDURECEDOR PUTTY PROFILE FILLER 3"],
   ["BLADEREP PROFILE FILLER",   "BASE PUTTY PROFILE FILLER 3"],
   ["BLADEREP HARDENER 12",      "HARDENER 12 - ALEXIT / MANKIEWICZ - 3 KG"],
@@ -565,7 +788,8 @@ function consumoRealPorParque(dataInicio, dataFim) {
   const sh = getAba(ss, "Consumo_Reparos");
   const mapa = {};
   if (!sh || sh.getLastRow() < 2) return mapa;
-  const grid = sh.getRange(2, 1, sh.getLastRow() - 1, CAB_CONSUMO.length).getValues();
+  const grid = sh.getRange(2, 1, sh.getLastRow() - 1,
+                           Math.min(CAB_CONSUMO.length, sh.getMaxColumns())).getValues();
   grid.forEach(ln => {
     const dataStr = ln[1], parque = ln[3], material = ln[10], qtdKg = ln[11];
     if (!material) return;
@@ -741,6 +965,340 @@ function analisarConsumoVsDelta() {
     "Quando o mês tem só 1 contagem, usa a última contagem do mês anterior como base.");
 }
 
+
+// ═══════════════════════════════════════════════════════════
+//  GASTO EM R$ — SEMANAL E MENSAL
+//
+//  DUAS FONTES, MEDINDO A MESMA COISA POR CAMINHOS DIFERENTES:
+//
+//  1) CHECKLIST (contagem de estoque)
+//     Gasto = consumo × preço, e consumo entre duas contagens é
+//        estoque(contagem anterior) + entradas no meio − estoque(contagem atual)
+//     NÃO é "QTD × preço" da linha: isso é o valor do estoque parado, não gasto.
+//     Por isso precisa de DUAS contagens do mesmo material no mesmo parque —
+//     com uma só, não há como saber o que foi embora.
+//
+//  2) CALCULADORA (aba Consumo_Reparos)
+//     Gasto = quantidade pesada no reparo × preço. O nome do material passa
+//     por traduzirMaterial() antes, para casar com a grafia do checklist.
+//
+//  As duas quase nunca dão igual, e a diferença é justamente o que interessa:
+//  material que saiu do estoque e não apareceu em reparo nenhum.
+//
+//  MATERIAL SEM PREÇO não entra na conta e é listado no fim da aba. Enquanto
+//  aparecer nome nesse bloco, o total está SUBESTIMADO.
+// ═══════════════════════════════════════════════════════════
+
+/* Consumo semana a semana pelo checklist. Uma entrada de saída por par de
+   contagens consecutivas do mesmo material no mesmo parque.
+
+   As entradas do meio são filtradas por DATA, não por número de semana: na
+   virada do ano a semana 1 é MENOR que a 52, e comparar número daria janela
+   vazia (ou o ano inteiro) justamente na semana da virada. */
+function consumoSemanalChecklist_(linhas) {
+  const grupos = {};
+  linhas.forEach(l => {
+    const k = l.cliente + "\u0001" + l.parque + "\u0001" + l.material;
+    if (!grupos[k]) grupos[k] = { cliente: l.cliente, parque: l.parque, material: l.material, est: [], ent: [] };
+    if (l.tipo === "ENTRADA") grupos[k].ent.push(l);
+    else grupos[k].est.push(l);
+  });
+  const saida = [];
+  Object.keys(grupos).forEach(k => {
+    const g = grupos[k];
+    g.est.sort((a, b) => (a.data - b.data) || (a.semana - b.semana));
+    for (let i = 1; i < g.est.length; i++) {
+      const ant = g.est[i - 1], atu = g.est[i];
+      let entradas = 0;
+      g.ent.forEach(e => { if (e.data > ant.data && e.data <= atu.data) entradas += e.qtd; });
+      /* A semana sai da DATA, não da coluna Semana da aba. As duas normalmente
+         batem (é o próprio script que grava as duas a partir da data do envio),
+         mas o gasto cruza esta fonte com a da calculadora, onde a semana só
+         pode vir da data. Recalcular aqui garante que as duas usem a mesma
+         régua e que uma coluna Semana editada à mão não desalinhe o cruzamento. */
+      saida.push({
+        cliente: g.cliente, parque: g.parque, material: g.material,
+        semana: getISOWeek(atu.data), semanaBase: getISOWeek(ant.data), data: atu.data,
+        estoqueIni: ant.qtd, entradas: entradas, estoqueFim: atu.qtd,
+        consumido: ant.qtd + entradas - atu.qtd
+      });
+    }
+  });
+  return saida;
+}
+
+/* Consumo das calculadoras, agrupado por cliente + parque + material + semana. */
+function consumoSemanalCalculadora_() {
+  const ss = SpreadsheetApp.openById(ID_DESTINO);
+  const sh = getAba(ss, "Consumo_Reparos");
+  if (!sh || sh.getLastRow() < 2) return [];
+  const grid = sh.getRange(2, 1, sh.getLastRow() - 1,
+                           Math.min(CAB_CONSUMO.length, sh.getMaxColumns())).getValues();
+  const mapa = {};
+  grid.forEach(ln => {
+    const material = String(ln[10] || "").trim();
+    const parque = String(ln[3] || "").trim();
+    if (!material || !parque) return;
+    const data = parseDataFlexivel(ln[1]);
+    const semana = getISOWeek(data);
+    const cliente = String(ln[2] || "").trim();
+    const matTrad = traduzirMaterial(norm(material));
+    const k = [norm(cliente), norm(parque), matTrad, semana].join("\u0001");
+    if (!mapa[k]) mapa[k] = { cliente: cliente, parque: parque, material: matTrad,
+                              semana: semana, data: data, qtd: 0 };
+    mapa[k].qtd += Number(ln[11]) || 0;
+    /* A data guardada é a mais recente da semana, só para ordenar e para o
+       filtro de período — a semana é o que agrupa. */
+    if (data > mapa[k].data) mapa[k].data = data;
+  });
+  return Object.keys(mapa).map(k => mapa[k]);
+}
+
+/* Junta as duas fontes num só conjunto, já com preço aplicado.
+   Devolve { detalhe, resumo, semPreco, totalCl, totalCa }. */
+function coletarGasto_(dataInicio, dataFim) {
+  const semPreco = {};
+  function preco_(cliente, material, fonte) {
+    const p = precoDe_(cliente, material);
+    if (p === null) {
+      const k = chaveCliente_(cliente) + "\u0001" + norm(material);
+      if (!semPreco[k]) semPreco[k] = { cliente: cliente, material: material, fontes: {} };
+      semPreco[k].fontes[fonte] = true;
+      return null;
+    }
+    return p;
+  }
+
+  const noPeriodo = r => r.data >= dataInicio && r.data <= dataFim;
+  const cl = consumoSemanalChecklist_(lerChecklistCombinado()).filter(noPeriodo);
+  const ca = consumoSemanalCalculadora_().filter(noPeriodo);
+
+  const det = {};
+  function celula_(r) {
+    const k = [r.cliente, r.parque, r.semana, norm(r.material)].join("\u0001");
+    if (!det[k]) det[k] = { cliente: r.cliente, parque: r.parque, semana: r.semana, data: r.data,
+                            material: r.material, consumoCl: null, precoCl: null, gastoCl: 0,
+                            consumoCa: null, gastoCa: 0, obs: [] };
+    if (r.data > det[k].data) det[k].data = r.data;
+    return det[k];
+  }
+
+  cl.forEach(r => {
+    const c = celula_(r);
+    const p = preco_(r.cliente, r.material, "checklist");
+    c.consumoCl = (c.consumoCl || 0) + r.consumido;
+    c.precoCl = p;
+    if (p !== null) c.gastoCl += r.consumido * p;
+    c.obs.push("W" + r.semanaBase + "→W" + r.semana
+      + (r.entradas ? " · entrada " + r.entradas + " descontada" : ""));
+    if (r.consumido < 0) c.obs.push("consumo negativo — conferir contagem ou entrada não lançada");
+  });
+  ca.forEach(r => {
+    const c = celula_(r);
+    const p = preco_(r.cliente, r.material, "calculadora");
+    c.consumoCa = (c.consumoCa || 0) + r.qtd;
+    if (c.precoCl === null || c.precoCl === undefined) c.precoCl = p;
+    if (p !== null) c.gastoCa += r.qtd * p;
+  });
+
+  const detalhe = Object.keys(det).map(k => det[k])
+    .sort((a, b) => String(a.cliente).localeCompare(String(b.cliente))
+                 || String(a.parque).localeCompare(String(b.parque))
+                 || (a.semana - b.semana)
+                 || String(a.material).localeCompare(String(b.material)));
+
+  const res = {};
+  detalhe.forEach(d => {
+    const k = [d.cliente, d.parque, d.semana].join("\u0001");
+    if (!res[k]) res[k] = { cliente: d.cliente, parque: d.parque, semana: d.semana,
+                            data: d.data, gastoCl: 0, gastoCa: 0, itens: 0 };
+    res[k].gastoCl += d.gastoCl; res[k].gastoCa += d.gastoCa; res[k].itens++;
+    if (d.data > res[k].data) res[k].data = d.data;
+  });
+  const resumo = Object.keys(res).map(k => res[k])
+    .sort((a, b) => String(a.cliente).localeCompare(String(b.cliente))
+                 || String(a.parque).localeCompare(String(b.parque))
+                 || (a.semana - b.semana));
+
+  let totalCl = 0, totalCa = 0;
+  detalhe.forEach(d => { totalCl += d.gastoCl; totalCa += d.gastoCa; });
+
+  return { detalhe: detalhe, resumo: resumo, totalCl: totalCl, totalCa: totalCa,
+           semPreco: Object.keys(semPreco).map(k => semPreco[k]) };
+}
+
+/* ── escrita das abas ────────────────────────────────────────────────────── */
+const COR_TITULO = "#1c4587";
+function escreverBloco_(sh, linha, titulo, cabecalho, dados) {
+  sh.getRange(linha, 1).setValue(titulo).setFontWeight("bold").setFontSize(11);
+  linha++;
+  sh.getRange(linha, 1, 1, cabecalho.length).setValues([cabecalho])
+    .setFontWeight("bold").setBackground(COR_TITULO).setFontColor("#ffffff")
+    .setHorizontalAlignment("center").setWrap(true);
+  linha++;
+  if (!dados.length) {
+    sh.getRange(linha, 1).setValue("(sem dados no período)").setFontColor("#999999");
+    return linha + 2;
+  }
+  sh.getRange(linha, 1, dados.length, cabecalho.length).setValues(dados);
+  for (let r = 0; r < dados.length; r++)
+    if (r % 2 === 0) sh.getRange(linha + r, 1, 1, cabecalho.length).setBackground("#f8f9fa");
+  return linha + dados.length + 2;
+}
+function n2_(v) { return Math.round((Number(v) || 0) * 100) / 100; }
+
+/* ═══ GASTO SEMANAL — últimas 8 semanas ═══
+   Oito semanas, e não o mês corrente como as outras análises: na primeira
+   semana do mês um relatório semanal limitado ao mês mostraria uma linha só,
+   e a comparação semana a semana é o que dá para enxergar tendência. */
+function gerarGastoSemanal() {
+  const SEMANAS_JANELA = 8;
+  const hoje = new Date();
+  const fim = new Date(hoje); fim.setHours(23, 59, 59, 999);
+  const inicio = inicioSemanaISO_(hoje);
+  inicio.setDate(inicio.getDate() - 7 * (SEMANAS_JANELA - 1));
+
+  const g = coletarGasto_(inicio, fim);
+  const ss = SpreadsheetApp.openById(ID_DESTINO);
+  let sh = getAba(ss, "Gasto Semanal (R$)");
+  if (!sh) sh = ss.insertSheet("Gasto Semanal (R$)");
+  sh.clearContents(); sh.clearConditionalFormatRules();
+
+  sh.getRange(1, 1).setValue("GASTO SEMANAL EM R$  |  " + SEMANAS_JANELA + " semanas: "
+    + inicio.toLocaleDateString("pt-BR") + " a " + fim.toLocaleDateString("pt-BR")
+    + "  |  Atualizado: " + hoje.toLocaleDateString("pt-BR"))
+    .setFontWeight("bold").setFontSize(12);
+
+  let ln = 3;
+  ln = escreverBloco_(sh, ln, "1) RESUMO — por parque e semana",
+    ["CLIENTE", "PARQUE", "SEMANA", "Gasto pelo\nCHECKLIST (R$)", "Gasto pela\nCALCULADORA (R$)",
+     "Diferença\n(Checklist − Calc.)", "Materiais\nna linha"],
+    g.resumo.map(r => [r.cliente, r.parque, "W" + r.semana, n2_(r.gastoCl), n2_(r.gastoCa),
+                       n2_(r.gastoCl - r.gastoCa), r.itens]));
+
+  ln = escreverBloco_(sh, ln, "2) DETALHE — por material",
+    ["CLIENTE", "PARQUE", "SEMANA", "MATERIAL", "Consumo\n(checklist)", "R$ / unidade",
+     "Gasto checklist\n(R$)", "Consumo\n(calculadora)", "Gasto calculadora\n(R$)", "Obs"],
+    g.detalhe.map(d => [d.cliente, d.parque, "W" + d.semana, d.material,
+      d.consumoCl === null ? "—" : n2_(d.consumoCl),
+      d.precoCl === null || d.precoCl === undefined ? "sem preço" : n2_(d.precoCl),
+      d.consumoCl === null ? "—" : n2_(d.gastoCl),
+      d.consumoCa === null ? "—" : n2_(d.consumoCa),
+      d.consumoCa === null ? "—" : n2_(d.gastoCa),
+      d.obs.join(" · ")]));
+
+  ln = escreverBloco_(sh, ln, "3) MATERIAIS SEM PREÇO — enquanto houver nome aqui, o total está subestimado",
+    ["CLIENTE", "MATERIAL", "Apareceu em"],
+    g.semPreco.map(x => [x.cliente, x.material, Object.keys(x.fontes).join(" + ")]));
+
+  sh.getRange(ln, 1).setValue("TOTAL DO PERÍODO — Checklist: " + brl_(g.totalCl)
+    + "   |   Calculadora: " + brl_(g.totalCa)
+    + "   |   Diferença: " + brl_(g.totalCl - g.totalCa))
+    .setFontWeight("bold").setFontSize(11);
+
+  sh.setFrozenRows(1);
+  sh.autoResizeColumns(1, 10);
+  avisar("✅ Gasto semanal gerado.\n\n"
+    + "Período: " + inicio.toLocaleDateString("pt-BR") + " a " + fim.toLocaleDateString("pt-BR") + "\n"
+    + "Checklist: " + brl_(g.totalCl) + "\n"
+    + "Calculadora: " + brl_(g.totalCa) + "\n"
+    + (g.semPreco.length ? "⚠️ " + g.semPreco.length + " material(is) SEM PREÇO — total subestimado\n" : "")
+    + "\n📋 Aba: Gasto Semanal (R$)");
+  return { linhas: g.detalhe.length, semPreco: g.semPreco.length };
+}
+
+/* ═══ GASTO MENSAL — mês corrente em detalhe + histórico de 6 meses ═══ */
+function gerarGastoMensal() {
+  const MESES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+                    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  const MESES_HIST = 6;
+  const hoje = new Date();
+  const fim = new Date(hoje); fim.setHours(23, 59, 59, 999);
+  const inicioHist = new Date(hoje.getFullYear(), hoje.getMonth() - (MESES_HIST - 1), 1);
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
+  const g = coletarGasto_(inicioHist, fim);
+  const rotuloMes = d => MESES_PT[d.getMonth()] + "/" + d.getFullYear();
+
+  /* histórico mês a mês */
+  const porMes = {};
+  g.detalhe.forEach(d => {
+    const k = d.data.getFullYear() + "-" + ("0" + (d.data.getMonth() + 1)).slice(-2);
+    if (!porMes[k]) porMes[k] = { rotulo: rotuloMes(d.data), gastoCl: 0, gastoCa: 0 };
+    porMes[k].gastoCl += d.gastoCl; porMes[k].gastoCa += d.gastoCa;
+  });
+  const hist = Object.keys(porMes).sort().map(k => porMes[k]);
+
+  /* mês corrente */
+  const doMes = g.detalhe.filter(d => d.data >= inicioMes);
+  const porParque = {}, porMaterial = {};
+  doMes.forEach(d => {
+    const kp = d.cliente + "\u0001" + d.parque;
+    if (!porParque[kp]) porParque[kp] = { cliente: d.cliente, parque: d.parque, gastoCl: 0, gastoCa: 0 };
+    porParque[kp].gastoCl += d.gastoCl; porParque[kp].gastoCa += d.gastoCa;
+
+    const km = d.cliente + "\u0001" + norm(d.material);
+    if (!porMaterial[km]) porMaterial[km] = { cliente: d.cliente, material: d.material,
+      preco: d.precoCl, consumoCl: 0, gastoCl: 0, consumoCa: 0, gastoCa: 0 };
+    porMaterial[km].consumoCl += (d.consumoCl || 0);
+    porMaterial[km].gastoCl += d.gastoCl;
+    porMaterial[km].consumoCa += (d.consumoCa || 0);
+    porMaterial[km].gastoCa += d.gastoCa;
+  });
+  const listaParque = Object.keys(porParque).map(k => porParque[k])
+    .sort((a, b) => (b.gastoCl + b.gastoCa) - (a.gastoCl + a.gastoCa));
+  const listaMaterial = Object.keys(porMaterial).map(k => porMaterial[k])
+    .sort((a, b) => (b.gastoCl + b.gastoCa) - (a.gastoCl + a.gastoCa));
+
+  let totMesCl = 0, totMesCa = 0;
+  doMes.forEach(d => { totMesCl += d.gastoCl; totMesCa += d.gastoCa; });
+
+  const ss = SpreadsheetApp.openById(ID_DESTINO);
+  let sh = getAba(ss, "Gasto Mensal (R$)");
+  if (!sh) sh = ss.insertSheet("Gasto Mensal (R$)");
+  sh.clearContents(); sh.clearConditionalFormatRules();
+
+  sh.getRange(1, 1).setValue("GASTO MENSAL EM R$  |  Mês corrente: " + rotuloMes(hoje)
+    + "  |  Histórico: " + MESES_HIST + " meses  |  Atualizado: " + hoje.toLocaleDateString("pt-BR"))
+    .setFontWeight("bold").setFontSize(12);
+
+  let ln = 3;
+  ln = escreverBloco_(sh, ln, "1) FECHAMENTO MÊS A MÊS",
+    ["MÊS", "Gasto pelo\nCHECKLIST (R$)", "Gasto pela\nCALCULADORA (R$)", "Diferença\n(Checklist − Calc.)"],
+    hist.map(h => [h.rotulo, n2_(h.gastoCl), n2_(h.gastoCa), n2_(h.gastoCl - h.gastoCa)]));
+
+  ln = escreverBloco_(sh, ln, "2) " + rotuloMes(hoje).toUpperCase() + " — por parque",
+    ["CLIENTE", "PARQUE", "Gasto pelo\nCHECKLIST (R$)", "Gasto pela\nCALCULADORA (R$)", "Diferença"],
+    listaParque.map(p => [p.cliente, p.parque, n2_(p.gastoCl), n2_(p.gastoCa), n2_(p.gastoCl - p.gastoCa)]));
+
+  ln = escreverBloco_(sh, ln, "3) " + rotuloMes(hoje).toUpperCase() + " — por material (maior gasto primeiro)",
+    ["CLIENTE", "MATERIAL", "R$ / unidade", "Consumo\n(checklist)", "Gasto checklist\n(R$)",
+     "Consumo\n(calculadora)", "Gasto calculadora\n(R$)"],
+    listaMaterial.map(m => [m.cliente, m.material,
+      m.preco === null || m.preco === undefined ? "sem preço" : n2_(m.preco),
+      n2_(m.consumoCl), n2_(m.gastoCl), n2_(m.consumoCa), n2_(m.gastoCa)]));
+
+  ln = escreverBloco_(sh, ln, "4) MATERIAIS SEM PREÇO — enquanto houver nome aqui, o total está subestimado",
+    ["CLIENTE", "MATERIAL", "Apareceu em"],
+    g.semPreco.map(x => [x.cliente, x.material, Object.keys(x.fontes).join(" + ")]));
+
+  sh.getRange(ln, 1).setValue("TOTAL DE " + rotuloMes(hoje).toUpperCase()
+    + " — Checklist: " + brl_(totMesCl)
+    + "   |   Calculadora: " + brl_(totMesCa)
+    + "   |   Diferença: " + brl_(totMesCl - totMesCa))
+    .setFontWeight("bold").setFontSize(11);
+
+  sh.setFrozenRows(1);
+  sh.autoResizeColumns(1, 7);
+  avisar("✅ Gasto mensal gerado.\n\n"
+    + rotuloMes(hoje) + "\n"
+    + "Checklist: " + brl_(totMesCl) + "\n"
+    + "Calculadora: " + brl_(totMesCa) + "\n"
+    + (g.semPreco.length ? "⚠️ " + g.semPreco.length + " material(is) SEM PREÇO — total subestimado\n" : "")
+    + "\n📋 Aba: Gasto Mensal (R$)");
+  return { linhas: listaMaterial.length, semPreco: g.semPreco.length };
+}
+
 // ═══════════════════════════════════════════════════════════
 //  RODAR TUDO + ACIONADOR
 // ═══════════════════════════════════════════════════════════
@@ -750,6 +1308,8 @@ function executarTudo() {
   try { analisarMensal(); }        catch (e) { falhas.push("analisarMensal: " + e.message); }
   try { analisarConsumoVsDelta(); } catch (e) { falhas.push("analisarConsumoVsDelta: " + e.message); }
   try { verificarValidades(); }     catch (e) { falhas.push("verificarValidades: " + e.message); }
+  try { gerarGastoSemanal(); }      catch (e) { falhas.push("gerarGastoSemanal: " + e.message); }
+  try { gerarGastoMensal(); }       catch (e) { falhas.push("gerarGastoMensal: " + e.message); }
   avisar(falhas.length ? "⚠️ Concluído com erros:\n\n" + falhas.join("\n") : "✅ Tudo atualizado.");
 }
 // ═══════════════════════════════════════════════════════════
@@ -841,7 +1401,7 @@ function coletarLotes_() {
     const cliente = nome.replace("Checklist_", "").replace(/_/g, " ");
     const ultima = sh.getLastRow();
     if (ultima < 2) return;
-    const dados = sh.getRange(2, 1, ultima - 1, CAB_CHECKLIST.length).getValues();
+    const dados = sh.getRange(2, 1, ultima - 1, Math.min(CAB_CHECKLIST.length, sh.getMaxColumns())).getValues();
     dados.forEach(l => {
       if (norm(l[COL_TIPO]) !== "ENTRADA") return;          // só material recebido
       const validade = String(l[COL_VALIDADE] || "").trim();

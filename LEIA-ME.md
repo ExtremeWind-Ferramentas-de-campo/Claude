@@ -31,10 +31,17 @@ Site único no GitHub Pages: uma tela de entrada, um menu, quatro apps.
 │   ├── calculadora-nordex.html
 │   ├── calculadora-ge.html
 │   └── calculadora-siemens.html
-├── checklist/
+├── Checklist Almoxarifado/
 │   ├── menu.html                 submenu: Almoxarifado/Segurança e Frotas (é o que o menu abre)
 │   ├── almoxarifado-seguranca.html   Materiais + 5 checklists de inspeção (forms.app)
 │   └── index.html                Checklist de Materiais
+├── Checklist Frotas/
+│   ├── index.html                seletor dos 3 checklists de frota
+│   ├── gerador-eletrico.html     gerado pelo construtor
+│   ├── plataforma.html           gerado pelo construtor
+│   ├── veiculo.html              gerado pelo construtor
+│   ├── _costurar.js              põe guard.js + seta voltar nos 3 HTML baixados
+│   └── modelos/                  construtor-formulario_2.html + os 3 .json
 │
 ├── EW-Apps-Script-RDO/Code.gs    backend do RDO (colar no Apps Script)
 ├── EW-Sheets-Script/Code.gs      backend das calculadoras/checklist
@@ -85,7 +92,7 @@ Aparece em dois lugares, e os dois precisam ser iguais:
 
 ## Os cinco checklists de inspeção (forms.app)
 
-Ficam em `checklist/almoxarifado-seguranca.html` e são só atalhos: abrem em nova
+Ficam em `Checklist Almoxarifado/almoxarifado-seguranca.html` e são só atalhos: abrem em nova
 aba os formulários hospedados no forms.app. Não guardam nada no aparelho e não
 funcionam offline — o técnico precisa de sinal para preencher e enviar, e as
 respostas caem no painel do forms.app, não no Sheets nem no Dropbox da EW.
@@ -100,9 +107,64 @@ respostas caem no painel do forms.app, não no Sheets nem no Dropbox da EW.
 
 Para trocar um endereço, mexa só no `href` do cartão correspondente.
 
-O botão **Frotas**, em `checklist/menu.html`, está desligado de propósito: é uma
-`<div>` com a classe `breve` e o selo "Em breve". Quando os formulários de frota
-existirem, troque a `<div>` por um `<a href="...">` e tire a classe `breve`.
+## Checklist Frotas
+
+Três checklists que **não** dependem do forms.app: rodam no próprio site, geram
+o PDF no aparelho e funcionam offline depois da primeira abertura.
+
+| Checklist | Arquivo | Origem |
+|---|---|---|
+| Gerador elétrico | `Checklist Frotas/gerador-eletrico.html` | `https://checklist.forms.app/check-list-gerador-eletrico` |
+| Plataforma | `Checklist Frotas/plataforma.html` | `https://checklist.forms.app/formulario-plataforma-` |
+| Veículo (semanal) | `Checklist Frotas/veiculo.html` | `https://checklist.forms.app/formulario-de-inspecao-do-veiculo` |
+
+Os três HTML são **gerados**, não escritos à mão. Quem manda é o modelo JSON em
+`Checklist Frotas/modelos/`. Para mudar uma pergunta:
+
+1. Abra `Checklist Frotas/modelos/construtor-formulario_2.html`.
+2. **Abrir modelo** → escolha o `.json` do checklist.
+3. Edite, **Gerar formulário**, **Baixar arquivo** e substitua o HTML na pasta.
+4. Baixe também o modelo atualizado (**Salvar modelo**) por cima do `.json`.
+
+O passo 4 não é opcional: se o `.json` ficar velho, a próxima edição parte de
+uma versão anterior e desfaz o que você acabou de fazer.
+
+Depois de substituir qualquer um dos três HTML, rode `node _costurar.js` na
+pasta.
+
+**Duas costuras** são aplicadas ao que sai do construtor, e é o `_costurar.js`
+que faz isso: o `<script src="../guard.js">` (senão o link direto pula o login)
+e a seta "voltar" no cabeçalho (no PWA não existe barra de navegador). Sem a
+seta, quem entra num checklist fica preso e o menu parece não funcionar.
+
+### O que mudou em relação ao forms.app
+
+- **Matriz de seleção** virou uma pergunta de escolha única por linha — o
+  construtor não tem tabela de rádios. As opções (Conforme / Não conforme / N/A)
+  são as mesmas, e o PDF sai linha a linha.
+- **Vídeo** virou registro fotográfico sequencial. O PDF é montado no aparelho
+  pelo jsPDF e não embute vídeo.
+- **Nome completo** (Parque / Veículo) virou dois campos de texto, com os
+  mesmos rótulos que o forms.app usava.
+- **Página de boas-vindas e quebras de página** não existem: o formulário é uma
+  rolagem só. Os textos de instrução foram para o campo de ajuda logo abaixo.
+- A matriz eletromecânica do gerador tem **"Quanto ao marcador de combustível?"
+  repetido** — o erro está no formulário original. Ficou como
+  `... ? (2)` para dar para distinguir no PDF. Vale corrigir na fonte.
+
+Texto de pergunta ficou igual ao original, erros de digitação inclusive
+(`PLATAFOMRA`, `RESGISTRO`) — é o que o técnico reconhece. Opção de resposta e
+texto de ajuda com erro foram corrigidos, porque saem impressos no PDF:
+`não alicado` → `não aplicado`, `RIGIÃO` → `REGIÃO`. O `LEIA-ME.md` da pasta
+`Checklist Frotas/` lista tudo item a item.
+
+### Para onde vai o PDF
+
+Hoje: só para os downloads do aparelho. O campo **Endereço do Apps Script** está
+vazio de propósito nos três modelos. Preenchendo esse campo no construtor (e
+regerando), o formulário passa a mandar o PDF para o Dropbox e a linha para a
+planilha, como o RDO faz. As pastas de destino já estão escritas nos modelos:
+`/EW - CHECKLIST FROTAS/<EQUIPAMENTO>/<MM-AAAA>/`.
 
 ## Checklist de Materiais — unidades, fotos e PDF
 
@@ -247,14 +309,15 @@ kg, então aquele gasto só fecha quando as duas unidades baterem.
 **Os dois TOP COAT coloridos foram renomeados** no `checklist.html` em
 26/08/2026: era "TOP COAT 12 RAL 3020 RED" e "TOP COAT 12 RED 3020" (dois
 vermelhos, que era o erro), virou "TOP COAT 12 RAL 7035 (GRAY)" e
-"TOP COAT 12 RAL 7020 (RED)". Mexer nesse nome exige mexer em quatro lugares:
+"TOP COAT 12 RAL 3020 (RED)". Mexer nesse nome exige mexer em quatro lugares:
 `LISTA_NORDEX_GE`, `UNIDADE_NORDEX_GE` e `PERECIVEIS` no HTML, e `MAPA_MAT` mais
 a tabela de preço no `Code.gs`. No `MAPA_MAT` as entradas do colorido precisam
 vir ANTES do "TOP COAT 12" genérico: a busca é por substring e o genérico
 capturaria o colorido, creditando o consumo do vermelho ao cinza.
 
-Atenção: a lista mestra chama o vermelho de **RAL 3020**, não 7020. O nome no
-app seguiu o que a engenharia pediu; o `MAPA_MAT` aceita as duas grafias.
+O vermelho é **RAL 3020**, igual à lista mestra. O `MAPA_MAT` ainda aceita as
+grafias "RAL 7020" e "RED 3020" como origem, para registro antigo de calculadora
+não deixar de casar.
 
 Para acrescentar preço: mexa só nos números dos dois mapas. O nome tem de bater
 com a grafia do `checklist.html`.
