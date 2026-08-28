@@ -18,15 +18,50 @@
  * PRAZOS
  *   veiculo   — Checklist de veículos (Frotas) ....... terça
  *   materiais — Checklist de materiais (Almoxarifado)  segunda
+ *   cordas, epi, ferramentas, loto — Almoxarifado ..... segunda
  *
  * O "feito" mora no localStorage, com a data da sexta do ciclo. É por isso
  * que ele se apaga sozinho: na sexta seguinte a data guardada deixa de bater
  * com a do ciclo vigente. Não precisa de rotina de limpeza.
  *
- * ATENÇÃO: é sinal visual, não é controle. localStorage é por aparelho e por
- * navegador — o telefone do técnico não sabe que o do colega já fez. Quem tem
- * a verdade é a planilha. Isto aqui serve para lembrar quem está com o
- * aparelho na mão.
+ * ─────────────────────────────────────────────────────────────────────────
+ * EQUIPE DO DIA (backend do RDO)
+ *
+ * Quem manda é o Apps Script do RDO, que lê a coluna H da aba Relatorios (as
+ * matrículas da equipe de cada RDO) e guarda as baixas na aba
+ * Checklist_Feitos. Ele responde DUAS coisas, que não andam juntas:
+ *
+ *   "está em parque?"  vale para os SEIS cartões. Matrícula que não aparece
+ *                      na coluna H não recebe alerta nenhum.
+ *   "quem já fez?"     vale só para CINCO — materiais, veiculo, loto, cordas
+ *                      e ferramentas. Um técnico faz, some do alerta dos
+ *                      colegas de equipe.
+ *
+ * O 'epi' (Equipamentos Individuais) fica fora do compartilhamento: é o EPI
+ * de cada um. Ele alerta só para quem está na coluna H, e só sai quando o
+ * próprio técnico fizer, no aparelho dele. A etiqueta dele diz "· você".
+ *
+ * O site pergunta ao backend em `checklistStatus` e guarda a resposta em
+ * localStorage. Toda a pintura continua SÍNCRONA e a partir dessa cópia —
+ * a rede nunca segura a tela.
+ *
+ * Três estados possíveis:
+ *   sem resposta ainda  -> vale só o localStorage deste aparelho (é o
+ *                          comportamento antigo, e é o que roda offline)
+ *   ativo = false       -> a matrícula não está na coluna H: NENHUM alerta
+ *   ativo = true        -> feito = o que este aparelho marcou OU, nos cinco
+ *                          compartilhados, o que a equipe marcou
+ *
+ * Offline, na dúvida, o alerta APARECE. Checklist esquecido é pior que
+ * alerta repetido.
+ *
+ * A baixa é gravada no aparelho na hora e entra numa fila. A fila é enviada
+ * de qualquer página que consiga falar com o Apps Script — na prática a tela
+ * inicial, por onde todo mundo passa para entrar.
+ * ─────────────────────────────────────────────────────────────────────────
+ *
+ * ATENÇÃO: é sinal visual, não é controle. Quem tem a verdade é a planilha.
+ * Isto aqui serve para lembrar quem está com o aparelho na mão.
  */
 (function (global) {
   'use strict';
@@ -67,6 +102,43 @@
 
   var DIA = 86400000;
   var CHAVE = 'ew_prazo_';
+
+  /* ── conversa com o backend do RDO ────────────────────────────────────
+     Mesmo endereço do login e do Pé-de-meia. Trocou a implantação do Apps
+     Script? Troque aqui também, junto com index.html, rdo/index.html e
+     meus-dados/pe-de-meia.html. */
+  var API_RDO = 'https://script.google.com/macros/s/AKfycbxoOpV339g76UpYa7sO28C6lS99TAz7po2c0dNAk0i1X1HgsyKC_KXIuuBAS7qbBzLG/exec';
+  var CH_SESSAO = 'ew_sessao';
+  var CH_SNAP = 'ew_prazo_status';   /* cópia da última resposta do backend */
+  var CH_FILA = 'ew_prazo_fila';     /* baixas ainda não confirmadas */
+
+  /* Os que a equipe divide. O 'epi' fica de fora: a engenharia listou cinco,
+     e ele não estava na lista — segue valendo só por aparelho. */
+  var COMPARTILHADOS = ['materiais', 'veiculo', 'loto', 'cordas', 'ferramentas'];
+  function ehCompartilhado(id) { return COMPARTILHADOS.indexOf(id) >= 0; }
+
+  function lerLS(k, padrao) {
+    try {
+      var v = localStorage.getItem(k);
+      return v ? JSON.parse(v) : padrao;
+    } catch (_) { return padrao; }
+  }
+  function gravarLS(k, v) {
+    try { localStorage.setItem(k, JSON.stringify(v)); return true; }
+    catch (_) { return false; }
+  }
+  function token() {
+    var s = lerLS(CH_SESSAO, null);
+    return (s && s.token && s.exp > Date.now()) ? s.token : '';
+  }
+
+  /* Cópia do backend, só se for do ciclo vigente. De outro ciclo é lixo:
+     descrever a semana passada seria pior que não ter resposta nenhuma. */
+  function snapshot(hoje) {
+    var s = lerLS(CH_SNAP, null);
+    if (!s || s.ciclo !== iso(sextaDoCiclo(hoje))) return null;
+    return s;
+  }
 
   function soData(d) {
     var x = new Date(d || Date.now());
@@ -110,15 +182,48 @@
     var off = offsetDoLimite(cfg.limite);
     var desdeSexta = Math.round((d - sextaDoCiclo(d)) / DIA);
     var dentro = desdeSexta <= off;
-    var feito = feitoNesteCiclo(id, d);
     var faltam = off - desdeSexta;
+
+    var feito = feitoNesteCiclo(id, d);
+    var porQuem = '', foraDeParque = false;
+
+    /* O backend responde duas coisas diferentes, e elas NÃO andam juntas:
+
+       1. "está em parque?" — é da PESSOA, então vale para TODOS os cartões,
+          inclusive o 'epi'. Matrícula fora da coluna H não recebe alerta
+          nenhum.
+
+       2. "quem já fez?" — só para os cinco que a equipe divide. O 'epi' é
+          individual: nem a equipe dá baixa por você, nem o backend guarda.
+          Só sai quando o próprio técnico fizer, no aparelho dele.
+
+       Decidido pela engenharia em 28/08/2026. */
+    var snap = snapshot(d);
+    if (snap) {
+      if (!snap.ativo) {
+        /* Devolve dentroDaJanela para quem quiser saber que o prazo existe,
+           mas ativo=false garante que nada é pintado. */
+        foraDeParque = true;
+      } else if (ehCompartilhado(id) && snap.feitos && snap.feitos[id]) {
+        feito = true;
+        porQuem = snap.feitos[id].porNome || snap.feitos[id].por || '';
+      }
+    }
+
     return {
       id: id,
       rotulo: cfg.rotulo,
       nomeDoDia: cfg.nome,
       dentroDaJanela: dentro,
       feito: feito,
-      ativo: dentro && !feito,
+      foraDeParque: foraDeParque,
+      porQuem: porQuem,
+      /* Fonte da verdade que valeu, para depurar em campo sem adivinhação. */
+      individual: !ehCompartilhado(id),
+      fonte: !snap ? 'aparelho'
+           : foraDeParque ? 'fora-de-parque'
+           : ehCompartilhado(id) ? 'equipe' : 'aparelho',
+      ativo: dentro && !feito && !foraDeParque,
       faltam: faltam,
       /* off nunca é 0 (sexta não é prazo de ninguém aqui), mas a divisão fica
          protegida de qualquer forma — um prazo configurado para sexta cairia
@@ -203,8 +308,14 @@
     /* Cartão que junta vários checklists (o do menu) diz QUANTOS faltam — sem
        isso, o técnico dá baixa num e o cartão continua vermelho sem explicar
        por quê. */
-    tag.textContent = (pendentes > 1 ? pendentes + ' pendentes · ' : '') + textoDoAviso(e);
-    tag.title = e.rotulo + ' — prazo ' + e.nomeDoDia;
+    /* "· você" avisa que este é dos individuais: nem a equipe dá baixa por
+       ele, nem estar fora de parque o apaga. Sem isso, ver um cartão vermelho
+       sozinho com os outros todos apagados parece defeito da tela. */
+    tag.textContent = (pendentes > 1 ? pendentes + ' pendentes · ' : '')
+                    + textoDoAviso(e)
+                    + (e.individual && !pendentes ? ' · você' : '');
+    tag.title = e.rotulo + ' — prazo ' + e.nomeDoDia + '.'
+              + (e.individual ? ' É individual: só sai quando VOCÊ fizer.' : '');
 
     /* Só o cartão de UM checklist manual ganha o toque para dar baixa. Num
        cartão-resumo não daria para saber qual dos cinco o técnico fez. */
@@ -212,7 +323,7 @@
       tag.classList.add('tocavel');
       tag.setAttribute('role', 'button');
       tag.setAttribute('tabindex', '0');
-      tag.title = e.rotulo + ' — prazo ' + e.nomeDoDia + '. Toque para marcar como feito.';
+      tag.title += ' Toque para marcar como feito.';
       tag.insertAdjacentHTML('beforeend', ' <i class="fas fa-check" aria-hidden="true"></i>');
       var baixar = function (ev) {
         /* O cartão é um link: sem isto o toque abriria o formulário junto. */
@@ -263,28 +374,127 @@
     return achados;
   }
 
+  /**
+   * Baixa. Grava no aparelho na hora — a tela responde mesmo sem rede — e,
+   * se o checklist for dos que a equipe divide, entra na fila para o backend.
+   */
   function marcarFeito(id, hoje) {
     if (!PRAZOS[id]) return false;
+    var ok = false;
     try {
       localStorage.setItem(CHAVE + id, iso(sextaDoCiclo(hoje)));
-      aplicar(hoje);
-      return true;
-    } catch (_) { return false; }
+      ok = true;
+    } catch (_) {}
+    if (ehCompartilhado(id)) {
+      enfileirar(id, hoje);
+      descarregar();          // tenta agora; falhando, fica para a próxima página
+    }
+    aplicar(hoje);
+    return ok;
   }
 
   function limpar(id) {
     try { localStorage.removeItem(CHAVE + id); } catch (_) {}
   }
 
+  /* ── fila de baixas ────────────────────────────────────────────────────
+     Existe porque nem toda página consegue falar com o Apps Script: o CSP de
+     algumas só libera 'self'. Quem não consegue enfileira; quem consegue
+     descarrega. Na prática a tela inicial resolve, porque todo mundo passa
+     por ela para entrar. */
+  function enfileirar(id, hoje) {
+    var f = lerLS(CH_FILA, []);
+    if (!Array.isArray(f)) f = [];
+    var ciclo = iso(sextaDoCiclo(hoje));
+    var repetido = f.some(function (x) { return x.id === id && x.ciclo === ciclo; });
+    if (!repetido) f.push({ id: id, ciclo: ciclo, quando: Date.now() });
+    gravarLS(CH_FILA, f);
+  }
+
+  var enviando = false;
+  function descarregar(aoTerminar) {
+    var f = lerLS(CH_FILA, []);
+    var tk = token();
+    if (enviando || !Array.isArray(f) || !f.length || !tk || !global.fetch) {
+      if (aoTerminar) aoTerminar(false);
+      return;
+    }
+    enviando = true;
+    var item = f[0];
+    /* Baixa de ciclo passado não vale mais nada: descarta sem chamar o
+       servidor, senão a fila entope com trabalho que o backend ia recusar. */
+    if (item.ciclo !== iso(sextaDoCiclo())) {
+      gravarLS(CH_FILA, f.slice(1));
+      enviando = false;
+      return descarregar(aoTerminar);
+    }
+    postar({ acao: 'checklistFeito', token: tk, checklist: item.id }, function (r) {
+      enviando = false;
+      if (r && r.ok) {
+        gravarLS(CH_FILA, lerLS(CH_FILA, []).filter(function (x) {
+          return !(x.id === item.id && x.ciclo === item.ciclo);
+        }));
+        descarregar(aoTerminar);        // segue para o próximo
+      } else if (aoTerminar) {
+        aoTerminar(false);              // sem rede: fica na fila
+      }
+    });
+  }
+
+  function postar(corpo, cb) {
+    try {
+      global.fetch(API_RDO, { method: 'POST', body: JSON.stringify(corpo) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { cb(j); })
+        .catch(function () { cb(null); });
+    } catch (_) { cb(null); }
+  }
+
+  /**
+   * Pergunta ao backend quem é a equipe de hoje e o que já foi feito.
+   * Guarda a resposta e repinta. Falha (sem rede, CSP bloqueando) é silêncio:
+   * a tela continua com o que já tinha.
+   */
+  function sincronizar(aoTerminar) {
+    var tk = token();
+    if (!tk || !global.fetch) { if (aoTerminar) aoTerminar(false); return; }
+    postar({ acao: 'checklistStatus', token: tk }, function (r) {
+      if (!r || !r.ok) { if (aoTerminar) aoTerminar(false); return; }
+      var feitos = {};
+      (r.itens || []).forEach(function (it) {
+        if (it.feito) feitos[it.id] = { por: it.por, porNome: it.porNome, quando: it.quando };
+      });
+      gravarLS(CH_SNAP, {
+        ciclo: r.ciclo, ativo: !!r.ativo, parque: r.parque || '',
+        equipe: r.equipe || [], feitos: feitos, quando: Date.now()
+      });
+      aplicar();
+      descarregar();
+      if (aoTerminar) aoTerminar(true);
+    });
+  }
+
+  function statusLocal(hoje) {
+    return snapshot(hoje);
+  }
+
   global.EWPrazo = {
     estado: estado, aplicar: aplicar, pintar: pintar,
     marcarFeito: marcarFeito, limpar: limpar, expandir: expandir,
-    cor: cor, sextaDoCiclo: sextaDoCiclo, PRAZOS: PRAZOS, GRUPOS: GRUPOS
+    cor: cor, sextaDoCiclo: sextaDoCiclo, PRAZOS: PRAZOS, GRUPOS: GRUPOS,
+    sincronizar: sincronizar, descarregar: descarregar, status: statusLocal,
+    COMPARTILHADOS: COMPARTILHADOS
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { aplicar(); });
-  } else {
-    aplicar();
+  function iniciar() {
+    aplicar();          // pinta já, com o que houver no aparelho
+    sincronizar();      // e corrige quando o backend responder
   }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', iniciar);
+  } else {
+    iniciar();
+  }
+  /* Voltou a rede depois de dar baixa offline: manda o que ficou pendente. */
+  global.addEventListener('online', function () { sincronizar(); });
 })(window);
