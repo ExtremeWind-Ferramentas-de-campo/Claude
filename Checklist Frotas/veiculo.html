@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <script src="../guard.js"></script>
+<script src="../prazos.js" defer></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CHECK LIST DE VEÍCULOS</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -678,6 +679,7 @@ document.getElementById('btPdf').addEventListener('click', async function(){
     const endereco = URL.createObjectURL(pdfBlob);
     liga.href = endereco; liga.download = nomeLocal + '.pdf';
     document.body.appendChild(liga); liga.click(); liga.remove();
+    if(window.EWPrazo) window.EWPrazo.marcarFeito('veiculo');   // baixa o alerta de prazo do cartão
     setTimeout(function(){ URL.revokeObjectURL(endereco); }, 8000);
   }catch(e){
     console.error(e);
