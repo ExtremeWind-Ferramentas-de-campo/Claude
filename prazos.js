@@ -127,16 +127,31 @@
     try { localStorage.setItem(k, JSON.stringify(v)); return true; }
     catch (_) { return false; }
   }
-  function token() {
+  function sessao() {
     var s = lerLS(CH_SESSAO, null);
-    return (s && s.token && s.exp > Date.now()) ? s.token : '';
+    return (s && s.token && s.exp > Date.now()) ? s : null;
+  }
+  function token() {
+    var s = sessao();
+    return s ? s.token : '';
+  }
+  /* Matrícula de quem está logado AGORA, normalizada igual ao backend
+     (só dígitos, sem zero à esquerda). */
+  function matAtual() {
+    var s = sessao();
+    if (!s) return '';
+    var d = String(s.mat == null ? '' : s.mat).replace(/[^0-9]/g, '');
+    return d.replace(/^0+/, '') || d;
   }
 
-  /* Cópia do backend, só se for do ciclo vigente. De outro ciclo é lixo:
-     descrever a semana passada seria pior que não ter resposta nenhuma. */
+  /* Cópia do backend. Só vale se for do ciclo vigente E da MESMA matrícula.
+     O aparelho é compartilhado: sem a checagem da matrícula, a resposta de
+     quem logou antes continuava valendo para quem logou depois — e o colega
+     herdava a equipe, o parque e as baixas de outra pessoa. */
   function snapshot(hoje) {
     var s = lerLS(CH_SNAP, null);
     if (!s || s.ciclo !== iso(sextaDoCiclo(hoje))) return null;
+    if (String(s.mat || '') !== matAtual()) return null;
     return s;
   }
 
@@ -163,9 +178,21 @@
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
 
+  /* A marca guarda "ciclo|matricula". A matrícula entrou em 28/08/2026: o
+     aparelho é compartilhado, e sem ela a baixa de um técnico apagava o
+     alerta do próximo que logasse no mesmo celular — justamente no 'epi',
+     que é individual e não tem o backend para corrigir.
+
+     Marca antiga (só o ciclo, sem "|") continua valendo até a sexta virar,
+     para ninguém perder baixa já dada na troca de versão. */
   function feitoNesteCiclo(id, hoje) {
     try {
-      return localStorage.getItem(CHAVE + id) === iso(sextaDoCiclo(hoje));
+      var v = localStorage.getItem(CHAVE + id);
+      if (!v) return false;
+      var p = String(v).split('|');
+      if (p[0] !== iso(sextaDoCiclo(hoje))) return false;
+      if (p.length < 2) return true;                 // formato antigo
+      return p[1] === matAtual();
     } catch (_) { return false; }   // navegador com storage bloqueado: só não marca
   }
 
@@ -382,7 +409,7 @@
     if (!PRAZOS[id]) return false;
     var ok = false;
     try {
-      localStorage.setItem(CHAVE + id, iso(sextaDoCiclo(hoje)));
+      localStorage.setItem(CHAVE + id, iso(sextaDoCiclo(hoje)) + '|' + matAtual());
       ok = true;
     } catch (_) {}
     if (ehCompartilhado(id)) {
@@ -465,6 +492,9 @@
         if (it.feito) feitos[it.id] = { por: it.por, porNome: it.porNome, quando: it.quando };
       });
       gravarLS(CH_SNAP, {
+        /* mat vem do backend, que a tirou do token — é a matrícula de quem
+           realmente está logado, não a que o aparelho diz estar. */
+        mat: String(r.mat || matAtual()),
         ciclo: r.ciclo, ativo: !!r.ativo, parque: r.parque || '',
         equipe: r.equipe || [], feitos: feitos, quando: Date.now()
       });
