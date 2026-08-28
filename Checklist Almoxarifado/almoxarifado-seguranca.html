@@ -133,6 +133,7 @@
   }
 </style>
 <script src="../guard.js"></script>
+<script src="../prazos.js" defer></script>
 </head>
 <body>
 
@@ -202,10 +203,10 @@
 
   <section class="picker">
     <h2>Qual checklist você vai preencher?</h2>
-    <p class="hint">Os cinco checklists de inspeção abrem em nova aba e precisam de internet.</p>
+    <p class="hint">Todos vencem na <b>segunda</b>. Os quatro de inspeção abrem em nova aba, precisam de internet e você dá baixa tocando na etiqueta vermelha.</p>
     <div class="cards">
 
-      <a class="opt-card" href="index.html" style="--c:#c26a12">
+      <a class="opt-card" href="index.html" style="--c:#c26a12" data-ew-prazo="materiais">
         <span class="ico"><i class="fas fa-boxes-stacked"></i></span>
         <span class="txt">
           <span class="opt-title">Materiais</span>
@@ -215,7 +216,7 @@
       </a>
 
       <a class="opt-card" href="https://099hu7e7.forms.app/checklistquipamentosindividuais-1"
-         target="_blank" rel="noopener noreferrer" style="--c:#b3261e">
+         target="_blank" rel="noopener noreferrer" style="--c:#b3261e" data-ew-prazo="cordas">
         <span class="ico"><i class="fas fa-link"></i></span>
         <span class="txt">
           <span class="opt-title">Acesso por Cordas</span>
@@ -225,7 +226,7 @@
       </a>
 
       <a class="opt-card" href="https://099hu7e7.forms.app/checklistquipamentosindividuais"
-         target="_blank" rel="noopener noreferrer" style="--c:#1d7a4b">
+         target="_blank" rel="noopener noreferrer" style="--c:#1d7a4b" data-ew-prazo="epi">
         <span class="ico"><i class="fas fa-user-shield"></i></span>
         <span class="txt">
           <span class="opt-title">Equipamentos Individuais</span>
@@ -235,7 +236,7 @@
       </a>
 
       <a class="opt-card" href="https://checklist.forms.app/formulario-de-ferramentas"
-         target="_blank" rel="noopener noreferrer" style="--c:#8a6d1f">
+         target="_blank" rel="noopener noreferrer" style="--c:#8a6d1f" data-ew-prazo="ferramentas">
         <span class="ico"><i class="fas fa-screwdriver-wrench"></i></span>
         <span class="txt">
           <span class="opt-title">Ferramentas Gerais</span>
@@ -244,18 +245,14 @@
         <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-up-right-from-square"></i></span>
       </a>
 
-      <a class="opt-card" href="https://checklist.forms.app/formulario-plataforma-"
-         target="_blank" rel="noopener noreferrer" style="--c:#0f5c8c">
-        <span class="ico"><i class="fas fa-layer-group"></i></span>
-        <span class="txt">
-          <span class="opt-title">Plataforma</span>
-          <span class="opt-desc">Conferência da plataforma de trabalho</span>
-        </span>
-        <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-up-right-from-square"></i></span>
-      </a>
+      <!-- O checklist de Plataforma saiu daqui em 27/08/2026: ele deixou de ser
+           atalho para o forms.app e virou página do próprio site, em
+           ../Checklist Frotas/plataforma.html. Deixar os dois no ar geraria
+           duas versões da mesma conferência, cada uma com um destino
+           diferente para a resposta. -->
 
       <a class="opt-card" href="https://checklist.forms.app/formulario-de-ferramentas-1"
-         target="_blank" rel="noopener noreferrer" style="--c:#5b5f66">
+         target="_blank" rel="noopener noreferrer" style="--c:#5b5f66" data-ew-prazo="loto">
         <span class="ico"><i class="fas fa-lock"></i></span>
         <span class="txt">
           <span class="opt-title">Kit LOTO</span>

@@ -122,6 +122,12 @@
     -webkit-tap-highlight-color:transparent;transition:background .15s,border-color .15s,color .15s}
   .modo-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
   #modo-entrada.on{background:#1f6feb;border-color:#1f6feb}
+  /* Modo desligado: continua na tela, apagado, para o técnico saber que a
+     função existe e está desativada — e não achar que sumiu do app. */
+  .modo-tab[disabled]{opacity:.45;cursor:not-allowed;filter:saturate(.3)}
+  .modo-tab[disabled]:hover{background:transparent;border-color:var(--line)}
+  .modo-tab .selo-off{font-size:.62rem;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+    border:1px solid currentColor;border-radius:999px;padding:1px 6px;opacity:.85}
   .modo-hint{font-size:.78rem;color:var(--muted);margin-top:7px;text-align:center;line-height:1.35}
   /* Em modo ENTRADA a lista ganha um contorno azul, para não confundir com contagem */
   .items.entrada .item.filled{border-color:#1f6feb;background:color-mix(in srgb,#1f6feb 8%,var(--card))}
@@ -186,6 +192,29 @@
     color:var(--muted);font-size:.95rem;padding:4px 6px}
   .item .foto .fdel.on{display:inline-block}
 
+  /* ── Materiais fora da lista ── */
+  .extras{border:1px solid var(--line);border-radius:13px;padding:11px 12px;margin-bottom:10px;background:var(--card)}
+  .extras-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .extras-tit{font-size:.86rem;font-weight:700;flex:1;min-width:190px}
+  .simnao{display:flex;gap:6px;flex:0 0 auto}
+  .simnao .sn{border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;
+    border-radius:999px;padding:5px 15px;font-size:.8rem;font-weight:700;font-family:inherit}
+  .simnao .sn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .extras-corpo{display:none;margin-top:11px}
+  .extras.aberto .extras-corpo{display:block}
+  .extras-hint{font-size:.76rem;color:var(--muted);margin:0 0 9px;line-height:1.45}
+  .extra-linha{display:grid;grid-template-columns:1fr 92px 74px 34px;gap:7px;margin-bottom:7px;align-items:center}
+  .extra-linha input,.extra-linha select{width:100%;border:1px solid var(--line);border-radius:9px;
+    padding:8px 9px;background:var(--bg);color:var(--ink);font-family:inherit;font-size:.84rem}
+  .extra-linha input.falta{border-color:var(--amber)}
+  .extra-linha .xdel{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:.9rem;padding:6px}
+  .extra-linha .xdel:hover{color:#d1495b}
+  .extras-add{width:100%;margin-top:2px}
+  @media(max-width:560px){
+    .extra-linha{grid-template-columns:1fr 74px 66px 30px;gap:5px}
+    .extra-linha input,.extra-linha select{padding:7px;font-size:.8rem}
+  }
+
   /* O que ainda falta para liberar o envio */
   .pend{font-size:.78rem;line-height:1.5;color:var(--muted);border-radius:11px;padding:10px 12px;margin-bottom:10px;
     background:color-mix(in srgb,var(--amber) 12%,transparent);
@@ -242,6 +271,7 @@
   }
 </style>
 <script src="../guard.js"></script>
+<script src="../prazos.js" defer></script>
 </head>
 <body>
 
@@ -319,8 +349,11 @@
         <button type="button" class="modo-tab on" id="modo-estoque" onclick="setModo('estoque')">
           <i class="fas fa-boxes-stacked"></i> Contagem de estoque
         </button>
+        <!-- O estado desabilitado é posto pelo JS, a partir de ENTRADA_ATIVA:
+             deixar aqui no HTML criaria uma segunda fonte da verdade e daria
+             para religar num lugar e esquecer do outro. -->
         <button type="button" class="modo-tab" id="modo-entrada" onclick="setModo('entrada')">
-          <i class="fas fa-truck-ramp-box"></i> Entrada de material
+          <i class="fas fa-truck-ramp-box"></i> <span>Entrada de material</span>
         </button>
       </div>
       <p class="modo-hint" id="modo-hint">Informe <b>quanto ainda resta</b> de cada material no parque.</p>
@@ -332,6 +365,27 @@
       <span class="count-pill" id="count">0 itens</span>
     </div>
     <div class="items" id="lista"></div>
+
+    <!-- Materiais fora da lista: o parque recebe coisa que a lista mestra não
+         prevê, e antes isso simplesmente não era contado. Fica FORA do filtro
+         de busca de propósito — some da tela se entrasse no #lista. -->
+    <div class="extras" id="extras">
+      <div class="extras-top">
+        <span class="extras-tit">Há material em campo que não está na lista?</span>
+        <div class="simnao">
+          <button type="button" class="sn" id="extras-nao" onclick="setExtras(false)">Não</button>
+          <button type="button" class="sn" id="extras-sim" onclick="setExtras(true)">Sim</button>
+        </div>
+      </div>
+      <div class="extras-corpo" id="extras-corpo">
+        <p class="extras-hint">Um por linha. Escreva o nome como está no rótulo —
+          é assim que ele vai aparecer na planilha.</p>
+        <div id="extras-linhas"></div>
+        <button type="button" class="btn btn-ghost extras-add" onclick="addExtra()">
+          <i class="fas fa-plus"></i> Adicionar material
+        </button>
+      </div>
+    </div>
 
     <div class="pend" id="pend"></div>
     <div class="btnrow">
@@ -367,20 +421,40 @@ document.getElementById('year').textContent = new Date().getFullYear();
   });
 })();
 
-/* ══ LISTAS DE MATERIAIS POR CLIENTE ══ */
-/* Nordex e GE compartilham a mesma lista; Siemens tem a sua. */
-const LISTA_NORDEX_GE = [
-  'TRIAX 1200','TECIDO BIAX 830','TECIDO BIAX 750','TECIDO BIAX 450','TECIDO UD 1000','TECIDO UD 661',
-  'TECIDO BIZERO 750','CSM 300','NYLON','BALSA CORE 15/20MM','BALSA CORE 50','ESPUMA 20MM',
+/* ══ LISTAS DE MATERIAIS POR CLIENTE ══
+   Até 27/08/2026 Nordex e GE dividiam UMA lista só. A revisão da engenharia
+   dessa data separou as duas: a GE passou a ter balsa 32/45MM, a espuma com o
+   nome correto de catálogo e as resinas alternativas de balanceamento, que a
+   Nordex não usa. São três listas independentes agora — mexer numa não mexe
+   nas outras. */
+const LISTA_NORDEX = [
+  'TRIAX 1200','TECIDO BIAX 830','TECIDO BIAX 450','TECIDO UD 1000','TECIDO UD 661',
+  'TECIDO BIZERO 750','CSM 300','NYLON','BALSA CORE 15/20MM','ESPUMA 20MM',
   'ESPUMA FLEXÍVEL DE PVC H60 GS 20MM','ESPUMA FLEXÍVEL PET FOAM 50MM',
   'FILME PARA VÁCUO — FLEXNYL-WM / V-SHEET (75MY X2)','PLÁSTICO PERFURADO AZUL',
   'MANGUEIRA DE VÁCUO — VACUUMKLEER 090-16','REGISTRO DE ESFERA PLÁSTICO','CONEXÃO INFUSÃO T PLÁSTICA',
-  'TUBO ESPIRAL','BAMBAM — MAP TAPE 12N (3MM × 12MM × 15M)','RESINA LR-135','ENDURECEDOR LH-135',
+  'TUBO ESPIRAL','BAMBAM — MAP TAPE 12N (3MM × 12MM × 15M)','ENDURECEDOR LH-637',
   'RESINA SIKABIRESIN CH910','ENDURECEDOR SIKABIRESIN CH910','ADESIVO EPOXY 135G3','EPOXY ENDURECEDOR 137GF',
   'RESINA LR 635','ENDURECEDOR LH 635','ENDURECEDOR PUTTY PROFILE FILLER 3','BASE PUTTY PROFILE FILLER 3',
   'TOP COAT 12 — ALEXIT / Mankiewicz — 12 kg','HARDENER 12 — ALEXIT / Mankiewicz — 3 kg',
-  'THINNER — Mankiewicz — 1 kg','TYVEK 60%','LOCTITE','LIXA OSCILANTE 80','LIXA ANGULAR 36',
-  'LIXA OSCILANTE 120','COMBI','MACACÃO 100%','FITA CREPE LARGA','ÓLEO BOMBA DE VÁCUO',
+  'THINNER — Mankiewicz — 1 kg','TYVEK','LOCTITE-243','LIXA OSCILANTE 80','LIXA ANGULAR 36',
+  'LIXA OSCILANTE 120','COMBI 900','FITA CREPE LARGA','ÓLEO BOMBA DE VÁCUO',
+  'TOP COAT 12 RAL 7035 (GRAY)','TOP COAT 12 RAL 3020 (RED)','ROLO DE LÃ','ROLO DE PINTURA'
+];
+const LISTA_GE = [
+  'TRIAX 1200','TECIDO BIAX 830','TECIDO BIAX 450','TECIDO UD 1000','TECIDO UD 661',
+  'TECIDO BIZERO 750','CSM 300','NYLON','BALSA CORE 15/20MM','BALSA CORE 32MM','BALSA CORE 45MM',
+  'ESPUMA DE PVC S/ GROOVING 20MM',
+  'ESPUMA FLEXÍVEL DE PVC H60 GS 20MM','ESPUMA FLEXÍVEL PET FOAM 50MM',
+  'FILME PARA VÁCUO — FLEXNYL-WM / V-SHEET (75MY X2)','PLÁSTICO PERFURADO AZUL',
+  'MANGUEIRA DE VÁCUO — VACUUMKLEER 090-16','REGISTRO DE ESFERA PLÁSTICO','CONEXÃO INFUSÃO T PLÁSTICA',
+  'TUBO ESPIRAL','BAMBAM — MAP TAPE 12N (3MM × 12MM × 15M)','ENDURECEDOR LH-637',
+  'RESINA SIKABIRESIN CH910','ENDURECEDOR SIKABIRESIN CH910','ADESIVO EPOXY 135G3','EPOXY ENDURECEDOR 137GF',
+  'RESINA LR 635','ENDURECEDOR LH 635','ENDURECEDOR PUTTY PROFILE FILLER 3','BASE PUTTY PROFILE FILLER 3',
+  'RESINA ALTERNATIVA DE BALANCEAMENTO EPÓXI','ENDURECEDOR ALTERNATIVO DE BALANCEAMENTO EPÓXI',
+  'TOP COAT 12 — ALEXIT / Mankiewicz — 12 kg','HARDENER 12 — ALEXIT / Mankiewicz — 3 kg',
+  'THINNER — Mankiewicz — 1 kg','TYVEK','LOCTITE-243','LIXA OSCILANTE 80','LIXA ANGULAR 36',
+  'LIXA OSCILANTE 120','COMBI 900','FITA CREPE LARGA','ÓLEO BOMBA DE VÁCUO',
   'TOP COAT 12 RAL 7035 (GRAY)','TOP COAT 12 RAL 3020 (RED)','ROLO DE LÃ','ROLO DE PINTURA'
 ];
 const LISTA_SIEMENS = [
@@ -391,16 +465,16 @@ const LISTA_SIEMENS = [
   'BAMBAM — MAP TAPE 12N (3MM × 12MM × 15M)','FITA CREPE','TRINCHA / PINCEL',
   'LIXA OSCILANTE 40','LIXA OSCILANTE 80','LIXA OSCILANTE 120','LIXA OSCILANTE 180','LIXA OSCILANTE 220',
   'LIXA ANGULAR 36','RESINA AROPOL 70452','ENDURECEDOR BUTANOX M-50',
-  'CYTEC — SCOTER TINTA GAMESA + ENDURECEDOR','PARAFINA','CSM 300','ESPUMA FLEXÍVEL BRANCA 50MM',
+  'PARAFINA','CSM 300','ESPUMA FLEXÍVEL BRANCA 50MM',
   'RESINA ALTERNATIVA DE BALANCEAMENTO EPÓXI','ENDURECEDOR ALTERNATIVO DE BALANCEAMENTO EPÓXI',
   'TOP COAT 12 — ALEXIT / Mankiewicz — 12 kg','HARDENER 12 — ALEXIT / Mankiewicz — 3 kg',
   'THINNER — Mankiewicz — 1 kg','BASE PUTTY PROFILE FILLER 3','ENDURECEDOR PUTTY PROFILE FILLER 3',
   'TYVEK','WPT2 W8751 CLEAR — FITA 3M (254MM × 33M)',
-  'BASE MASSA — CRYSTIC X401','ENDURECEDOR MASSA — MEKP',
-  'BASE GEL COAT — CRYSTIC RAL 7035','ENDURECEDOR GEL COAT — MEKP',
-  'BASE ADESIVO — SIKAFORCE-818 L07','ENDURECEDOR ADESIVO — SIKAFORCE-050'
+  'MASSA FILLER POLYESTER','MASSA GT60',
+  'BASE GEL COAT — CRYSTIC RAL 7035',
+  'ADESIVO — SIKAFORCE 818-L07'
 ];
-const LISTAS = { nordex:LISTA_NORDEX_GE, ge:LISTA_NORDEX_GE, siemens:LISTA_SIEMENS };
+const LISTAS = { nordex:LISTA_NORDEX, ge:LISTA_GE, siemens:LISTA_SIEMENS };
 
 /* ══ MATERIAIS PERECÍVEIS (pedem LOTE e VALIDADE na entrada) ══
    Critério: é tudo o que as calculadoras consomem — resina, endurecedor,
@@ -415,17 +489,16 @@ const LISTAS = { nordex:LISTA_NORDEX_GE, ge:LISTA_NORDEX_GE, siemens:LISTA_SIEME
    calculadoras, acrescente aqui também. */
 const PERECIVEIS = new Set([
   /* Nordex / GE Vernova — epóxi */
-  'RESINA LR-135','ENDURECEDOR LH-135',
+  'ENDURECEDOR LH-637',
   'RESINA SIKABIRESIN CH910','ENDURECEDOR SIKABIRESIN CH910',
   'ADESIVO EPOXY 135G3','EPOXY ENDURECEDOR 137GF',
   'RESINA LR 635','ENDURECEDOR LH 635',
   /* Siemens Gamesa — poliéster */
   'RESINA AROPOL 70452','ENDURECEDOR BUTANOX M-50','PARAFINA',
   'RESINA ALTERNATIVA DE BALANCEAMENTO EPÓXI','ENDURECEDOR ALTERNATIVO DE BALANCEAMENTO EPÓXI',
-  'BASE MASSA — CRYSTIC X401','ENDURECEDOR MASSA — MEKP',
-  'BASE GEL COAT — CRYSTIC RAL 7035','ENDURECEDOR GEL COAT — MEKP',
-  'BASE ADESIVO — SIKAFORCE-818 L07','ENDURECEDOR ADESIVO — SIKAFORCE-050',
-  'CYTEC — SCOTER TINTA GAMESA + ENDURECEDOR',
+  'MASSA FILLER POLYESTER','MASSA GT60',
+  'BASE GEL COAT — CRYSTIC RAL 7035',
+  'ADESIVO — SIKAFORCE 818-L07',
   /* Comuns aos três — massa de perfil e pintura */
   'BASE PUTTY PROFILE FILLER 3','ENDURECEDOR PUTTY PROFILE FILLER 3',
   'TOP COAT 12 — ALEXIT / Mankiewicz — 12 kg','HARDENER 12 — ALEXIT / Mankiewicz — 3 kg',
@@ -468,10 +541,13 @@ const NOME_CLI = { nordex:'Nordex', ge:'GE Vernova', siemens:'Siemens Gamesa' };
    Os seis itens marcados "fora da planilha" não existem em nenhuma das duas
    abas (massa, gel coat e adesivo Siemens, e a fita 3M) — a unidade ali é
    suposição nossa. Quando entrarem na planilha, confira. */
+/* Uma tabela só para Nordex e GE: os itens que as duas dividem têm a MESMA
+   unidade, e os exclusivos de cada uma (balsa 32/45MM, resinas alternativas)
+   simplesmente não aparecem na lista da outra. Manter uma tabela evita que a
+   unidade de um item comum saia diferente entre os dois clientes. */
 const UNIDADE_NORDEX_GE = {
   "TRIAX 1200": "kg",
   "TECIDO BIAX 830": "kg",
-  "TECIDO BIAX 750": "kg",
   "TECIDO BIAX 450": "kg",
   "TECIDO UD 1000": "kg",
   "TECIDO UD 661": "kg",
@@ -479,8 +555,10 @@ const UNIDADE_NORDEX_GE = {
   "CSM 300": "kg",
   "NYLON": "m²",
   "BALSA CORE 15/20MM": "m²",
-  "BALSA CORE 50": "m²",
+  "BALSA CORE 32MM": "m²",   /* só GE — 726 BALSA 32MM, placa (PL) na planilha */
+  "BALSA CORE 45MM": "m²",   /* só GE — 363 BALSA CORE 45MM */
   "ESPUMA 20MM": "m²",
+  "ESPUMA DE PVC S/ GROOVING 20MM": "m²",   /* só GE — 202, nome de catálogo */
   "ESPUMA FLEXÍVEL DE PVC H60 GS 20MM": "m²",
   "ESPUMA FLEXÍVEL PET FOAM 50MM": "m²",
   "FILME PARA VÁCUO — FLEXNYL-WM / V-SHEET (75MY X2)": "m",
@@ -490,8 +568,9 @@ const UNIDADE_NORDEX_GE = {
   "CONEXÃO INFUSÃO T PLÁSTICA": "un",
   "TUBO ESPIRAL": "m",
   "BAMBAM — MAP TAPE 12N (3MM × 12MM × 15M)": "un",
-  "RESINA LR-135": "kg",
-  "ENDURECEDOR LH-135": "kg",
+  "ENDURECEDOR LH-637": "kg",   /* 708 ENDURECEDOR LH637 */
+  "RESINA ALTERNATIVA DE BALANCEAMENTO EPÓXI": "kg",      /* só GE — 720 */
+  "ENDURECEDOR ALTERNATIVO DE BALANCEAMENTO EPÓXI": "kg", /* só GE — 721 */
   "RESINA SIKABIRESIN CH910": "kg",
   "ENDURECEDOR SIKABIRESIN CH910": "kg",
   "ADESIVO EPOXY 135G3": "kg",
@@ -503,14 +582,13 @@ const UNIDADE_NORDEX_GE = {
   "TOP COAT 12 — ALEXIT / Mankiewicz — 12 kg": "kg",
   "HARDENER 12 — ALEXIT / Mankiewicz — 3 kg": "kg",
   "THINNER — Mankiewicz — 1 kg": "kg",
-  "TYVEK 60%": "un",
-  "LOCTITE": "un",
+  "TYVEK": "un",
+  "LOCTITE-243": "un",
   "LIXA OSCILANTE 80": "un",
   "LIXA ANGULAR 36": "un",
   "LIXA OSCILANTE 120": "un",
-  "COMBI": "kg",
-  "MACACÃO 100%": "un",   /* consumível — a planilha diz KG/QUÍMICOS, é erro dela */
-  "FITA CREPE LARGA": "un",   /* idem; na aba PADRÃO a "FITA CREPE" já é UN */
+  "COMBI 900": "kg",
+  "FITA CREPE LARGA": "un",   /* a planilha diz KG/QUÍMICOS, é erro dela; na aba PADRÃO a "FITA CREPE" já é UN */
   "ÓLEO BOMBA DE VÁCUO": "L",
   "TOP COAT 12 RAL 7035 (GRAY)": "kg",
   "TOP COAT 12 RAL 3020 (RED)": "kg",
@@ -544,7 +622,6 @@ const UNIDADE_SIEMENS = {
   "LIXA ANGULAR 36": "un",
   "RESINA AROPOL 70452": "kg",
   "ENDURECEDOR BUTANOX M-50": "kg",
-  "CYTEC — SCOTER TINTA GAMESA + ENDURECEDOR": "kg",
   "PARAFINA": "kg",
   "CSM 300": "kg",
   "ESPUMA FLEXÍVEL BRANCA 50MM": "un",
@@ -556,13 +633,11 @@ const UNIDADE_SIEMENS = {
   "BASE PUTTY PROFILE FILLER 3": "kg",
   "ENDURECEDOR PUTTY PROFILE FILLER 3": "kg",
   "TYVEK": "un",
-  "WPT2 W8751 CLEAR — FITA 3M (254MM × 33M)": "un",   /* fora da planilha */
-  "BASE MASSA — CRYSTIC X401": "kg",   /* fora da planilha */
-  "ENDURECEDOR MASSA — MEKP": "kg",   /* fora da planilha */
-  "BASE GEL COAT — CRYSTIC RAL 7035": "kg",   /* fora da planilha */
-  "ENDURECEDOR GEL COAT — MEKP": "kg",   /* fora da planilha */
-  "BASE ADESIVO — SIKAFORCE-818 L07": "kg",   /* fora da planilha */
-  "ENDURECEDOR ADESIVO — SIKAFORCE-050": "kg",   /* fora da planilha */
+  "WPT2 W8751 CLEAR — FITA 3M (254MM × 33M)": "un",   /* 539 — a planilha diz RL (rolo) */
+  "MASSA FILLER POLYESTER": "kg",   /* 733 MASSA FILLER POLIESTER (FL 122ORG IBX) */
+  "MASSA GT60": "kg",   /* fora da planilha — confirmar quando entrar */
+  "BASE GEL COAT — CRYSTIC RAL 7035": "kg",   /* 339 */
+  "ADESIVO — SIKAFORCE 818-L07": "un",   /* 338 — a planilha conta CARTUCHO (UND), não kg */
 };
 const UNIDADES_POR_CLI = { nordex:UNIDADE_NORDEX_GE, ge:UNIDADE_NORDEX_GE, siemens:UNIDADE_SIEMENS };
 function unidadeDe(nome){ return (UNIDADES_POR_CLI[clienteAtual] || {})[nome] || 'un'; }
@@ -584,7 +659,42 @@ const MODO_TXT = {
   entrada: { hint:'Informe <b>quanto foi RECEBIDO</b> no parque nesta semana (reabastecimento).', rotulo:'Qtd recebida' }
 };
 
+/* ══ ENTRADA DE MATERIAL — DESLIGADA ══
+   Desativada a pedido da engenharia em 27/08/2026. Continua inteira no
+   código (o modo, as chaves de armazenamento, a exigência de lote e validade
+   na entrada, e o tratamento de ENTRADA na planilha) — só não dá para chegar
+   nela pela tela.
+
+   PARA RELIGAR: troque para true. Nada mais precisa mudar.
+
+   O que fica de fora enquanto estiver false: a aba "Entrada de material", e
+   com ela o desconto de reabastecimento no cálculo de consumo da análise
+   semanal. Contagem de estoque não é afetada. O que já foi enviado como
+   ENTRADA continua na planilha e continua sendo usado pelas análises. */
+const ENTRADA_ATIVA = false;
+
+/* Pinta a aba de entrada conforme a flag. Chamada uma vez no arranque. */
+function aplicarEstadoEntrada(){
+  const bt = document.getElementById('modo-entrada');
+  if(!bt) return;
+  const rot = bt.querySelector('span');
+  if(ENTRADA_ATIVA){
+    bt.removeAttribute('disabled');
+    bt.removeAttribute('title');
+    if(rot) rot.textContent = 'Entrada de material';
+    return;
+  }
+  bt.setAttribute('disabled','disabled');
+  bt.setAttribute('title','Registro de entrada de material temporariamente desativado');
+  if(rot) rot.innerHTML = 'Entrada de material <span class="selo-off">off</span>';
+}
+
 function setModo(m){
+  /* Pedido de 'entrada' com a função desligada cai em 'estoque' em vez de
+     ser ignorado: quem tinha o app aberto no modo entrada (ou com ele salvo
+     no aparelho da semana passada) precisa cair numa tela que funciona, e
+     não ficar preso numa aba que não responde. */
+  if(m === 'entrada' && !ENTRADA_ATIVA) m = 'estoque';
   modoAtual = (m === 'entrada') ? 'entrada' : 'estoque';
   document.getElementById('modo-estoque').classList.toggle('on', modoAtual==='estoque');
   document.getElementById('modo-entrada').classList.toggle('on', modoAtual==='entrada');
@@ -665,7 +775,115 @@ function renderLista(){
     if(f && f.d) it.querySelector('.foto img').src = f.d;
   });
   aplicarFiltro();
+  renderExtras();
   atualizarAcoes();
+}
+
+/* ══ MATERIAIS FORA DA LISTA ══
+   Guardado por cliente E por modo, igual às quantidades: o que entrou de
+   material recebido não é a mesma coisa que o que sobrou no estoque, e
+   misturar os dois estragaria a análise semanal.
+
+   Formato: { on: true|false, itens: [{nome, qtd, un}] }. Item sem nome ou sem
+   quantidade não sai daqui — a validação do envio barra. */
+const extraKey = (c, modo) => (( modo || modoAtual) === 'entrada' ? 'ew_checklist_xent_' : 'ew_checklist_xest_') + c;
+const UNIDADES_EXTRA = ['un','kg','m','m²','L'];
+
+function extrasLer(){
+  const o = safeParse(extraKey(clienteAtual));
+  return { on: !!o.on, itens: Array.isArray(o.itens) ? o.itens : [] };
+}
+function extrasSalvar(o){
+  try{ localStorage.setItem(extraKey(clienteAtual), JSON.stringify(o)); }
+  catch(e){ toast('Memória do aparelho cheia','error'); }
+}
+
+function setExtras(ligado){
+  const o = extrasLer();
+  o.on = !!ligado;
+  /* Ligou e não tem nenhuma linha ainda: já abre uma, senão o técnico clica
+     em "Sim" e fica olhando para um bloco vazio. */
+  if(o.on && !o.itens.length) o.itens = [{nome:'', qtd:'', un:'un'}];
+  extrasSalvar(o);
+  renderExtras();
+  atualizarAcoes();
+}
+function addExtra(){
+  const o = extrasLer();
+  o.itens.push({nome:'', qtd:'', un:'un'});
+  extrasSalvar(o);
+  renderExtras();
+  const campos = document.querySelectorAll('#extras-linhas .extra-linha input[data-k="nome"]');
+  if(campos.length) campos[campos.length-1].focus();
+}
+function delExtra(i){
+  const o = extrasLer();
+  o.itens.splice(i,1);
+  if(!o.itens.length) o.itens = [{nome:'', qtd:'', un:'un'}];
+  extrasSalvar(o);
+  renderExtras();
+  atualizarAcoes();
+}
+function onExtra(el){
+  const linha = el.closest('.extra-linha');
+  const i = Number(linha.dataset.i);
+  const o = extrasLer();
+  if(!o.itens[i]) return;
+  o.itens[i][el.dataset.k] = el.value;
+  extrasSalvar(o);
+  /* Repinta só o campo em falta, sem re-render: re-render aqui tiraria o foco
+     do técnico no meio da digitação. */
+  linha.querySelectorAll('input[data-k]').forEach(inp=>{
+    const preenchido = String(inp.value).trim() !== '';
+    const irmao = linha.querySelector('input[data-k="'+(inp.dataset.k==='nome'?'qtd':'nome')+'"]');
+    const irmaoTem = String(irmao.value).trim() !== '';
+    inp.classList.toggle('falta', !preenchido && irmaoTem);
+  });
+  atualizarAcoes();
+}
+
+function renderExtras(){
+  const o = extrasLer();
+  const cx = document.getElementById('extras');
+  if(!cx) return;
+  cx.classList.toggle('aberto', o.on);
+  document.getElementById('extras-sim').classList.toggle('on', o.on);
+  document.getElementById('extras-nao').classList.toggle('on', !o.on);
+  document.getElementById('extras-linhas').innerHTML = o.itens.map((it,i)=>{
+    const nome = it.nome==null?'':esc(it.nome), qtd = it.qtd==null?'':esc(it.qtd);
+    const un = it.un || 'un';
+    const temNome = String(it.nome||'').trim()!=='', temQtd = String(it.qtd==null?'':it.qtd).trim()!=='';
+    return `<div class="extra-linha" data-i="${i}">
+      <input type="text" data-k="nome" placeholder="Material" value="${nome}"
+        class="${!temNome&&temQtd?'falta':''}" oninput="onExtra(this)">
+      <input type="number" data-k="qtd" inputmode="decimal" min="0" step="any" placeholder="Qtd" value="${qtd}"
+        class="${!temQtd&&temNome?'falta':''}" oninput="onExtra(this)">
+      <select data-k="un" onchange="onExtra(this)">
+        ${UNIDADES_EXTRA.map(u=>`<option value="${u}"${u===un?' selected':''}>${u}</option>`).join('')}
+      </select>
+      <button type="button" class="xdel" title="Remover linha" onclick="delExtra(${i})">
+        <i class="fas fa-trash-can"></i></button>
+    </div>`;
+  }).join('');
+}
+
+/* Linhas válidas — é o que vai para a planilha e para o PDF. */
+function extrasValidos(){
+  const o = extrasLer();
+  if(!o.on) return [];
+  return o.itens
+    .filter(it=> String(it.nome||'').trim()!=='' && String(it.qtd==null?'':it.qtd).trim()!=='')
+    .map(it=>({ nome: String(it.nome).trim(), qtd: it.qtd, un: it.un || 'un' }));
+}
+/* Linhas pela metade: só nome ou só quantidade. Travam o envio, porque nome
+   sem número não conta nada e número sem nome não dá para lançar. */
+function extrasIncompletos(){
+  const o = extrasLer();
+  if(!o.on) return 0;
+  return o.itens.filter(it=>{
+    const n = String(it.nome||'').trim()!=='', q = String(it.qtd==null?'':it.qtd).trim()!=='';
+    return (n && !q) || (!n && q);
+  }).length;
 }
 
 function itemDe(el){ return el.closest('.item'); }
@@ -832,8 +1050,9 @@ function pendencias(){
   const semFoto = lista.filter(n=>ehQuimico(n) && temQtd(n) && Number(store[n].qtd)>0
                                   && !(fotos[n] && fotos[n].d));
   const semLote = modoAtual==='entrada' ? pendenciasLote() : [];
-  return {cab, semQtd, semFoto, semLote,
-          ok: !cab.length && !semQtd.length && !semFoto.length && !semLote.length,
+  const extraMeio = extrasIncompletos();
+  return {cab, semQtd, semFoto, semLote, extraMeio,
+          ok: !cab.length && !semQtd.length && !semFoto.length && !semLote.length && !extraMeio,
           total: lista.length, feitos: lista.length - semQtd.length};
 }
 
@@ -845,8 +1064,10 @@ function atualizarAcoes(){
   if(!cx || !bE || !bC) return;
   bE.disabled = !p.ok; bC.disabled = !p.ok;
   if(p.ok){
+    const ex = extrasValidos().length;
     cx.className = 'pend ok';
-    cx.innerHTML = '<b>Lista completa</b> — '+p.total+' itens contados. '
+    cx.innerHTML = '<b>Lista completa</b> — '+p.total+' itens contados'
+      + (ex ? ' + <b>'+ex+'</b> fora da lista' : '') + '. '
       + 'Já pode enviar para a planilha e compartilhar o PDF.';
     return;
   }
@@ -857,6 +1078,7 @@ function atualizarAcoes(){
     + (p.semQtd.length ? ' — faltam '+p.semQtd.length+' (zero também conta)' : ''));
   if(p.semFoto.length) partes.push('<b>'+p.semFoto.length+'</b> químico(s) sem foto: '+resumoNomes(p.semFoto));
   if(p.semLote.length) partes.push('<b>'+p.semLote.length+'</b> sem lote/validade: '+resumoNomes(p.semLote));
+  if(p.extraMeio) partes.push('<b>'+p.extraMeio+'</b> material(is) fora da lista pela metade — falta o nome ou a quantidade');
   cx.innerHTML = partes.join('<br>');
 }
 function resumoNomes(arr){
@@ -929,11 +1151,18 @@ function setv(id,v){ document.getElementById(id).value=v; }
    Serve à planilha E ao PDF: uma lista só, para as duas não divergirem. */
 function coletados(){
   const store = safeParse(qtdKey(clienteAtual));
-  return LISTAS[clienteAtual]
+  const daLista = LISTAS[clienteAtual]
     .filter(n=>store[n] && String(store[n].qtd==null?'':store[n].qtd).trim()!=='')
     .map(n=>({nome:n, qtd:store[n].qtd, un:unidadeDe(n),
               quimico:ehQuimico(n), perecivel:ehPerecivel(n),
-              lote:(store[n].lote||''), validade:(store[n].validade||'')}));
+              lote:(store[n].lote||''), validade:(store[n].validade||''), fora:false}));
+  /* Os de fora da lista vão no fim, marcados. Não são químicos nem perecíveis
+     para o app: sem estar na lista mestra não dá para afirmar que pedem foto
+     ou lote, e inventar essa exigência travaria o envio por adivinhação. */
+  const foraDaLista = extrasValidos()
+    .map(x=>({nome:x.nome, qtd:x.qtd, un:x.un,
+              quimico:false, perecivel:false, lote:'', validade:'', fora:true}));
+  return daLista.concat(foraDaLista);
 }
 /* AAAA-MM -> MM/AAAA, para texto e CSV */
 function validadeBR(v){
@@ -1309,9 +1538,19 @@ function enviarPlanilha(){
        na contagem de estoque vão vazios e a planilha ignora */
     itens: itens.map(i=>({material:i.nome, qtd:Number(i.qtd)||0, unidade:i.un,
       lote: modoAtual==='entrada' ? (i.lote||'') : '',
-      validade: modoAtual==='entrada' ? (i.validade||'') : ''}))
+      validade: modoAtual==='entrada' ? (i.validade||'') : '',
+      /* Material digitado em campo, fora da lista mestra. A planilha grava
+         igual aos outros; como não tem preço cadastrado, ele cai sozinho no
+         bloco "MATERIAIS SEM PREÇO" do relatório de gasto — que é o lugar
+         certo para alguém decidir se vira item de lista ou não. */
+      fora: !!i.fora}))
   };
   const fila = filaSyncAll(); fila.push(envio); filaSyncSave(fila);
+  /* Baixa o alerta de prazo aqui, na hora de enfileirar — e não quando a
+     planilha confirma. O técnico terminou o trabalho dele; a entrega é
+     problema do app, que reenvia sozinho. Cobrar o cartão vermelho por falta
+     de sinal seria cobrar a pessoa errada. */
+  if(window.EWPrazo) window.EWPrazo.marcarFeito('materiais');
   atualizarStatusSync();
   tentarSincronizarPlanilha();
   toast(modoAtual==='entrada' ? 'Entrada de material na fila de envio' : 'Contagem de estoque na fila de envio','success');
@@ -1344,6 +1583,7 @@ window.addEventListener('online', tentarSincronizarPlanilha);
 /* ══ INIT ══ */
 carregarEstado();
 clienteAtual = localStorage.getItem('ew_checklist_cli') || 'nordex';
+aplicarEstadoEntrada();
 setModo(localStorage.getItem('ew_checklist_modo') || 'estoque');  // já chama renderLista()
 selecionarCliente(clienteAtual);
 atualizarStatusSync();
