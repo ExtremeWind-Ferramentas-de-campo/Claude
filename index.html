@@ -84,6 +84,16 @@
   .picker{width:100%;background:var(--panel);border:1px solid var(--panel-border);border-radius:24px;
     padding:24px 20px 26px;box-shadow:var(--shadow);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
   .picker h2{font-size:1.1rem;font-weight:700;margin-bottom:20px}
+  /* duas telas depois do login: o hub e o menu das ferramentas */
+  #telaHub,#telaFerramentas{display:none}
+  body[data-tela="hub"] #telaHub{display:block}
+  body[data-tela="ferramentas"] #telaFerramentas{display:block}
+  .picker-topo{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+  .picker-topo h2{margin:0;flex:1;text-align:center}
+  .btn-voltar{width:38px;height:38px;flex-shrink:0;border-radius:12px;cursor:pointer;
+    border:1px solid var(--card-line);background:var(--card);color:var(--ink);font-size:.95rem}
+  .btn-voltar:hover{filter:brightness(1.06)}
+  .picker-topo .espaco{width:38px;flex-shrink:0}
   .apps{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
   .app-card{background:var(--card);border:1px solid var(--card-line);border-top:5px solid var(--c);
     border-radius:20px;padding:26px 18px 20px;text-decoration:none;color:var(--ink);
@@ -149,6 +159,7 @@
   .btn-sair:hover{filter:brightness(1.08)}
   @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}
 </style>
+<script src="prazos.js" defer></script>
 </head>
 <body class="deslogado">
 
@@ -216,7 +227,7 @@
   </div>
 
   <div>
-    <h1>Ferramentas de Campo</h1>
+    <h1 id="tituloTela">Início</h1>
     <p class="subtitle">Extreme Wind Blade Services</p>
   </div>
 
@@ -225,8 +236,36 @@
     <button type="button" class="btn-sair" id="btnSair">Sair</button>
   </div>
 
-  <section class="picker">
-    <h2>O que você quer usar?</h2>
+  <section class="picker" id="telaHub">
+    <h2>O que você quer fazer?</h2>
+    <div class="apps">
+      <a class="app-card" href="#ferramentas" style="--c:#1f6feb">
+        <span class="ico"><i class="fas fa-toolbox"></i></span>
+        <span class="txt">
+          <span class="app-title">Ferramentas de Campo</span>
+          <span class="app-desc">RDO, Fotocard, Calculadora e Checklist</span>
+        </span>
+        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
+      </a>
+      <a class="app-card" href="meus-dados/index.html" style="--c:#0e7c7b">
+        <span class="ico"><i class="fas fa-user-shield"></i></span>
+        <span class="txt">
+          <span class="app-title">Meus Dados</span>
+          <span class="app-desc">Consultas pessoais do seu cadastro</span>
+        </span>
+        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
+      </a>
+    </div>
+  </section>
+
+  <section class="picker" id="telaFerramentas">
+    <div class="picker-topo">
+      <button type="button" class="btn-voltar" id="btnVoltarHub" title="Voltar" aria-label="Voltar">
+        <i class="fas fa-arrow-left"></i>
+      </button>
+      <h2>O que você quer usar?</h2>
+      <span class="espaco" aria-hidden="true"></span>
+    </div>
     <div class="apps">
       <a class="app-card" href="rdo/index.html" style="--c:#6a4bb8">
         <span class="ico"><i class="fas fa-file-lines"></i></span>
@@ -252,7 +291,7 @@
         </span>
         <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
       </a>
-      <a class="app-card" href="Checklist%20Almoxarifado/menu.html" style="--c:#c26a12">
+      <a class="app-card" href="Checklist%20Almoxarifado/menu.html" style="--c:#c26a12" data-ew-prazo="almoxarifado,frotas">
         <span class="ico"><i class="fas fa-list-check"></i></span>
         <span class="txt">
           <span class="app-title">Checklist</span>
@@ -331,10 +370,35 @@ function lerSessao(){
   }catch(_){ return null; }
 }
 
+/* ---- as duas telas de depois do login ----
+   Quem manda é o #hash, então o botão "voltar" do celular funciona sozinho e
+   os apps conseguem apontar direto pro menu de ferramentas com
+   ../index.html#ferramentas — senão o técnico voltaria pro hub e teria que
+   dar dois toques toda vez. */
+const TITULOS = {hub:'Início', ferramentas:'Ferramentas de Campo'};
+
+function telaAtual(){
+  return location.hash.replace('#','') === 'ferramentas' ? 'ferramentas' : 'hub';
+}
+function pintarTela(){
+  const t = telaAtual();
+  document.body.setAttribute('data-tela', t);
+  document.getElementById('tituloTela').textContent = TITULOS[t];
+  window.scrollTo(0,0);
+}
+window.addEventListener('hashchange', pintarTela);
+/* replaceState em vez de history.back(): quem chegou aqui pelo ../index.html#ferramentas
+   de dentro de um app voltaria PRO APP, não pro hub. E não empilha histórico. */
+document.getElementById('btnVoltarHub').addEventListener('click', ()=>{
+  try{ history.replaceState(null, '', location.pathname + location.search); }
+  catch(_){ location.hash = ''; }
+  pintarTela();
+});
+
 function abrirMenu(s){
   document.body.classList.remove('deslogado');
   document.getElementById('sessaoNome').textContent = s.nome + ' · mat. ' + s.mat;
-  window.scrollTo(0,0);
+  pintarTela();
 }
 
 document.getElementById('btnSair').addEventListener('click', ()=>{

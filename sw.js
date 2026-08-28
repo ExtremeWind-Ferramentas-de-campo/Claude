@@ -17,12 +17,13 @@
    IMPORTANTE: ao atualizar arquivos do app, incremente o número do CACHE
    abaixo — é o que descarta o cache antigo e força a atualização.
    ───────────────────────────────────────────────────────────── */
-const CACHE = 'ew-site-v28';
+const CACHE = 'ew-site-v33';
 
 const CORE = [
   './',
   'index.html',                              // menu + tela de entrada
   'guard.js',                                // porteiro de sessão
+  'prazos.js',                               // sinal de prazo semanal nos cartões
   'manifest.json',
   'logo-ew.png',
   'logo-oem.png',
@@ -41,7 +42,9 @@ const CORE = [
   'calculadora/calculadora-siemens.html',
   'Checklist Almoxarifado/menu.html',                   // submenu: Almoxarifado/Segurança e Frotas
   'Checklist Almoxarifado/almoxarifado-seguranca.html', // materiais + 5 checklists de inspeção
-  'Checklist Almoxarifado/index.html'
+  'Checklist Almoxarifado/index.html',
+  'meus-dados/index.html',                   // hub pessoal (fica antes das ferramentas)
+  'meus-dados/pe-de-meia.html'               // a tela abre offline; a consulta em si exige rede
 ];
 /* Frotas fica fora do CORE de propósito: addAll é tudo-ou-nada, e um 404 aqui
    (pasta ainda não publicada, nome com espaço mal servido) derrubaria o cache
