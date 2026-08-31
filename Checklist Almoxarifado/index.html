@@ -151,8 +151,14 @@
     background:var(--card);border:1px solid var(--card-line);transition:border-color .15s;flex-wrap:wrap}
   .item.filled{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--card))}
   .item .name{flex:1;font-size:.86rem;font-weight:600;line-height:1.25}
-  .item .num{width:74px;flex-shrink:0}
-  .item .num input{padding:8px 8px;text-align:center;font-weight:700}
+  /* Mais largo do que era: com três casas decimais um valor real de m²
+     ("20445,000" — é o estoque de plástico perfurado da lista mestra) não
+     cabia nos 74px e ficava cortado no meio. */
+  .item .num{width:96px;flex-shrink:0}
+  .item .num input{padding:8px 4px;text-align:center;font-weight:700}
+  /* O campo com máscara é sempre mais comprido que o de peça inteira, então só
+     ele aperta a fonte — o de 'un' segue no tamanho de antes. */
+  .item .num input[inputmode="numeric"]{font-size:.82rem;letter-spacing:-.2px}
   .item .unit{width:78px;flex-shrink:0}
   .item .unit select{padding:8px 6px;font-size:.82rem}
   .hidden{display:none!important}
@@ -257,7 +263,9 @@
     .oem-tab img{height:44px;max-height:44px}
     .idgrid{grid-template-columns:1fr}
     .btnrow{grid-template-columns:1fr}
-    .item .num{width:66px} .item .unit{width:70px}
+    /* .unit virou .unit-fix quando a unidade deixou de ser um select; a regra
+       antiga não casava com nada. */
+    .item .num{width:88px} .item .unit-fix{width:44px}
   }
 
   /* Impressão */
@@ -512,6 +520,88 @@ function ehPerecivel(nome){ return PERECIVEIS.has(nome); }
    conjuntos aqui em vez de duplicar nomes. */
 function ehQuimico(nome){ return PERECIVEIS.has(nome); }
 
+/* ══ QUANTIDADE DIGITADA DA DIREITA PARA A ESQUERDA ══
+   Material medido (kg, L, m, m²) é digitado como em balança e maquininha: o
+   número entra pela direita e empurra as casas. 2750 vira 0,002 → 0,027 →
+   0,275 → 2,750. É o jeito que a equipe já conhece de outro equipamento, e
+   acaba com o erro de esquecer a vírgula — digitar "275" num campo comum
+   virava 275 kg em vez de 0,275 kg.
+
+   Unidade 'un' NÃO entra nisso: peça é peça, ninguém conta 0,003 abraçadeira,
+   e forçar três casas ali só atrapalharia.
+
+   O que fica GRAVADO é sempre o número canônico com ponto ("2.750"), que é o
+   que a planilha e o PDF consomem. A vírgula existe só na tela. */
+const QTD_CASAS = 3;
+const QTD_MAX_DIG = 9;          // teto de 999.999,999 — acima disso é erro de digitação
+function ehUnidadeInteira(un){ return String(un || 'un') === 'un'; }
+
+/* só os dígitos, sem zero à esquerda inútil: '0,0275' -> '275' */
+function qtdDigitos(txt){
+  const d = String(txt == null ? '' : txt).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+  return d.length > QTD_MAX_DIG ? d.slice(0, QTD_MAX_DIG) : d;
+}
+/* '2750' -> '2,750' (vazio continua vazio, para não confundir com zero contado) */
+function qtdTexto(dig){
+  const d = qtdDigitos(dig);
+  if(d === '') return '';
+  const p = d.padStart(QTD_CASAS + 1, '0');
+  return p.slice(0, p.length - QTD_CASAS) + ',' + p.slice(-QTD_CASAS);
+}
+/* '2750' -> '2.750' — é isto que vai para o localStorage e para a planilha */
+function qtdNumero(dig){
+  const d = qtdDigitos(dig);
+  return d === '' ? '' : (Number(d) / Math.pow(10, QTD_CASAS)).toFixed(QTD_CASAS);
+}
+/* '2.75' (ou 2.75) -> '2750', para redesenhar o campo a partir do que está salvo.
+   Arredonda de propósito: 0,001 não é exato em binário e sem o round viria 0. */
+function qtdParaDigitos(v){
+  const t = String(v == null ? '' : v).trim().replace(',', '.');
+  if(t === '') return '';
+  const n = Number(t);
+  if(!isFinite(n) || n < 0) return '';
+  return String(Math.round(n * Math.pow(10, QTD_CASAS)));
+}
+/* Reescreve o campo já formatado e devolve o número canônico.
+
+   O campo guarda o buffer de dígitos em data-dig, e NÃO é relido da tela em
+   toda tecla. Motivo: reler a tela não distingue apagar de digitar. "0,000"
+   tem quatro dígitos na tela e um no buffer; sem o buffer, o backspace virava
+   um empate de tamanhos e o campo ficava preso em 0,000 — o técnico não
+   conseguia deixar o item em branco de novo, e um item "descontado" seguia
+   contando como preenchido.
+
+   Um caractere a menos = backspace, e tira exatamente um dígito do buffer.
+   Diferença maior = o técnico selecionou tudo e reescreveu, então vale o que
+   está na tela.
+
+   O cursor volta para o fim porque o dígito sempre entra pela direita: deixá-lo
+   onde o dedo tocou faria o próximo dígito cair no meio do número. */
+/* Como a quantidade aparece para gente ler: vírgula, igual à tela do app.
+   O valor GRAVADO segue com ponto — é o que a planilha soma. Sem isto o
+   técnico via "0,125" no campo e "0.125" no PDF que ele manda no grupo, e
+   quem lê no grupo pode entender 125. */
+function qtdMostrar(v){
+  const t = String(v == null ? '' : v).trim();
+  return t === '' ? '' : t.replace('.', ',');
+}
+
+function aplicarMascaraQtd(input){
+  const antes = input.dataset.dig || '';
+  const naTela = qtdTexto(antes).replace(/\D/g, '');   // como o buffer estava desenhado
+  const agora = String(input.value).replace(/\D/g, '');
+  let dig;
+  if(naTela.length - agora.length === 1){
+    dig = antes.length > 1 ? antes.slice(0, -1) : '';   // apagou um dígito
+  } else {
+    dig = qtdDigitos(agora);                            // digitou, colou ou reescreveu
+  }
+  input.dataset.dig = dig;
+  input.value = qtdTexto(dig);
+  try{ const fim = input.value.length; input.setSelectionRange(fim, fim); }catch(e){}
+  return qtdNumero(dig);
+}
+
 /* Situação da validade: 'vencido', 'proximo' ou 'ok'.
    A validade vem como AAAA-MM (input month) e vale até o ÚLTIMO dia do mês.
    DIAS_ALERTA é o MESMO limite usado pela planilha (DIAS_ALERTA no Code.gs):
@@ -759,8 +849,15 @@ function renderLista(){
        "não tem nenhum" é resposta, e é o que libera o envio. */
     return `<div class="item${q!==''?' filled':''}" data-nome="${esc(nome)}" data-i="${idx}" data-per="${per?1:0}" data-quim="${quim?1:0}">
       <span class="name">${esc(nome)}</span>
-      <div class="num"><input type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${q}"
-        oninput="onQtd(this)"></div>
+      <div class="num">${ehUnidadeInteira(un)
+        ? `<input type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${q}"
+             oninput="onQtd(this)">`
+        /* type=text porque o campo mostra vírgula, e type=number recusaria o
+           valor e devolveria string vazia. inputmode=numeric traz o teclado
+           só de dígitos, que é tudo o que a máscara aceita. */
+        : `<input type="text" inputmode="numeric" placeholder="0,000"
+             value="${qtdTexto(qtdParaDigitos(q))}" data-dig="${qtdDigitos(qtdParaDigitos(q))}"
+             oninput="onQtd(this)">`}</div>
       <div class="unit-fix" title="Unidade da planilha">${esc(un)}</div>
       ${blocoLote}
       ${blocoFoto}
@@ -828,8 +925,15 @@ function onExtra(el){
   const i = Number(linha.dataset.i);
   const o = extrasLer();
   if(!o.itens[i]) return;
-  o.itens[i][el.dataset.k] = el.value;
+  const unLinha = (el.dataset.k === 'un') ? el.value : (o.itens[i].un || 'un');
+  o.itens[i][el.dataset.k] = (el.dataset.k === 'qtd' && !ehUnidadeInteira(unLinha))
+    ? aplicarMascaraQtd(el)
+    : el.value;
   extrasSalvar(o);
+  /* Trocar a unidade troca o TIPO do campo de quantidade (un é livre, o resto
+     é máscara), e isso o repinte parcial abaixo não sabe fazer. Aqui não há
+     digitação em curso para atrapalhar: quem mexeu foi o select. */
+  if(el.dataset.k === 'un'){ renderExtras(); atualizarAcoes(); return; }
   /* Repinta só o campo em falta, sem re-render: re-render aqui tiraria o foco
      do técnico no meio da digitação. */
   linha.querySelectorAll('input[data-k]').forEach(inp=>{
@@ -855,8 +959,12 @@ function renderExtras(){
     return `<div class="extra-linha" data-i="${i}">
       <input type="text" data-k="nome" placeholder="Material" value="${nome}"
         class="${!temNome&&temQtd?'falta':''}" oninput="onExtra(this)">
-      <input type="number" data-k="qtd" inputmode="decimal" min="0" step="any" placeholder="Qtd" value="${qtd}"
-        class="${!temQtd&&temNome?'falta':''}" oninput="onExtra(this)">
+      ${ehUnidadeInteira(un)
+        ? `<input type="number" data-k="qtd" inputmode="decimal" min="0" step="any" placeholder="Qtd" value="${qtd}"
+             class="${!temQtd&&temNome?'falta':''}" oninput="onExtra(this)">`
+        : `<input type="text" data-k="qtd" inputmode="numeric" placeholder="0,000"
+             value="${qtdTexto(qtdParaDigitos(qtd))}" data-dig="${qtdDigitos(qtdParaDigitos(qtd))}"
+             class="${!temQtd&&temNome?'falta':''}" oninput="onExtra(this)">`}
       <select data-k="un" onchange="onExtra(this)">
         ${UNIDADES_EXTRA.map(u=>`<option value="${u}"${u===un?' selected':''}>${u}</option>`).join('')}
       </select>
@@ -890,8 +998,8 @@ function guardar(store){ localStorage.setItem(qtdKey(clienteAtual), JSON.stringi
 
 function onQtd(input){
   const it = itemDe(input); const nome = it.dataset.nome;
-  const val = input.value.trim();
   const un = unidadeDe(nome);
+  const val = ehUnidadeInteira(un) ? input.value.trim() : aplicarMascaraQtd(input);
   const store = safeParse(qtdKey(clienteAtual));
   if(val===''){
     /* Apagar a quantidade NÃO joga fora lote e validade já digitados — quem
@@ -1188,7 +1296,7 @@ function resumoTexto(){
   const itens = coletados();
   let txt = cabecalhoTexto() + '\n\nMATERIAIS:\n';
   txt += itens.map(i=>{
-    let l = `• ${i.nome}: ${i.qtd} ${i.un}`;
+    let l = `• ${i.nome}: ${qtdMostrar(i.qtd)} ${i.un}`;
     if(i.perecivel && modoAtual==='entrada'){
       const st = statusValidade(i.validade);
       l += `\n    Lote: ${i.lote||'—'} · Validade: ${validadeBR(i.validade)||'—'}`;
@@ -1404,7 +1512,7 @@ function gerarPDF(){
   itens.forEach(i=>{
     if(precisa(16)) cabecalhoTabela();
     txt(cortar(i.nome, 9, larguraNome), MARG, 9);
-    txt(String(i.qtd), cQtd, 9, true);
+    txt(qtdMostrar(i.qtd), cQtd, 9, true);
     txt(i.un, cUn, 9, false, true);
     if(ent){
       txt(i.perecivel ? (i.lote||'—') : '', cLot, 8.5);
@@ -1450,7 +1558,7 @@ function gerarPDF(){
         pg.ops.push('0 0 0 rg BT /F1 7.5 Tf 1 0 0 1 '+n2(x)+' '+n2(yTexto)+' Tm ('
           + pdfTxt(cortar(c.i.nome, 7.5, CEL)) + ') Tj ET');
         pg.ops.push('0.36 0.42 0.5 rg BT /F1 7 Tf 1 0 0 1 '+n2(x)+' '+n2(yTexto-9)+' Tm ('
-          + pdfTxt(c.i.qtd+' '+c.i.un + (ent && c.i.lote ? '  ·  lote '+c.i.lote : '')) + ') Tj ET');
+          + pdfTxt(qtdMostrar(c.i.qtd)+' '+c.i.un + (ent && c.i.lote ? '  ·  lote '+c.i.lote : '')) + ') Tj ET');
       });
       y -= hLinha;
     }
