@@ -389,8 +389,7 @@
 
     <div class="pend" id="pend"></div>
     <div class="btnrow">
-      <button class="btn btn-primary" id="b-enviar" onclick="enviarPlanilha()"><i class="fas fa-cloud-arrow-up"></i> Enviar para a planilha</button>
-      <button class="btn btn-ghost" id="b-compartilhar" onclick="compartilhar()"><i class="fas fa-file-pdf"></i> Compartilhar (PDF)</button>
+      <button class="btn btn-primary" id="b-compartilhar" onclick="compartilhar()"><i class="fas fa-file-pdf"></i> Compartilhar (PDF)</button>
       <button class="btn btn-danger full" onclick="limpar()"><i class="fas fa-eraser"></i> Limpar QTDs</button>
     </div>
     <div id="sync-status" style="text-align:center;font-size:.78rem;color:var(--muted);margin-top:8px"></div>
@@ -1059,16 +1058,17 @@ function pendencias(){
 function atualizarAcoes(){
   const p = pendencias();
   const cx = document.getElementById('pend');
-  const bE = document.getElementById('b-enviar');
   const bC = document.getElementById('b-compartilhar');
-  if(!cx || !bE || !bC) return;
-  bE.disabled = !p.ok; bC.disabled = !p.ok;
+  if(!cx || !bC) return;
+  /* Enquanto o envio está em curso quem trava o botão é o compartilhar(); essa
+     trava não é a de pendência e não pode ser destravada aqui. */
+  if(!bC.dataset.ocupado) bC.disabled = !p.ok;
   if(p.ok){
     const ex = extrasValidos().length;
     cx.className = 'pend ok';
     cx.innerHTML = '<b>Lista completa</b> — '+p.total+' itens contados'
       + (ex ? ' + <b>'+ex+'</b> fora da lista' : '') + '. '
-      + 'Já pode enviar para a planilha e compartilhar o PDF.';
+      + 'O botão abaixo faz as duas coisas: envia para a planilha e gera o PDF.';
     return;
   }
   cx.className = 'pend';
@@ -1218,17 +1218,56 @@ function baixarBlob(blob, nome){
 /* Compartilhar = gerar o PDF e entregá-lo ao WhatsApp. Só é liberado com a
    lista completa (ver pendencias()). Onde o navegador não sabe compartilhar
    arquivo, o PDF é baixado para o técnico anexar à mão. */
+/* UM BOTÃO, DUAS COISAS: registra na planilha e compartilha o PDF.
+   Nessa ordem de propósito — a planilha é o registro que a engenharia precisa,
+   o PDF é a cópia para o grupo. Se o envio for recusado (cabeçalho incompleto,
+   perecível sem lote), o PDF NÃO sai: entregar só o PDF daria ao técnico a
+   impressão de que o trabalho ficou registrado quando não ficou.
+
+   O envio não espera a rede: entra na fila do localStorage e sobe sozinho
+   quando houver sinal. Offline o fluxo é o mesmo — fila + PDF. */
 function compartilhar(){
+  const bC = document.getElementById('b-compartilhar');
+  if(bC && bC.dataset.ocupado) return;            // trava contra toque duplo
+
   const p = pendencias();
   if(!p.ok){
     atualizarAcoes();
-    toast('Complete a lista antes de compartilhar','error');
+    toast('Complete a lista antes de enviar','error');
     document.getElementById('pend').scrollIntoView({block:'center'});
     return;
   }
+
+  /* A liberação é ATRASADA de propósito. No caminho em que o navegador não sabe
+     compartilhar arquivo, envio + PDF é todo síncrono e o botão voltaria a
+     aceitar clique no mesmo instante: dois toques em campo mandariam a contagem
+     duas vezes. A planilha aguenta (o upsert sobrescreve a mesma linha), mas o
+     técnico levaria dois PDFs sem entender por quê. Os 2,5 s também servem de
+     sinal visual de "já foi". */
+  function ocupar(v){
+    if(!bC) return;
+    if(v){ bC.dataset.ocupado = '1'; bC.disabled = true; }
+    else setTimeout(()=>{ delete bC.dataset.ocupado; atualizarAcoes(); }, 2500);
+  }
+
+  ocupar(true);
+
+  /* 1) planilha */
+  let enviou = false;
+  try{ enviou = enviarPlanilha(); }
+  catch(e){ toast('Falha ao registrar na planilha: '+e.message,'error'); }
+  if(!enviou){ ocupar(false); return; }
+
+  /* 2) PDF */
   let blob;
   try{ blob = gerarPDF(); }
-  catch(e){ toast('Falha ao gerar o PDF: '+e.message,'error'); return; }
+  catch(e){
+    /* A planilha já recebeu, e isso não se desfaz. O técnico precisa saber que
+       o registro está feito mesmo tendo falhado o PDF. */
+    toast('Registrado na planilha, mas o PDF falhou: '+e.message,'error');
+    ocupar(false);
+    return;
+  }
 
   const nome = nomeArquivo('pdf');
   const texto = resumoTexto();
@@ -1237,16 +1276,22 @@ function compartilhar(){
 
   if(arq && navigator.canShare && navigator.canShare({files:[arq]}) && navigator.share){
     navigator.share({files:[arq], title:'Checklist de Materiais — EW', text:texto})
-      .then(()=>toast('PDF compartilhado','success'))
+      .then(()=>toast('Enviado para a planilha e compartilhado','success'))
       .catch(e=>{
-        if(e.name==='AbortError') return;
-        baixarBlob(blob, nome);
-        toast('PDF salvo no aparelho — anexe no WhatsApp','success');
-      });
+        if(e.name !== 'AbortError'){
+          baixarBlob(blob, nome);
+          toast('Enviado para a planilha · PDF salvo no aparelho','success');
+        } else {
+          /* Desistiu de compartilhar, mas a planilha já recebeu. */
+          toast('Enviado para a planilha','success');
+        }
+      })
+      .then(()=>ocupar(false));
     return;
   }
   baixarBlob(blob, nome);
-  toast('PDF salvo no aparelho — anexe no WhatsApp','success');
+  toast('Enviado para a planilha · PDF salvo no aparelho','success');
+  ocupar(false);
 }
 function copiar(txt){
   if(navigator.clipboard){ navigator.clipboard.writeText(txt).then(()=>toast('Copiado para a área de transferência','success')).catch(()=>fallbackCopy(txt)); }
@@ -1489,7 +1534,7 @@ function safeParseArr(k){ try{ const v=JSON.parse(localStorage.getItem(k)||'[]')
 
 function enviarPlanilha(){
   const itens = coletados();
-  if(!itens.length){ toast('Preencha ao menos uma QTD antes de enviar','error'); return; }
+  if(!itens.length){ toast('Preencha ao menos uma QTD antes de enviar','error'); return false; }
   const id = safeParseObj(IDKEY);
   /* Cabeçalho completo é OBRIGATÓRIO. O Parque vira a aba da planilha (sem ele
      o registro fica órfão e a análise semanal nem consegue criar a aba), e
@@ -1504,7 +1549,7 @@ function enviarPlanilha(){
     campo.style.borderColor='#d1495b'; campo.focus();
     campo.scrollIntoView({block:'center'});
     setTimeout(()=>{campo.style.borderColor='';},2500);
-    return;
+    return false;
   }
   /* Entrada de perecível SEM lote/validade não sai daqui.
      ATENÇÃO ao mexer nisto: antes era só um aviso, porque em campo acontece
@@ -1524,7 +1569,7 @@ function enviarPlanilha(){
       document.getElementById('soPreenchidos').checked = true;
       aplicarFiltro();
       toast('Falta lote/validade em '+faltando.length+' item(ns)','error');
-      return;
+      return false;
     }
   }
 
@@ -1553,7 +1598,9 @@ function enviarPlanilha(){
   if(window.EWPrazo) window.EWPrazo.marcarFeito('materiais');
   atualizarStatusSync();
   tentarSincronizarPlanilha();
-  toast(modoAtual==='entrada' ? 'Entrada de material na fila de envio' : 'Contagem de estoque na fila de envio','success');
+  /* Quem avisa o técnico é o compartilhar(), com uma mensagem só no fim —
+     duas notificações seguidas para um clique único viram ruído. */
+  return true;
 }
 
 let sincronizandoPlanilha=false;
