@@ -110,6 +110,16 @@ function doPost(e) {
     /* --- login --- */
     if (dados.acao === 'login') return resposta(login(dados));
 
+    /* --- consulta do Pé-de-meia: valida o token lá dentro --- */
+    if (dados.acao === 'peDeMeia') return resposta(peDeMeia(dados));
+
+    /* --- Meus Dados: Pé de meia, Cursos e Dívidas (valida o token lá dentro) --- */
+    if (dados.acao === 'consultaPessoal') return resposta(consultaPessoal(dados));
+
+    /* --- checklist semanal da equipe: valida o token lá dentro --- */
+    if (dados.acao === 'checklistStatus') return resposta(checklistStatus(dados));
+    if (dados.acao === 'checklistFeito') return resposta(checklistFeito(dados));
+
     /* --- envio de RDO: exige sessão válida --- */
     var sess = validarToken(dados.token);
     if (!sess.ok) {
@@ -174,6 +184,38 @@ function doGet(e) {
     try { rl = login({ mat: p.mat, cpf: p.cpf, hash: p.hash }); }
     catch (e1) { rl = { ok: false, erro: String(e1) }; }
     return saida(rl, p.callback);
+  }
+
+  /* plano B do Pé-de-meia (mesmo motivo do login: POST barrado pelo navegador) */
+  /* plano B do Meus Dados (mesmo motivo do login: POST barrado pelo navegador) */
+  if (p.acao === 'consultaPessoal') {
+    var rc;
+    try { rc = consultaPessoal({ token: p.token, tipo: p.tipo }); }
+    catch (e3) { rc = { ok: false, erro: String(e3) }; }
+    return saida(rc, p.callback);
+  }
+
+  if (p.acao === 'peDeMeia') {
+    var rp;
+    try { rp = peDeMeia({ token: p.token }); }
+    catch (e2) { rp = { ok: false, erro: String(e2) }; }
+    return saida(rp, p.callback);
+  }
+
+  /* plano B do checklist da equipe. O token vai na URL, igual ao login e ao
+     Pé-de-meia — é o caminho que funciona nos aparelhos onde o navegador não
+     deixa ler a resposta do POST. */
+  if (p.acao === 'checklistStatus') {
+    var rc;
+    try { rc = checklistStatus({ token: p.token }); }
+    catch (e3) { rc = { ok: false, erro: String(e3) }; }
+    return saida(rc, p.callback);
+  }
+  if (p.acao === 'checklistFeito') {
+    var rf;
+    try { rf = checklistFeito({ token: p.token, checklist: p.checklist }); }
+    catch (e4) { rf = { ok: false, erro: String(e4) }; }
+    return saida(rf, p.callback);
   }
 
   if (p.lista === 'tecnicos') {
@@ -1459,4 +1501,768 @@ function criarCabecalhos() {
   fun.clear();
   fun.appendRow(cabecalhoFuncionarios());
   fun.setFrozenRows(1);
+}
+
+/* ===================== CONSULTAS PESSOAIS (Meus Dados) =====================
+ * Três abas da MESMA planilha, mesma mecânica:
+ *
+ *   Pé de meia  → busca por CPF,       1 linha por pessoa
+ *   Cursos      → busca por MATRÍCULA, N linhas por pessoa (um curso cada)
+ *   Dívidas     → busca por MATRÍCULA, N linhas por pessoa (um motivo cada)
+ *
+ * Quem faz a ligação é sempre o backend: o token é assinado e carrega a
+ * matrícula; a matrícula acha o técnico na mini master; daí sai o CPF (para o
+ * Pé de meia) ou a própria matrícula (para Cursos e Dívidas). O CPF nunca vai
+ * nem volta pelo navegador, e sem sessão válida ninguém consulta nada.
+ *
+ * Propriedades do Script (opcionais — os padrões já apontam para o lugar certo):
+ *   PEDEMEIA_SHEET_ID   ID da planilha (as três abas moram nela)
+ *   PEDEMEIA_ABA        nome da aba do Pé de meia
+ *   CURSOS_ABA          nome da aba de Cursos
+ *   DIVIDAS_ABA         nome da aba de Dívidas
+ *
+ * A conta que publicou este Apps Script precisa ter acesso de LEITURA à
+ * planilha, senão a consulta devolve erro de permissão.
+ * =========================================================================== */
+
+var PDM_SHEET_ID_PADRAO = '1R8CXpCRJUQt39hvWKaTw-ILVmlWdnYF90IttgvdzEpk';
+var PDM_CACHE_SEG = 300;            /* 5 min — valor de dinheiro não pode ficar velho */
+var PDM_COL_DATA_PADRAO = 'H';      /* onde mora "Valor atualizado em:" */
+var PDM_ROTULO_DATA = 'VALOR ATUALIZADO EM';
+
+/* Os três campos de valor de Cursos e Dívidas são os mesmos. */
+var CP_CAMPOS_DEVEDOR = [
+  { chave: 'valor', rotulo: 'Valor',         alvo: 'VALOR' },
+  { chave: 'pago',  rotulo: 'Valor pago',    alvo: 'VALOR PAGO' },
+  { chave: 'saldo', rotulo: 'Saldo devedor', alvo: 'SALDO DEVEDOR' }
+];
+
+/**
+ * O catálogo das consultas. Para acrescentar uma quarta aba amanhã, basta uma
+ * entrada aqui e um HTML novo — nada mais no backend precisa mudar.
+ *
+ *   chaveBusca   'cpf' ou 'mat'
+ *   multiplas    true = a pessoa pode ter várias linhas
+ *   titulo       coluna que nomeia cada linha (só faz sentido com multiplas)
+ *   campos       colunas de valor, na ordem em que aparecem na tela
+ *   destaque     chave do campo que sai grande no cartão
+ */
+var CP_CONSULTAS = {
+  peDeMeia: {
+    prop: 'PEDEMEIA_ABA', aba: 'Pé de meia',
+    chaveBusca: 'cpf', multiplas: false, titulo: null,
+    destaque: 'total',
+    campos: [
+      { chave: 'acumulado', rotulo: 'Acumulado anterior',   alvo: 'ACUMULADO ANTERIOR' },
+      { chave: 'semana',    rotulo: 'Pé-de-meia da semana', alvo: 'PE DE MEIA DA SEMANA' },
+      { chave: 'ticket',    rotulo: 'Pé-de-meia ticket',    alvo: 'PE DE MEIA TICKET' },
+      { chave: 'total',     rotulo: 'Total guardado',       alvo: 'TOTAL GUARDADO' }
+    ]
+  },
+  cursos: {
+    prop: 'CURSOS_ABA', aba: 'Cursos',
+    chaveBusca: 'mat', multiplas: true,
+    titulo: { alvo: 'CURSO', rotulo: 'Curso' },
+    destaque: 'saldo',
+    campos: CP_CAMPOS_DEVEDOR
+  },
+  dividas: {
+    prop: 'DIVIDAS_ABA', aba: 'Dívidas',
+    chaveBusca: 'mat', multiplas: true,
+    titulo: { alvo: 'MOTIVO', rotulo: 'Motivo' },
+    destaque: 'saldo',
+    campos: CP_CAMPOS_DEVEDOR
+  }
+};
+
+/** Normaliza cabeçalho: sem acento, MAIÚSCULO, qualquer pontuação vira espaço.
+ *  É o que faz "PÉ-DE-MEIA DA SEMANA" casar com "PE DE MEIA DA SEMANA". */
+function pdmNorm(v) {
+  var t = (v === null || v === undefined) ? '' : String(v);
+  try { t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (e) {}
+  return t.toUpperCase().replace(/[^A-Z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** Aceita número puro ou texto tipo "R$ 1.234,56" / "1234.56". */
+function pdmNum(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  var s = String(v).replace(/[^0-9,.\-]/g, '');
+  if (!s || s === '-') return null;
+  if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
+  var n = Number(s);
+  return isFinite(n) ? n : null;
+}
+
+function pdmMoeda(n) {
+  if (n === null || n === undefined) return null;
+  var neg = n < 0, v = Math.abs(Number(n)).toFixed(2).split('.');
+  var inteiro = v[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (neg ? '-R$ ' : 'R$ ') + inteiro + ',' + v[1];
+}
+
+function pdmData(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  }
+  return String(v === null || v === undefined ? '' : v).replace(/\s+/g, ' ').trim();
+}
+
+/** Acha a aba pelo nome ignorando acento e caixa — "Dívidas", "DÍvidas" e
+ *  "dividas" chegam todas na mesma aba. Nome exato tem prioridade. */
+function cpAcharAba(ss, nome) {
+  var exata = ss.getSheetByName(nome);
+  if (exata) return exata;
+  var alvo = pdmNorm(nome), abas = ss.getSheets();
+  for (var i = 0; i < abas.length; i++) {
+    if (pdmNorm(abas[i].getName()) === alvo) return abas[i];
+  }
+  return null;
+}
+
+/**
+ * Casa os cabeçalhos em DOIS passes: primeiro igualdade exata, depois
+ * "contém" só para o que sobrou, pulando coluna já usada.
+ * O pass duplo não é preciosismo: "VALOR" é pedaço de "VALOR PAGO", então um
+ * pass só de substring poderia grudar o campo Valor na coluna do Valor pago,
+ * dependendo da ordem das colunas.
+ */
+function cpCasarCabecalho(linha, alvos) {
+  var achados = {}, usadas = {}, i, c, h;
+  for (c = 0; c < linha.length; c++) {
+    h = pdmNorm(linha[c]);
+    if (!h) continue;
+    for (i = 0; i < alvos.length; i++) {
+      if (achados[alvos[i].chave] === undefined && h === alvos[i].alvo) {
+        achados[alvos[i].chave] = c; usadas[c] = true;
+      }
+    }
+  }
+  for (c = 0; c < linha.length; c++) {
+    if (usadas[c]) continue;
+    h = pdmNorm(linha[c]);
+    if (!h) continue;
+    for (i = 0; i < alvos.length; i++) {
+      if (achados[alvos[i].chave] === undefined && h.indexOf(alvos[i].alvo) >= 0) {
+        achados[alvos[i].chave] = c; usadas[c] = true; break;
+      }
+    }
+  }
+  return achados;
+}
+
+/** Lê uma aba inteira e devolve já mapeada. Cache curto de 5 min. */
+function cpLerTabela(tipo) {
+  var cfg = CP_CONSULTAS[tipo];
+  if (!cfg) throw new Error('Consulta desconhecida: ' + tipo);
+
+  var chaveCache = 'CP_' + tipo + '_V2';
+  var cache = null;
+  try { cache = CacheService.getScriptCache(); } catch (e) {}
+  if (cache) {
+    var g = cache.get(chaveCache);
+    if (g) { try { return JSON.parse(g); } catch (e2) {} }
+  }
+
+  var props = PropertiesService.getScriptProperties();
+  var id = (props.getProperty('PEDEMEIA_SHEET_ID') || PDM_SHEET_ID_PADRAO).trim();
+  var ss = SpreadsheetApp.openById(id);
+  var nomeAba = (props.getProperty(cfg.prop) || cfg.aba).trim();
+  var sh = cpAcharAba(ss, nomeAba);
+  if (!sh) {
+    throw new Error('Aba "' + nomeAba + '" não encontrada. Abas da planilha: '
+      + ss.getSheets().map(function (s) { return s.getName(); }).join(', '));
+  }
+
+  var valores = sh.getDataRange().getValues();
+
+  /* ---- acha a linha de cabeçalho ----
+     É a primeira que tenha a coluna-chave (CPF ou MAT) e pelo menos dois dos
+     campos de valor. Nada é por posição fixa: planilha de administração muda
+     de lugar, e um cabeçalho que desce uma linha não pode derrubar a tela. */
+  var alvoChave = (cfg.chaveBusca === 'cpf')
+    ? [{ chave: 'k', alvo: 'CPF' }]
+    : [{ chave: 'k', alvo: 'MAT' }, { chave: 'k', alvo: 'MATRICULA' }];
+  var alvosValor = cfg.campos.slice();
+  if (cfg.titulo) alvosValor = alvosValor.concat([{ chave: '_titulo', alvo: cfg.titulo.alvo }]);
+
+  var linhaCab = -1, iChave = -1, cols = {};
+  var limite = Math.min(valores.length, 40);
+  for (var r = 0; r < limite && linhaCab < 0; r++) {
+    var k = cpCasarCabecalho(valores[r], alvoChave);
+    if (k.k === undefined) continue;
+    var achados = cpCasarCabecalho(valores[r], alvosValor);
+    var quantos = 0;
+    for (var q = 0; q < cfg.campos.length; q++) {
+      if (achados[cfg.campos[q].chave] !== undefined) quantos++;
+    }
+    if (quantos >= 2) { linhaCab = r; iChave = k.k; cols = achados; }
+  }
+  if (linhaCab < 0) {
+    throw new Error('Não achei o cabeçalho na aba "' + sh.getName() + '". Preciso de uma linha com a coluna '
+      + (cfg.chaveBusca === 'cpf' ? 'CPF' : 'MAT') + ' e os títulos dos valores.');
+  }
+
+  /* ---- "Valor atualizado em:" — procura na coluna H, depois no resto ---- */
+  var iColData = letraParaIndice(PDM_COL_DATA_PADRAO);
+  var rotuloData = '', dataAtualizacao = '';
+  var busca = [iColData];
+  for (var cc = 0; cc < 30; cc++) if (cc !== iColData) busca.push(cc);
+  for (var b = 0; b < busca.length && !rotuloData; b++) {
+    var col = busca[b];
+    if (col < 0) continue;
+    for (var rr = 0; rr < valores.length; rr++) {
+      if (col >= valores[rr].length) continue;
+      if (pdmNorm(valores[rr][col]).indexOf(PDM_ROTULO_DATA) === 0) {
+        rotuloData = String(valores[rr][col]).replace(/\s+/g, ' ').trim();
+        /* a data mora logo abaixo; se estiver vazia, olha mais 2 linhas */
+        for (var d = 1; d <= 3 && !dataAtualizacao; d++) {
+          if (rr + d < valores.length && col < valores[rr + d].length) {
+            dataAtualizacao = pdmData(valores[rr + d][col]);
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  /* ---- indexa as linhas pela chave ---- */
+  var linhas = {};
+  for (var lr = linhaCab + 1; lr < valores.length; lr++) {
+    var bruto = valores[lr][iChave];
+    var chave = (cfg.chaveBusca === 'cpf') ? normCpf(bruto) : normMat(bruto);
+    if (!chave || /^0*$/.test(chave)) continue;
+
+    var reg = {};
+    for (var kk = 0; kk < cfg.campos.length; kk++) {
+      var cp = cfg.campos[kk], ci = cols[cp.chave];
+      reg[cp.chave] = (ci === undefined) ? null : pdmNum(valores[lr][ci]);
+    }
+    if (cfg.titulo) {
+      var it = cols._titulo;
+      reg._titulo = (it === undefined) ? '' : limpar(valores[lr][it]);
+    }
+
+    if (cfg.multiplas) {
+      if (!linhas[chave]) linhas[chave] = [];
+      linhas[chave].push(reg);
+    } else if (!linhas[chave]) {
+      linhas[chave] = reg;            /* duplicado numa aba de 1 linha: fica a 1ª */
+    }
+  }
+
+  var tabela = {
+    tipo: tipo,
+    aba: sh.getName(),
+    linhaCab: linhaCab + 1,
+    colunasAchadas: cols,
+    colunaChave: iChave,
+    rotuloData: rotuloData || 'Valor atualizado em:',
+    dataAtualizacao: dataAtualizacao,
+    linhas: linhas
+  };
+  if (cache) { try { cache.put(chaveCache, JSON.stringify(tabela), PDM_CACHE_SEG); } catch (e3) {} }
+  return tabela;
+}
+
+function limparCacheConsultas() {
+  try {
+    var c = CacheService.getScriptCache();
+    Object.keys(CP_CONSULTAS).forEach(function (t) { c.remove('CP_' + t + '_V2'); });
+  } catch (e) {}
+  return 'Cache das consultas pessoais limpo.';
+}
+/* nome antigo, mantido para não quebrar quem já chamava */
+function limparCachePeDeMeia() { return limparCacheConsultas(); }
+
+/** Confere o token e devolve o técnico da mini master. */
+function cpTecnicoDaSessao(dados) {
+  var sess = validarToken(dados && dados.token);
+  if (!sess.ok) {
+    return {
+      erro: {
+        ok: false, sessao: false,
+        erro: sess.expirado ? 'Sessão expirada. Faça login novamente.'
+                            : 'Sessão inválida. Faça login novamente.'
+      }
+    };
+  }
+  var mat = normMat(sess.mat), achado = null;
+  lerMiniMasterCompleto().forEach(function (t) {
+    if (!achado && normMat(t.mat) === mat) achado = t;
+  });
+  if (!achado) return { erro: { ok: false, erro: 'Matrícula não encontrada no cadastro.' } };
+  return { tecnico: achado, mat: mat };
+}
+
+function cpMontarValores(campos, reg) {
+  return campos.map(function (c) {
+    return {
+      chave: c.chave, rotulo: c.rotulo,
+      valor: reg ? reg[c.chave] : null,
+      texto: reg ? pdmMoeda(reg[c.chave]) : null
+    };
+  });
+}
+
+/** Resposta para a tela. Nunca devolve o CPF de volta pro navegador. */
+function consultaPessoal(dados) {
+  var tipo = (dados && dados.tipo) || 'peDeMeia';
+  var cfg = CP_CONSULTAS[tipo];
+  if (!cfg) return { ok: false, erro: 'Consulta desconhecida.' };
+
+  var s = cpTecnicoDaSessao(dados);
+  if (s.erro) return s.erro;
+
+  var chave;
+  if (cfg.chaveBusca === 'cpf') {
+    chave = normCpf(s.tecnico.cpf);
+    if (!chave) return { ok: false, erro: 'Sua matrícula não tem CPF cadastrado. Fale com a administração.' };
+  } else {
+    chave = s.mat;
+  }
+
+  var tab = cpLerTabela(tipo);
+  var achou = tab.linhas[chave] || null;
+
+  var base = {
+    ok: true, tipo: tipo,
+    nome: s.tecnico.nome, mat: String(s.tecnico.mat),
+    rotuloData: tab.rotuloData, dataAtualizacao: tab.dataAtualizacao,
+    destaque: cfg.destaque
+  };
+
+  /* --- aba de uma linha só (Pé de meia): mantém o formato antigo --- */
+  if (!cfg.multiplas) {
+    base.encontrado = !!achou;
+    base.valores = cpMontarValores(cfg.campos, achou);
+    return base;
+  }
+
+  /* --- abas de N linhas (Cursos, Dívidas) --- */
+  var regs = achou || [];
+  base.encontrado = regs.length > 0;
+  base.rotuloTitulo = cfg.titulo ? cfg.titulo.rotulo : '';
+  base.itens = regs.map(function (reg) {
+    return {
+      titulo: reg._titulo || '(sem descrição)',
+      valores: cpMontarValores(cfg.campos, reg)
+    };
+  });
+
+  /* Total só quando há mais de uma linha — com um item só, repetir o mesmo
+     número embaixo não informa nada. */
+  base.totais = null;
+  if (regs.length > 1) {
+    base.totais = cfg.campos.map(function (c) {
+      var soma = 0, tem = false;
+      regs.forEach(function (reg) {
+        if (reg[c.chave] !== null && reg[c.chave] !== undefined) { soma += reg[c.chave]; tem = true; }
+      });
+      return { chave: c.chave, rotulo: c.rotulo, valor: tem ? soma : null, texto: tem ? pdmMoeda(soma) : null };
+    });
+  }
+  return base;
+}
+
+/* Nome antigo da ação: a tela pe-de-meia.html já publicada continua chamando
+   assim, então ela não precisa ser trocada junto com o resto. */
+function peDeMeia(dados) {
+  var d = dados || {};
+  return consultaPessoal({ token: d.token, tipo: 'peDeMeia' });
+}
+
+/** Rode isto no editor do Apps Script para conferir se a leitura pegou tudo. */
+function testarConsultas() {
+  limparCacheConsultas();
+  Object.keys(CP_CONSULTAS).forEach(function (tipo) {
+    var cfg = CP_CONSULTAS[tipo];
+    Logger.log('───────── ' + tipo + ' ─────────');
+    var t;
+    try { t = cpLerTabela(tipo); }
+    catch (e) { Logger.log('ERRO: ' + e); return; }
+
+    var faltando = cfg.campos.filter(function (c) { return t.colunasAchadas[c.chave] === undefined; })
+                             .map(function (c) { return c.rotulo; });
+    Logger.log('Aba: ' + t.aba + ' | cabeçalho na linha ' + t.linhaCab
+      + ' | coluna-chave: ' + t.colunaChave);
+    Logger.log('Colunas achadas: ' + JSON.stringify(t.colunasAchadas));
+    Logger.log('Colunas NÃO achadas: ' + (faltando.length ? faltando.join(', ') : 'nenhuma'));
+    Logger.log('Data: "' + t.rotuloData + '" -> "' + t.dataAtualizacao + '"');
+
+    var chaves = Object.keys(t.linhas);
+    Logger.log('Pessoas na tabela: ' + chaves.length);
+    if (chaves.length) {
+      var k = chaves[0], v = t.linhas[k];
+      var rotulo = (cfg.chaveBusca === 'cpf') ? (k.slice(0, 3) + '.***') : ('mat ' + k);
+      Logger.log('Amostra (' + rotulo + '): '
+        + (cfg.multiplas ? v.length + ' linha(s) — ' : '') + JSON.stringify(v));
+    }
+  });
+  return 'Veja o log acima.';
+}
+/* nome antigo, mantido para não quebrar quem já chamava */
+function testarPeDeMeia() { return testarConsultas(); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHECKLIST SEMANAL COMPARTILHADO PELA EQUIPE DO DIA
+   ═══════════════════════════════════════════════════════════════════════
+
+   O PROBLEMA
+   Cada aparelho guardava sozinho, no localStorage, quais checklists já tinham
+   sido feitos na semana. Três técnicos do mesmo parque viam o mesmo alerta
+   vermelho e faziam o mesmo checklist três vezes — o celular de um não sabia
+   do outro.
+
+   A REGRA
+   Quem trabalha junto divide a baixa. "Junto" sai da coluna H da aba
+   Relatorios, que guarda as matrículas da equipe de cada RDO. Se um da equipe
+   fizer o checklist, ele some do alerta dos outros até a semana virar.
+
+   Quem NÃO aparece na coluna H não está em parque, e para esse não há alerta
+   nenhum — os cartões ficam na cor padrão.
+
+   A SEMANA
+   Mesma régua do prazos.js: o ciclo abre na SEXTA e é identificado pela data
+   dessa sexta. Baixa dada no ciclo vale até a sexta seguinte, quando a chave
+   muda sozinha e o alerta volta. Não existe rotina de limpeza.
+
+   ONDE FICA GUARDADO
+   Aba "Checklist_Feitos", na mesma planilha do RDO, criada sozinha no primeiro
+   uso. Uma linha por baixa. É registro, não estado: dá para auditar quem deu
+   baixa em quê e quando.
+
+   ATENCAO: isto é só o BACKEND. O site ainda não chama estes endpoints — o
+   prazos.js continua decidindo tudo pelo localStorage. Enquanto o front não
+   for ligado, nada muda para o técnico.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Os cinco checklists que a equipe divide. Os ids são os mesmos do prazos.js,
+   para o front não precisar traduzir nada.
+
+   Falta de propósito o 'epi' (Equipamentos Individuais): a engenharia listou
+   cinco, e ele não estava na lista. Para incluir, basta acrescentar a linha —
+   nada mais precisa mudar. */
+var CKL_ITENS = [
+  { id: 'materiais',   rotulo: 'Materiais' },
+  { id: 'veiculo',     rotulo: 'Veiculos' },
+  { id: 'loto',        rotulo: 'Kit LOTO' },
+  { id: 'cordas',      rotulo: 'Acesso por Cordas' },
+  { id: 'ferramentas', rotulo: 'Ferramentas Gerais' }
+];
+
+var CKL_ABA = 'Checklist_Feitos';
+var CKL_CAB = ['Ciclo', 'Checklist', 'Matricula', 'Nome', 'Parque', 'Data', 'Hora'];
+var CKL_ABA_RDO = 'Relatorios';
+var CKL_COL_MAT_PADRAO = 'H';    /* coluna das matriculas da equipe */
+var CKL_COL_DATA_PADRAO = 'C';   /* data do expediente */
+var CKL_COL_PARQUE_PADRAO = 'G';
+
+/* Quantos dias para tras procurar a equipe do tecnico.
+
+   Por que nao e so "hoje": o RDO e enviado no FIM do expediente. Se a busca
+   fosse estrita, ninguem apareceria na coluna H durante o dia inteiro de
+   trabalho e o alerta ficaria escondido justamente enquanto ha tempo de fazer
+   o checklist. Tres dias cobrem a virada de sexta para segunda, que e
+   exatamente a janela do prazo.
+
+   Para deixar estrito ("so o RDO de hoje"), ponha 0. */
+var CKL_JANELA_DIAS = 3;
+
+var CKL_ABRE_CICLO = 5;   /* 5 = sexta, igual ao prazos.js */
+
+function cklIds() {
+  return CKL_ITENS.map(function (i) { return i.id; });
+}
+function cklRotulo(id) {
+  for (var i = 0; i < CKL_ITENS.length; i++) if (CKL_ITENS[i].id === id) return CKL_ITENS[i].rotulo;
+  return id;
+}
+function cklIdValido(id) {
+  return cklIds().indexOf(String(id || '').trim()) >= 0;
+}
+
+/** yyyy-MM-dd no fuso do script. */
+function cklIso(d) {
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+/** Sexta que abre o ciclo vigente — a mais recente, contando hoje. */
+function cklSextaDoCiclo(d) {
+  var x = new Date(d || new Date());
+  x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() - ((x.getDay() - CKL_ABRE_CICLO + 7) % 7));
+  return x;
+}
+
+/**
+ * Quebra a celula da coluna H na lista de matriculas.
+ *
+ * Separa por QUALQUER coisa que nao seja digito, de proposito. O RDO grava
+ * "70, 45, 350", mas a celula tambem e editada a mao, e ja apareceu com
+ * hifen ("70 - 45 - 350") e so com espaco ("70 45 350"). Uma lista fixa de
+ * separadores devolvia "7045350" nesses casos — uma matricula inexistente,
+ * e o tecnico simplesmente nao recebia alerta, sem nenhum erro na tela.
+ *
+ * "N/A" some sozinho: sem digito, vira string vazia e cai no filtro.
+ */
+function cklMatriculas(celula) {
+  return String(celula == null ? '' : celula)
+    .split(/\D+/)
+    .map(function (s) { return normMat(s); })
+    .filter(function (s) { return !!s; });
+}
+
+/**
+ * Equipe do tecnico nos ultimos CKL_JANELA_DIAS dias.
+ * Devolve { ativo, parque, data, equipe:[matriculas] } — equipe ja inclui ele.
+ * Nao achou nenhum RDO com essa matricula na janela: ativo = false.
+ */
+function cklEquipeDoTecnico(mat, hoje) {
+  var vazio = { ativo: false, parque: '', data: '', equipe: [] };
+  mat = normMat(mat);
+  if (!mat) return vazio;
+
+  var props = PropertiesService.getScriptProperties();
+  var ss;
+  try { ss = SpreadsheetApp.openById(props.getProperty('SHEET_ID')); }
+  catch (e) { return vazio; }
+  var sh = ss.getSheetByName(CKL_ABA_RDO);
+  if (!sh || sh.getLastRow() < 2) return vazio;
+
+  /* Cabecalho manda; a letra fixa e o plano B para planilha sem cabecalho
+     nomeado. Assim, mover coluna na planilha nao quebra em silencio. */
+  var iMat = idxCabecalho(sh, 'Matriculas');
+  if (iMat < 0) iMat = letraParaIndice(CKL_COL_MAT_PADRAO);
+  var iData = idxCabecalho(sh, 'Data');
+  if (iData < 0) iData = letraParaIndice(CKL_COL_DATA_PADRAO);
+  var iParque = idxCabecalho(sh, 'Parque');
+  if (iParque < 0) iParque = letraParaIndice(CKL_COL_PARQUE_PADRAO);
+
+  var nCols = Math.max(iMat, iData, iParque) + 1;
+  if (sh.getLastColumn() < nCols) return vazio;
+
+  var ref = new Date(hoje || new Date()); ref.setHours(0, 0, 0, 0);
+  var limite = new Date(ref); limite.setDate(limite.getDate() - CKL_JANELA_DIAS);
+  var isoRef = cklIso(ref), isoLimite = cklIso(limite);
+
+  var dados = sh.getRange(2, 1, sh.getLastRow() - 1, nCols).getValues();
+  var melhor = null;
+  for (var r = 0; r < dados.length; r++) {
+    var equipe = cklMatriculas(dados[r][iMat]);
+    if (equipe.indexOf(mat) < 0) continue;
+    var dia = normData(dados[r][iData]);
+    /* Comparacao de texto yyyy-MM-dd ordena igual a data — e nao depende de
+       como o Sheets devolveu a celula (Date ou texto). */
+    if (!dia || dia > isoRef || dia < isoLimite) continue;
+    if (!melhor || dia > melhor.data) {
+      melhor = { ativo: true, parque: String(dados[r][iParque] || ''), data: dia, equipe: equipe };
+    }
+  }
+  return melhor || vazio;
+}
+
+/** Aba de registro, criada na primeira baixa. */
+function cklAba(ss) {
+  var sh = ss.getSheetByName(CKL_ABA);
+  if (sh) return sh;
+  sh = ss.insertSheet(CKL_ABA);
+  sh.getRange(1, 1, 1, CKL_CAB.length).setValues([CKL_CAB]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  return sh;
+}
+
+/** Baixas do ciclo, indexadas por checklist -> primeira linha que registrou. */
+function cklFeitosDoCiclo(ss, ciclo) {
+  var sh = ss.getSheetByName(CKL_ABA);
+  var out = {};
+  if (!sh || sh.getLastRow() < 2) return out;
+  var dados = sh.getRange(2, 1, sh.getLastRow() - 1, CKL_CAB.length).getValues();
+  dados.forEach(function (l) {
+    if (String(l[0]).trim() !== ciclo) return;
+    var id = String(l[1] || '').trim();
+    if (!id) return;
+    /* Fica a PRIMEIRA baixa do ciclo: e ela que conta a historia de quem
+       resolveu. Reenvio da fila offline nao sobrescreve o autor. */
+    if (!out[id]) {
+      out[id] = { por: normMat(l[2]), nome: String(l[3] || ''), parque: String(l[4] || ''),
+                  data: normData(l[5]), hora: String(l[6] || '') };
+    }
+  });
+  return out;
+}
+
+/** Nome do tecnico pela mini master (so para o registro ficar legivel). */
+function cklNomeDe(mat) {
+  var alvo = normMat(mat), nome = '';
+  try {
+    lerMiniMasterCompleto().forEach(function (t) {
+      if (!nome && normMat(t.mat) === alvo) nome = t.nome;
+    });
+  } catch (e) {}
+  return nome;
+}
+
+/**
+ * Estado dos checklists para quem esta logado.
+ *
+ * ativo = false  -> nao esta em parque; o site nao deve mostrar alerta nenhum.
+ * ativo = true   -> devolve, por checklist, se alguem da equipe ja deu baixa.
+ */
+function checklistStatus(dados) {
+  var sess = validarToken(dados && dados.token);
+  if (!sess.ok) {
+    return {
+      ok: false, sessao: false,
+      erro: sess.expirado ? 'Sessao expirada. Faca login novamente.'
+                          : 'Sessao invalida. Faca login novamente.'
+    };
+  }
+
+  var mat = normMat(sess.mat);
+  var hoje = new Date();
+  var ciclo = cklIso(cklSextaDoCiclo(hoje));
+  var eq = cklEquipeDoTecnico(mat, hoje);
+
+  var base = {
+    ok: true, sessao: true, mat: mat, nome: cklNomeDe(mat),
+    ciclo: ciclo, ativo: eq.ativo, parque: eq.parque, dataRdo: eq.data,
+    equipe: eq.equipe, janelaDias: CKL_JANELA_DIAS,
+    itens: CKL_ITENS.map(function (i) {
+      return { id: i.id, rotulo: i.rotulo, feito: false, por: '', porNome: '', quando: '' };
+    })
+  };
+
+  /* Fora de parque: devolve tudo "nao feito" e ativo=false. O front usa o
+     ativo para nao pintar nada — e nao o feito, que aqui nao quer dizer nada. */
+  if (!eq.ativo) return base;
+
+  var props = PropertiesService.getScriptProperties();
+  var ss;
+  try { ss = SpreadsheetApp.openById(props.getProperty('SHEET_ID')); }
+  catch (e) { return { ok: false, erro: 'Nao consegui abrir a planilha do RDO: ' + e }; }
+
+  var feitos = cklFeitosDoCiclo(ss, ciclo);
+  base.itens.forEach(function (it) {
+    var f = feitos[it.id];
+    /* So conta se quem deu baixa esta na equipe de hoje deste tecnico. Um
+       parque nao apaga o alerta do outro. */
+    if (f && eq.equipe.indexOf(f.por) >= 0) {
+      it.feito = true;
+      it.por = f.por;
+      it.porNome = f.nome || cklNomeDe(f.por);
+      it.quando = f.data + (f.hora ? ' ' + f.hora : '');
+      it.parque = f.parque;
+    }
+  });
+  return base;
+}
+
+/**
+ * Registra que este tecnico fez um dos checklists no ciclo vigente.
+ * Idempotente: repetir no mesmo ciclo nao duplica linha nem troca o autor.
+ */
+function checklistFeito(dados) {
+  var sess = validarToken(dados && dados.token);
+  if (!sess.ok) {
+    return {
+      ok: false, sessao: false,
+      erro: sess.expirado ? 'Sessao expirada. Faca login novamente.'
+                          : 'Sessao invalida. Faca login novamente.'
+    };
+  }
+
+  var id = String((dados && dados.checklist) || '').trim();
+  if (!cklIdValido(id)) {
+    return { ok: false, erro: 'Checklist desconhecido: "' + id + '". Conhecidos: ' + cklIds().join(', ') };
+  }
+
+  var mat = normMat(sess.mat);
+  var hoje = new Date();
+  var ciclo = cklIso(cklSextaDoCiclo(hoje));
+  var eq = cklEquipeDoTecnico(mat, hoje);
+
+  var props = PropertiesService.getScriptProperties();
+  var ss;
+  try { ss = SpreadsheetApp.openById(props.getProperty('SHEET_ID')); }
+  catch (e) { return { ok: false, erro: 'Nao consegui abrir a planilha do RDO: ' + e }; }
+
+  /* Duas baixas simultaneas da mesma equipe criariam duas linhas e a segunda
+     roubaria a autoria. O lock e curto porque a operacao e uma leitura e um
+     append. */
+  var lock = LockService.getScriptLock();
+  var travou = false;
+  try { travou = lock.tryLock(15000); } catch (eL) { travou = false; }
+
+  try {
+    var feitos = cklFeitosDoCiclo(ss, ciclo);
+    var ja = feitos[id];
+    if (ja && (!eq.ativo || eq.equipe.indexOf(ja.por) >= 0)) {
+      return { ok: true, ciclo: ciclo, checklist: id, rotulo: cklRotulo(id),
+               jaEstava: true, por: ja.por, porNome: ja.nome || cklNomeDe(ja.por),
+               quando: ja.data + (ja.hora ? ' ' + ja.hora : '') };
+    }
+    var agora = new Date();
+    cklAba(ss).appendRow([
+      ciclo, id, mat, cklNomeDe(mat), eq.parque || '',
+      cklIso(agora), Utilities.formatDate(agora, Session.getScriptTimeZone(), 'HH:mm')
+    ]);
+    return { ok: true, ciclo: ciclo, checklist: id, rotulo: cklRotulo(id),
+             jaEstava: false, por: mat, porNome: cklNomeDe(mat),
+             quando: cklIso(agora), ativo: eq.ativo, equipe: eq.equipe };
+  } finally {
+    if (travou) { try { lock.releaseLock(); } catch (eR) {} }
+  }
+}
+
+/** Rode no editor do Apps Script para conferir a leitura da coluna H. */
+function testarChecklistEquipe() {
+  var props = PropertiesService.getScriptProperties();
+  var ss = SpreadsheetApp.openById(props.getProperty('SHEET_ID'));
+  var sh = ss.getSheetByName(CKL_ABA_RDO);
+  if (!sh) { Logger.log('Aba "' + CKL_ABA_RDO + '" nao existe.'); return; }
+
+  var iMat = idxCabecalho(sh, 'Matriculas');
+  Logger.log('Coluna das matriculas: ' + (iMat >= 0
+    ? 'achada pelo cabecalho "Matriculas", indice ' + iMat + ' (coluna ' + (iMat + 1) + ')'
+    : 'cabecalho nao achado — usando o padrao ' + CKL_COL_MAT_PADRAO));
+  if (iMat < 0) iMat = letraParaIndice(CKL_COL_MAT_PADRAO);
+
+  var iData = idxCabecalho(sh, 'Data');
+  if (iData < 0) iData = letraParaIndice(CKL_COL_DATA_PADRAO);
+  Logger.log('Coluna da data: indice ' + iData);
+
+  var hoje = new Date();
+  Logger.log('Ciclo vigente (sexta): ' + cklIso(cklSextaDoCiclo(hoje)));
+  Logger.log('Janela de atividade: ' + CKL_JANELA_DIAS + ' dia(s)');
+
+  var n = Math.min(sh.getLastRow() - 1, 400);
+  if (n < 1) { Logger.log('Sem linhas na aba.'); return; }
+  var dados = sh.getRange(2, 1, n, Math.max(iMat, iData) + 1).getValues();
+
+  var ref = new Date(hoje); ref.setHours(0, 0, 0, 0);
+  var limite = new Date(ref); limite.setDate(limite.getDate() - CKL_JANELA_DIAS);
+  var isoRef = cklIso(ref), isoLimite = cklIso(limite);
+
+  var naJanela = [], todas = {};
+  dados.forEach(function (l) {
+    var eq = cklMatriculas(l[iMat]);
+    eq.forEach(function (m) { todas[m] = true; });
+    var dia = normData(l[iData]);
+    if (dia && dia <= isoRef && dia >= isoLimite) naJanela.push({ data: dia, equipe: eq });
+  });
+
+  Logger.log('Linhas lidas: ' + n);
+  Logger.log('Matriculas distintas na coluna H: ' + Object.keys(todas).length);
+  Logger.log('RDOs dentro da janela (' + isoLimite + ' a ' + isoRef + '): ' + naJanela.length);
+  naJanela.slice(0, 8).forEach(function (x) {
+    Logger.log('   ' + x.data + '  equipe: ' + x.equipe.join(', '));
+  });
+
+  var amostra = naJanela.length ? naJanela[0].equipe[0] : Object.keys(todas)[0];
+  if (amostra) {
+    Logger.log('--- simulando a matricula ' + amostra + ' ---');
+    Logger.log(JSON.stringify(cklEquipeDoTecnico(amostra, hoje)));
+  }
+  return { matriculas: Object.keys(todas).length, naJanela: naJanela.length };
 }

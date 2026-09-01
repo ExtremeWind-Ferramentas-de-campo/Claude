@@ -13,13 +13,20 @@ Site único no GitHub Pages: uma tela de entrada, um menu, quatro apps.
 
 ```
 /
-├── index.html                    menu + tela de entrada
+├── index.html                    tela de entrada + hub + menu das ferramentas
 ├── guard.js                      porteiro de sessão
+├── prazos.js                     sinal de prazo semanal nos cartões
 ├── sw.js                         service worker (offline)
 ├── manifest.json                 instalação como app
 ├── logo-ew.png, logo-oem*.png    logos (compartilhados)
 ├── icon-192.png, icon-512.png    ícones
 ├── .nojekyll
+│
+├── meus-dados/                   hub pessoal (vem ANTES das ferramentas)
+│   ├── index.html                submenu Meus Dados
+│   ├── pe-de-meia.html           consulta dos valores guardados
+│   ├── cursos.html               descontos de cursos (gerado)
+│   └── dividas.html              valores em aberto (gerado)
 │
 ├── rdo/index.html                Relatório Diário de Operação
 ├── fotocard/                     Fotocard / Timestamp
@@ -40,7 +47,7 @@ Site único no GitHub Pages: uma tela de entrada, um menu, quatro apps.
 │   ├── gerador-eletrico.html     gerado pelo construtor
 │   ├── plataforma.html           gerado pelo construtor
 │   ├── veiculo.html              gerado pelo construtor
-│   ├── _costurar.js              põe guard.js + seta voltar nos 3 HTML baixados
+│   ├── _costurar.js              guard.js + seta voltar + marcação de prazo
 │   └── modelos/                  construtor-formulario_2.html + os 3 .json
 │
 ├── EW-Apps-Script-RDO/Code.gs    backend do RDO (colar no Apps Script)
@@ -48,6 +55,127 @@ Site único no GitHub Pages: uma tela de entrada, um menu, quatro apps.
 ├── ew-dropbox-proxy/worker.js    Cloudflare Worker
 └── SEGURANCA.md                  revisão de segurança de 06/08/2026
 ```
+
+## As duas telas depois do login
+
+Entrando, o técnico cai no **hub**, com duas opções:
+
+| Opção | Vai para |
+|---|---|
+| Ferramentas de Campo | `index.html#ferramentas` — os quatro apps de sempre |
+| Meus Dados | `meus-dados/index.html` |
+
+O hub e o menu de ferramentas moram no **mesmo `index.html`**, trocados pelo
+`#hash`. Foi feito assim para não mexer no caminho relativo de nenhum app: se o
+menu tivesse virado uma pasta, `rdo/index.html` e companhia teriam que virar
+`../rdo/index.html` em todo lugar.
+
+Por causa disso, a seta "voltar" dos apps aponta para `../index.html#ferramentas`,
+e não para `../index.html` — senão o técnico voltaria para o hub e teria que dar
+dois toques toda vez. Já as saídas por **logout ou sessão expirada** continuam
+indo para `../index.html` puro, que é onde mora a tela de entrada.
+
+## Meus Dados — Pé de meia, Cursos e Dívidas
+
+Três consultas, três abas da **mesma planilha**, mesma mecânica:
+
+| Tela | Aba | Busca por | Linhas por pessoa |
+|---|---|---|---|
+| Pé de meia | `Pé de meia` | CPF | 1 |
+| Cursos | `Cursos` | matrícula | N (um curso cada) |
+| Dívidas | `Dívidas` | matrícula | N (uma dívida cada) |
+
+Não achou a pessoa → mensagem própria de cada tela ("Não há valor guardado na
+sua conta", "Não há desconto relacionado ao pagamento de cursos", "Não há
+dívidas registradas na sua conta"). A data da coluna H aparece nos dois casos,
+achando ou não.
+
+**Nem o CPF nem a matrícula viajam pelo navegador.** A sessão do site guarda só
+token, nome e matrícula. Quem faz a ligação é o backend: o token é assinado e
+carrega a matrícula; daí sai o CPF (mini master, coluna H) para o Pé de meia, ou
+a própria matrícula para Cursos e Dívidas. Sem sessão válida ninguém consulta
+nada, e o CPF nunca volta para a tela.
+
+### Uma consulta só no backend
+
+Tudo passa por `consultaPessoal({token, tipo})`, e o catálogo das três abas mora
+em **`CP_CONSULTAS`**, no `Code.gs`. Para acrescentar uma quarta aba amanhã
+basta uma entrada lá e um HTML novo — o resto do backend não muda.
+
+A ação antiga `peDeMeia` continua existindo como atalho para
+`consultaPessoal({tipo:'peDeMeia'})`. É por isso que o `pe-de-meia.html` não
+precisou ser trocado junto: quem já tem a versão antiga no celular continua
+funcionando enquanto o service worker não atualiza.
+
+### O que precisa estar configurado
+
+1. **Colar o `EW-Apps-Script-RDO/Code.gs` novo** no projeto do Apps Script do RDO.
+2. **Publicar como NOVA VERSÃO da implantação existente** (Implantar → Gerenciar
+   implantações → lápis → Versão: Nova versão). Criar uma implantação nova geraria
+   outro endereço e o login pararia de funcionar.
+3. **Dar acesso de leitura** da planilha à conta que publicou o Apps Script.
+   Sem isso a consulta devolve erro de permissão.
+4. Rodar **`testarConsultas()`** no editor e ler o log: ele percorre as três abas
+   e mostra linha do cabeçalho, colunas achadas, colunas NÃO achadas, data e
+   quantas pessoas entraram na tabela. É o teste que diz se a leitura acertou o
+   layout — e o único jeito de saber que a aba `Dívidas` foi encontrada.
+
+Propriedades do Script opcionais: `PEDEMEIA_SHEET_ID`, `PEDEMEIA_ABA`,
+`CURSOS_ABA`, `DIVIDAS_ABA`. Os padrões já apontam para os nomes atuais.
+
+### Como as abas e as colunas são achadas
+
+**A aba** é achada pelo nome ignorando acento e caixa (`cpAcharAba`), com nome
+exato tendo prioridade. `Dívidas`, `DÍvidas` e `dividas` chegam todas na mesma
+aba — o nome real da aba estava escrito de dois jeitos diferentes na origem, e
+não vale a pena a tela quebrar por causa disso.
+
+**O cabeçalho** não é por posição fixa, porque planilha de administração muda de
+lugar. O backend varre as 40 primeiras linhas procurando a linha que tenha a
+coluna-chave (`CPF` ou `MAT`) e pelo menos dois dos títulos de valor. A
+comparação passa por `pdmNorm()`, que tira acento, sobe para maiúscula e troca
+pontuação por espaço — é o que faz `PÉ-DE-MEIA DA SEMANA` casar com
+`PE DE MEIA DA SEMANA`.
+
+**O casamento é em dois passes** (`cpCasarCabecalho`): primeiro igualdade exata,
+depois "contém" só para o que sobrou, pulando coluna já usada. Isso não é
+preciosismo: `VALOR` é pedaço de `VALOR PAGO`. Com um pass só de substring, uma
+planilha que trouxesse `VALOR PAGO` antes de `VALOR` grudaria o campo Valor na
+coluna errada — e o técnico veria número trocado sem nenhum erro na tela.
+
+**A data** vem de outro caminho: procura na **coluna H**
+(`PDM_COL_DATA_PADRAO`) a célula que começa com "Valor atualizado em", e pega a
+de baixo (olha até 3 linhas abaixo se estiver vazia). Não achando na H, varre as
+outras colunas.
+
+### As telas de Cursos e Dívidas são geradas
+
+`cursos.html` e `dividas.html` saem do mesmo template — só mudam rótulo, ícone,
+cor e a mensagem de "não tem nada". **Não edite os dois à mão**: a primeira
+correção feita só num deles já faz os dois divergirem. O gerador é o
+`meus-dados/_gerar-telas.py` que veio junto; mexa nele e rode de novo.
+
+O `pe-de-meia.html` ficou de fora do gerador de propósito: ele mostra 1 linha,
+não uma lista, e forçar os dois formatos no mesmo template deixaria o template
+mais complicado que os dois arquivos separados.
+
+### Decisões que valem revisar
+
+- **Sem cache dos valores no aparelho.** Offline a tela diz que precisa de
+  internet, em vez de mostrar número velho. Valor de dinheiro desatualizado
+  gera mais confusão do que valor nenhum. O cache do lado do servidor é de
+  5 minutos (`PDM_CACHE_SEG`).
+- **O plano B por JSONP manda o token na URL.** É o mesmo caminho que o login já
+  usa, e existe porque em alguns aparelhos o navegador não deixa ler a resposta
+  do POST. Para cortar: apague os blocos `p.acao === 'peDeMeia'` e
+  `p.acao === 'consultaPessoal'` do `doGet` e a `pedirJsonp()` dos HTML.
+- **Total só aparece com mais de um item.** Com um curso só, repetir o mesmo
+  número embaixo não informa nada. Está em `consultaPessoal`, no `if
+  (regs.length > 1)`.
+- **Saldo devedor zerado sai em verde com ✓.** É a informação que o técnico
+  procura primeiro. Classe `.quitado` nos HTML gerados.
+- **O campo destacado** de cada tela é o `destaque` do `CP_CONSULTAS`: hoje
+  `total` no Pé de meia e `saldo` nas outras duas.
 
 ## Como o login funciona
 
@@ -90,7 +218,7 @@ Aparece em dois lugares, e os dois precisam ser iguais:
 - **`fotocard - Atalho.lnk` ficou de fora.** É atalho do Windows, não serve no site.
 - **O `guard.js` não é segurança, é conveniência.** Qualquer pessoa grava uma sessão falsa pelo console e abre as telas. O que protege os dados é o backend conferir o token — o Apps Script do RDO faz isso, com bloqueio de 10 minutos após tentativas demais.
 
-## Os cinco checklists de inspeção (forms.app)
+## Os quatro checklists de inspeção (forms.app)
 
 Ficam em `Checklist Almoxarifado/almoxarifado-seguranca.html` e são só atalhos: abrem em nova
 aba os formulários hospedados no forms.app. Não guardam nada no aparelho e não
@@ -102,10 +230,61 @@ respostas caem no painel do forms.app, não no Sheets nem no Dropbox da EW.
 | Acesso por Cordas | `https://099hu7e7.forms.app/checklistquipamentosindividuais-1` |
 | Equipamentos Individuais | `https://099hu7e7.forms.app/checklistquipamentosindividuais` |
 | Ferramentas Gerais | `https://checklist.forms.app/formulario-de-ferramentas` |
-| Plataforma | `https://checklist.forms.app/formulario-plataforma-` |
 | Kit LOTO | `https://checklist.forms.app/formulario-de-ferramentas-1` |
 
+O checklist de **Plataforma saiu desta lista em 27/08/2026**: ele virou página
+do próprio site, em `Checklist Frotas/plataforma.html`. Deixar os dois no ar
+geraria duas versões da mesma conferência, cada uma mandando a resposta para um
+lugar diferente.
+
 Para trocar um endereço, mexa só no `href` do cartão correspondente.
+
+## Prazo semanal dos checklists
+
+`prazos.js` (raiz) pinta o cartão do checklist de vermelho conforme o prazo se
+aproxima. A janela abre toda **sexta**:
+
+| Checklist | Id | Prazo | Baixa |
+|---|---|---|---|
+| Materiais | `materiais` | segunda | automática (ao enfileirar o envio) |
+| Acesso por Cordas | `cordas` | segunda | manual |
+| Equipamentos Individuais | `epi` | segunda | manual |
+| Ferramentas Gerais | `ferramentas` | segunda | manual |
+| Kit LOTO | `loto` | segunda | manual |
+| Veículos (Frotas) | `veiculo` | terça | automática (ao gerar o PDF) |
+
+Prazo de segunda → cartão volta ao normal na terça. Prazo de terça → volta na
+quarta.
+
+**Baixa manual**: os quatro de inspeção moram no forms.app, que não tem como
+avisar o site que foram preenchidos. Nesses, o técnico toca na etiqueta
+vermelha e confirma. A etiqueta tem ✓ e alvo de toque de 30 px, e o toque não
+abre o formulário (`preventDefault` — o cartão é um link).
+
+O tom fecha a cada dia — âmbar na sexta, vermelho forte no dia do vencimento,
+com a etiqueta piscando. Passado o prazo o cartão volta ao normal, tenha sido
+feito ou não, e fica assim até a sexta seguinte.
+
+**Feito** baixa o alerta na hora e vale até o fim do ciclo, por checklist —
+dar baixa no Kit LOTO não apaga o alerta dos outros quatro.
+
+Onde aparece: os **seis cartões** de checklist, mais três cartões-resumo que
+juntam vários — **Checklist** no menu principal, e **Almoxarifado — Segurança**
+e **Frotas** no submenu. O resumo mostra o mais urgente e quantos ainda faltam
+("4 pendentes · Vence amanhã").
+
+Para pôr num cartão, basta `data-ew-prazo`. Aceita um id (`veiculo`), um grupo
+(`almoxarifado`, `frotas`) ou vários separados por vírgula. Os grupos ficam em
+`GRUPOS`, no `prazos.js` — checklist novo entra ali e todos os cartões-resumo
+passam a contar com ele, sem mexer em HTML nenhum.
+
+**É sinal visual, não é controle.** O "feito" mora no `localStorage`, que é por
+aparelho e por navegador: o telefone do técnico não sabe que o do colega já
+fez. Quem tem a verdade é a planilha. Isto serve para lembrar quem está com o
+aparelho na mão.
+
+Para mudar prazo ou escala de cor, mexa em `PRAZOS` e `cor()` no `prazos.js` —
+os dois valem para o site inteiro.
 
 ## Checklist Frotas
 
@@ -165,6 +344,88 @@ vazio de propósito nos três modelos. Preenchendo esse campo no construtor (e
 regerando), o formulário passa a mandar o PDF para o Dropbox e a linha para a
 planilha, como o RDO faz. As pastas de destino já estão escritas nos modelos:
 `/EW - CHECKLIST FROTAS/<EQUIPAMENTO>/<MM-AAAA>/`.
+
+## Checklist de Materiais — revisão de 27/08/2026
+
+**Nordex e GE deixaram de dividir a mesma lista.** Eram `LISTA_NORDEX_GE`; hoje
+são `LISTA_NORDEX` (43 itens) e `LISTA_GE` (47). Mexer numa não mexe na outra.
+
+| Mudança | Nordex | GE | Siemens |
+|---|---|---|---|
+| TECIDO BIAX 750 | saiu | saiu | — |
+| BALSA CORE 50 | saiu | saiu | — |
+| BALSA CORE 32MM / 45MM | — | entraram | — |
+| ESPUMA 20MM | ficou | virou `ESPUMA DE PVC S/ GROOVING 20MM` | — |
+| RESINA LR-135 + ENDURECEDOR LH-135 | saíram | saíram | — |
+| ENDURECEDOR LH-637 | entrou | entrou | — |
+| TYVEK 60% | virou `TYVEK` | virou `TYVEK` | já era `TYVEK` |
+| LOCTITE | virou `LOCTITE-243` | virou `LOCTITE-243` | — |
+| COMBI | virou `COMBI 900` | virou `COMBI 900` | já era `COMBI 900` |
+| MACACÃO 100% | saiu | saiu | — |
+| Resina/endurecedor alternativos de balanceamento | — | entraram | já tinha |
+| CYTEC — SCOTER | — | — | saiu |
+| BASE MASSA — CRYSTIC X401 | — | — | virou `MASSA FILLER POLYESTER` |
+| MASSA GT60 | — | — | entrou |
+| ENDURECEDOR MASSA / GEL COAT — MEKP | — | — | saíram |
+| BASE ADESIVO — SIKAFORCE-818 L07 | — | — | virou `ADESIVO — SIKAFORCE 818-L07` |
+| ENDURECEDOR ADESIVO — SIKAFORCE-050 | — | — | saiu |
+
+Os preços novos vieram da lista mestra: LH-637 = 708 (R$ 286,38), BALSA 32MM =
+726 (R$ 346,00), BALSA CORE 45MM = 363 (R$ 550,20), ESPUMA S/ GROOVING = 202
+(R$ 232,50), MASSA FILLER POLIESTER = 733 (R$ 70,52), ADESIVO SIKAFORCE = 338
+(R$ 212,00), alternativos = 720/721.
+
+**Só a MASSA GT60 ficou sem preço** — não existe código com "GT60" na lista
+mestra. Ela conta normalmente no checklist e aparece no bloco "MATERIAIS SEM
+PREÇO" do relatório. Enquanto estiver lá, o total da Siemens está subestimado.
+
+**Duas traduções do `MAPA_MAT` foram REMOVIDAS, não redirecionadas**: o par
+Hexion LR-135/LH-135 e o SikaForce-050. Se a calculadora ainda lançar esses
+materiais, eles aparecem como "material não encontrado no checklist" — visível,
+em vez de somar em silêncio no material errado. Quando a engenharia disser qual
+é o substituto, aponte no `MAPA_MAT`.
+
+**Um bug foi corrigido de passagem**: `["LH637", "ENDURECEDOR LH 635"]` mandava
+todo consumo de LH-637 da calculadora para o LH-635, porque o LH-637 não existia
+no checklist. Agora existe e aponta para si.
+
+### Material fora da lista
+
+O parque recebe coisa que a lista mestra não prevê, e isso não era contado.
+Agora tem, no fim da lista, **"Há material em campo que não está na lista?"** —
+Sim abre linhas de Material + Quantidade + unidade. As linhas vão para a
+planilha como qualquer outro item; como não têm preço cadastrado, caem sozinhas
+no bloco "MATERIAIS SEM PREÇO", que é o lugar certo para alguém decidir se
+viram item de lista. Guardado por cliente E por modo (estoque/entrada), igual às
+quantidades. Linha pela metade (só nome ou só quantidade) trava o envio.
+
+**Quantidade zero não pede foto** — já era assim antes desta revisão
+(`Number(qtd) > 0` em `pendencias()`): item zerado não tem tambor no parque
+para fotografar.
+
+### Entrada de material está DESLIGADA
+
+Desativada a pedido da engenharia em 27/08/2026. A aba continua na tela,
+apagada e com o selo `off`, para o técnico saber que a função existe e está
+desativada — e não achar que sumiu do app.
+
+**Para religar: `const ENTRADA_ATIVA = true;` no `index.html` do checklist.**
+Só isso. O estado da aba, o bloqueio do clique e a coerção do modo salvo saem
+todos dessa flag — não há segundo lugar para lembrar.
+
+O código da entrada continua inteiro: o modo, as chaves separadas de
+armazenamento (`ew_checklist_ent_*` / `ew_checklist_fent_*` / `ew_checklist_xent_*`),
+a exigência de lote e validade, e o tratamento de linhas ENTRADA no Apps Script.
+Nada foi apagado.
+
+Quem tinha o aparelho salvo no modo entrada cai em "contagem de estoque" ao
+abrir, e o valor salvo é corrigido — em vez de ficar preso numa aba que não
+responde. O que já foi enviado como ENTRADA continua na planilha e continua
+sendo usado pelas análises.
+
+Enquanto estiver desligada, o consumo calculado pela análise semanal **não
+desconta reabastecimento**: um material que foi reposto no parque aparece como
+se tivesse sido consumido menos do que foi. Contagem de estoque não é afetada.
 
 ## Checklist de Materiais — unidades, fotos e PDF
 
@@ -279,21 +540,54 @@ aqui cai nele, com o consumo certo e gasto zero — nunca escondido.
 A fonte é a **lista mestra** de materiais (TIPO / ID / QUÍMICOS E CONSUMÍVEIS /
 UM / CLASSE / DEMANDA / ESTOQUE ATUAL / ÚLTIMA COMPRA), e o valor usado é o da
 ÚLTIMA COMPRA. Cada linha das tabelas tem, no comentário ao lado, o ID e o nome
-de lá — é assim que se confere. CYTEC, TYVEK e MACACÃO seguem com valor da lista
-antiga, porque não aparecem na lista mestra.
+de lá — é assim que se confere. Só o TYVEK segue com valor de lista antiga,
+porque não aparece na lista mestra.
+
+São **três** tabelas de preço: `PRECO_NORDEX_GE` (o que os dois dividem),
+`PRECO_SO_NORDEX` e `PRECO_SO_GE` (os exclusivos de cada um), mais
+`PRECO_SIEMENS`. O `precoIndice_()` junta comum + exclusivo por cliente.
+
+## Resumo Semanal — quanto tem em campo, em R$
+
+Aba nova (menu **⚙️ Automação EW → 📅 Resumo semanal**), janela de 8 semanas.
+Três blocos:
+
+1. **ESTOQUE EM PARQUE (R$)** — uma coluna por semana com o valor do material
+   parado no parque, mais `Δ vs semana anterior` e `Δ vs 1ª semana do mês`.
+   Linha TOTAL no fim. Célula vazia é "não houve contagem naquela semana" — e
+   fica vazia mesmo, porque somar como zero derrubaria o total do parque.
+2. **QTD DE MATERIAIS EM PARQUE** — quantos materiais distintos com estoque
+   acima de zero, semana a semana.
+3. **MATÉRIA PRIMA POR PARQUE**, um bloco por cliente, no formato do relatório
+   gerencial "Matéria Prima por HH", com TOTAL por cliente e TOTAL GERAL.
+
+As colunas **DEVOLUÇÃO MP, SOMA DE HH, Produtividade, FIM, TRIMESTRE e
+Custo EPI/HH saem em branco de propósito**: nada disso passa pelo checklist, e
+preencher com zero daria a impressão de que o dado existe e vale zero.
+
+O que é preenchido:
+
+| Coluna | De onde |
+|---|---|
+| PROJETOS | parque |
+| R$ MATÉRIA-PRIMA | soma das ENTRADAS lançadas na janela. **Depende de a equipe lançar entrada** — se não lançar, fica subestimada. É por isso que vem acompanhada do estoque e do consumo, que não dependem disso |
+| R$ MP PARQUE W_n | estoque em R$ na semana corrente |
+| CONSUMO R$ | mesma fonte do Gasto Semanal, para os dois não divergirem |
+| R$ EPI'S | soma dos itens marcados em `EPIS` (hoje só o TYVEK) |
+| OBS | avisa quando o parque tem material sem preço cadastrado |
 
 **Sete valores não vieram direto da lista mestra.** Todos estão marcados no
 arquivo; se algum estiver errado, o gasto daquele material sai errado:
 
 | Item | Valor | De onde |
 |---|---|---|
-| TECIDO BIAX 750 | 39,14 | igual ao BIAX 800/830 — decisão da engenharia |
-| COMBI | 44,20 | do COMBI 900 — **a lista dá por metro, o app conta em kg** |
-| TOP COAT 12 RAL 7035 (GRAY) | 392,40 | igual ao vermelho — decisão da engenharia |
-| BASE MASSA — CRYSTIC X401 | 36,00 | da "MASSA PUTTY GAMESA- MAX", por tipo |
-| ENDURECEDOR MASSA — MEKP | 55,00 | do BUTANOX M50 (MEKP é MEKP) |
-| ENDURECEDOR GEL COAT — MEKP | 55,00 | idem |
-| ENDURECEDOR ADESIVO — SIKAFORCE-050 | 300,00 | **ESTIMATIVA**, ver abaixo |
+| COMBI 900 | 44,20 | **a lista dá por metro, o app conta em kg** |
+| TOP COAT 12 RAL 7035 (GRAY) e RAL 3020 (RED) | 392,40 | a lista só tem o 348 (vermelho). Em 27/08/2026 a engenharia fixou o **cinza como referência** e mandou o vermelho seguir ele; como o único valor de nota é esse, os dois ficam iguais |
+| TYVEK (Nordex/GE) | 20,80 | lista Nordex antiga — a Siemens tem o mesmo produto a R$ 22,00 na tabela dela. **Vale unificar** quando alguém conferir a nota |
+| MASSA GT60 | — | **sem preço**, não existe na lista mestra |
+
+Os itens que antes estavam nesta tabela — BIAX 750, CRYSTIC X401, os dois MEKP e
+o SikaForce-050 — saíram das listas em 27/08/2026 e não têm mais preço cadastrado.
 
 O **SikaForce-050** não tem preço público: windsourcing e Castro Composites só
 mostram valor após login, e o único número aberto é € 56,55 pelo cartucho de

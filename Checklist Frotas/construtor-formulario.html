@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Construtor de formulário</title>
+<style>
+  :root{
+    --papel:#F2F3F1;
+    --carta:#FFFFFF;
+    --tinta:#1A2329;
+    --tinta-2:#5C6A73;
+    --linha:#D6DBD8;
+    --aco:#12466B;
+    --aco-claro:#E7EFF5;
+    --sinal:#C2410C;
+    --ok:#0F6E4F;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --corpo: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--papel);
+    color:var(--tinta);
+    font-family:var(--corpo);
+    font-size:15px;
+    line-height:1.5;
+    -webkit-text-size-adjust:100%;
+  }
+  button{font-family:inherit;font-size:inherit;cursor:pointer}
+  input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+
+  /* ---------- barra superior ---------- */
+  .barra{
+    position:sticky;top:0;z-index:40;
+    background:var(--tinta);color:#fff;
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    padding:10px 16px;
+  }
+  .marca{
+    font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    margin-right:auto;opacity:.92;
+  }
+  .marca b{font-weight:700}
+  .barra button{
+    background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);
+    border-radius:2px;padding:7px 12px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  }
+  .barra button:hover{background:rgba(255,255,255,.12)}
+  .barra button.primario{background:var(--aco);border-color:var(--aco)}
+  .barra button.primario:hover{background:#175a86}
+
+  /* ---------- layout ---------- */
+  .area{
+    max-width:1240px;margin:0 auto;padding:18px 16px 80px;
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;
+  }
+  @media (max-width:960px){
+    .area{grid-template-columns:minmax(0,1fr);gap:0}
+    .coluna[data-aba="preview"]{display:none}
+    body.ver-preview .coluna[data-aba="editor"]{display:none}
+    body.ver-preview .coluna[data-aba="preview"]{display:block}
+    .abas{display:flex}
+  }
+  .abas{display:none;gap:0;margin:0 0 14px;border:1px solid var(--linha);border-radius:2px;overflow:hidden;background:#fff}
+  .abas button{
+    flex:1;border:0;background:#fff;padding:10px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--tinta-2)
+  }
+  .abas button[aria-selected="true"]{background:var(--tinta);color:#fff}
+
+  .titulo-secao{
+    font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--tinta-2);margin:0 0 10px;display:flex;align-items:center;gap:10px;
+  }
+  .titulo-secao::after{content:"";flex:1;height:1px;background:var(--linha)}
+
+  .cartao{
+    background:var(--carta);border:1px solid var(--linha);border-radius:2px;
+    padding:14px;margin-bottom:14px;
+  }
+  label.campo{display:block;margin-bottom:10px}
+  label.campo > span{
+    display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--tinta-2);margin-bottom:4px;
+  }
+  .entrada{
+    width:100%;padding:9px 10px;border:1px solid var(--linha);border-radius:2px;background:#fff;
+  }
+  .entrada:focus-visible{outline:2px solid var(--aco);outline-offset:1px;border-color:var(--aco)}
+  textarea.entrada{min-height:64px;resize:vertical}
+
+  /* ---------- paleta de tipos ---------- */
+  .paleta{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px}
+  .paleta button{
+    display:flex;flex-direction:column;gap:2px;align-items:flex-start;
+    background:#fff;border:1px solid var(--linha);border-radius:2px;padding:8px 9px;text-align:left;
+  }
+  .paleta button:hover{border-color:var(--aco);background:var(--aco-claro)}
+  .paleta .cod{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--aco)}
+  .paleta .nome{font-size:13px}
+
+  /* ---------- ficha de campo ---------- */
+  .ficha{
+    background:var(--carta);border:1px solid var(--linha);border-left:4px solid var(--aco);
+    border-radius:2px;margin-bottom:10px;
+  }
+  .ficha-topo{
+    display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--linha);
+    background:linear-gradient(to bottom,#fbfcfb,#f5f7f6);
+  }
+  .ficha-cod{
+    font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--aco);
+    border:1px solid var(--aco);border-radius:2px;padding:2px 6px;background:#fff;
+  }
+  .ficha-nome{font-size:13px;color:var(--tinta-2);margin-right:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .icone{
+    border:1px solid var(--linha);background:#fff;border-radius:2px;
+    width:28px;height:28px;line-height:1;display:inline-flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:13px;color:var(--tinta-2);padding:0;flex:0 0 auto;
+  }
+  .icone:hover{border-color:var(--tinta);color:var(--tinta)}
+  .icone.perigo:hover{border-color:var(--sinal);color:var(--sinal)}
+  .ficha-corpo{padding:12px}
+  .linha-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:520px){.linha-2{grid-template-columns:1fr}}
+  .marcar{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--tinta-2);margin-bottom:8px}
+  .marcar input{width:16px;height:16px;accent-color:var(--aco)}
+  .dica{font-size:12px;color:var(--tinta-2);margin:-4px 0 10px}
+
+  .exemplo{border:1px dashed var(--linha);border-radius:2px;padding:9px;background:#FAFBFA}
+  .exemplo-topo{
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--tinta-2);margin-bottom:6px;
+  }
+  .exemplo img{max-width:100%;max-height:150px;border:1px solid var(--linha);border-radius:2px;display:block;margin-bottom:6px}
+  .btn-linha{display:flex;gap:6px;flex-wrap:wrap}
+  .btn{
+    border:1px solid var(--linha);background:#fff;border-radius:2px;padding:7px 11px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta);
+  }
+  .btn:hover{border-color:var(--aco);color:var(--aco)}
+  .btn.cheio{background:var(--aco);border-color:var(--aco);color:#fff}
+  .btn.cheio:hover{background:#175a86;color:#fff}
+  .vazio{
+    border:1px dashed var(--linha);border-radius:2px;padding:26px 16px;text-align:center;
+    color:var(--tinta-2);font-size:13.5px;background:#FAFBFA;
+  }
+
+  /* colunas da tabela */
+  .col-item{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+  .col-item .entrada{flex:1}
+  .col-item select.entrada{flex:0 0 120px}
+
+  /* ---------- preview ---------- */
+  .tela{
+    background:#fff;border:1px solid var(--linha);border-radius:2px;overflow:hidden;
+    position:sticky;top:74px;
+  }
+  @media (max-width:960px){.tela{position:static}}
+  .tela-topo{
+    background:var(--tinta);color:#fff;padding:8px 12px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  }
+  .tela-corpo{padding:16px;max-height:calc(100vh - 140px);overflow:auto}
+  @media (max-width:960px){.tela-corpo{max-height:none}}
+
+  .pv-titulo{font-size:20px;font-weight:700;margin:0 0 2px}
+  .pv-sub{color:var(--tinta-2);font-size:13.5px;margin:0 0 16px}
+  .pv-campo{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--linha)}
+  .pv-campo:last-child{border-bottom:0}
+  .pv-rot{display:block;font-weight:600;margin-bottom:2px}
+  .pv-obr{color:var(--sinal);font-family:var(--mono);font-size:11px}
+  .pv-ajuda{font-size:12.5px;color:var(--tinta-2);margin-bottom:6px}
+  .pv-campo img.ex{max-width:100%;max-height:180px;border:1px solid var(--linha);border-radius:2px;margin:6px 0}
+  .pv-opc{display:flex;align-items:center;gap:7px;margin:4px 0;font-size:14px}
+  .pv-caixa{border:1px dashed var(--linha);background:#FAFBFA;border-radius:2px;padding:14px;text-align:center;color:var(--tinta-2);font-size:13px}
+  .pv-tab{width:100%;border-collapse:collapse;font-size:13px}
+  .pv-tab th{background:#F2F4F3;border:1px solid var(--linha);padding:6px;text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-2)}
+  .pv-tab td{border:1px solid var(--linha);padding:6px;height:28px}
+
+  /* ---------- modal ---------- */
+  .fundo{position:fixed;inset:0;background:rgba(26,35,41,.6);display:none;z-index:60;padding:16px}
+  .fundo.aberto{display:flex;align-items:center;justify-content:center}
+  .modal{background:#fff;border-radius:2px;max-width:820px;width:100%;max-height:88vh;display:flex;flex-direction:column}
+  .modal-topo{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--linha)}
+  .modal-topo h2{margin:0;font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin-right:auto}
+  .modal-corpo{padding:14px;overflow:auto}
+  .modal-corpo textarea{
+    width:100%;height:46vh;font-family:var(--mono);font-size:11px;line-height:1.4;
+    border:1px solid var(--linha);border-radius:2px;padding:10px;white-space:pre;
+  }
+  .aviso{background:#FFF8ED;border:1px solid #F0D9B5;border-radius:2px;padding:10px 12px;font-size:13px;margin-bottom:12px}
+  .aviso b{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:2px}
+  .oculto{display:none}
+</style>
+</head>
+<body>
+
+<div class="barra">
+  <div class="marca"><b>Construtor</b> de formulário</div>
+  <button type="button" id="btExportar">Salvar modelo</button>
+  <button type="button" id="btImportar">Abrir modelo</button>
+  <button type="button" class="primario" id="btGerar">Gerar formulário</button>
+</div>
+
+<div class="area">
+  <div class="abas" role="tablist">
+    <button type="button" role="tab" aria-selected="true" data-ir="editor">Editor</button>
+    <button type="button" role="tab" aria-selected="false" data-ir="preview">Pré-visualização</button>
+  </div>
+
+  <!-- EDITOR -->
+  <div class="coluna" data-aba="editor">
+    <p class="titulo-secao">Cabeçalho</p>
+    <div class="cartao">
+      <label class="campo"><span>Título do formulário</span>
+        <input class="entrada" id="fTitulo" placeholder="Ex.: Inspeção de pá — campo">
+      </label>
+      <label class="campo" style="margin-bottom:0"><span>Subtítulo (opcional)</span>
+        <input class="entrada" id="fSub" placeholder="Ex.: Extreme Wind Blade Services">
+      </label>
+    </div>
+
+    <p class="titulo-secao">Destino do PDF</p>
+    <div class="cartao">
+      <label class="campo"><span>URL do app da web (Apps Script)</span>
+        <input class="entrada" id="dUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      </label>
+      <div class="btn-linha" style="margin:-4px 0 10px">
+        <button type="button" class="btn" id="btTestar">Testar conexão</button>
+      </div>
+      <p class="dica" id="dTeste">Deixe em branco para o formulário apenas baixar o PDF no aparelho, sem enviar.</p>
+      <label class="campo"><span>Pasta base no Dropbox</span>
+        <input class="entrada" id="dPasta" list="pastas" placeholder="/02 - EXTREME WIND/...">
+      </label>
+      <datalist id="pastas">
+        <option value="/02 - EXTREME WIND/7 - ENG &amp; CQ/04- RELATÓRIO/">
+        <option value="/02 - EXTREME WIND/7 - ENG &amp; CQ/04- RELATÓRIO/10 - RDO Projeto/">
+      </datalist>
+      <div class="linha-2">
+        <label class="campo"><span>Subpastas</span>
+          <input class="entrada" id="dSub" placeholder="{MM-AAAA}">
+        </label>
+        <label class="campo"><span>Nome do arquivo</span>
+          <input class="entrada" id="dArq" placeholder="RELATORIO_{DD}-{MM}-{AAAA}_{ID}">
+        </label>
+      </div>
+      <label class="marcar"><input type="checkbox" id="dSheet"> Registrar também na planilha</label>
+      <div id="cxSheet" class="oculto" style="margin:-2px 0 8px">
+        <label class="campo" style="margin-bottom:2px"><span>Link da planilha</span>
+          <input class="entrada" id="dSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+        </label>
+        <p class="dica" id="dSheetInfo" style="margin:4px 0 0"></p>
+      </div>
+      <div class="exemplo">
+        <div class="exemplo-topo">Marcadores — clique para inserir</div>
+        <div class="btn-linha" id="tokens" style="margin-bottom:8px"></div>
+        <div class="exemplo-topo">Vai gravar em</div>
+        <code id="previa" style="font-family:var(--mono);font-size:11px;color:var(--aco);word-break:break-all"></code>
+      </div>
+    </div>
+
+    <p class="titulo-secao">Adicionar campo</p>
+    <div class="cartao">
+      <div class="paleta" id="paleta"></div>
+    </div>
+
+    <p class="titulo-secao">Campos <span id="contador" style="font-family:var(--mono);font-size:11px"></span></p>
+    <div id="lista"></div>
+  </div>
+
+  <!-- PREVIEW -->
+  <div class="coluna" data-aba="preview">
+    <p class="titulo-secao">Como o técnico vê</p>
+    <div class="tela">
+      <div class="tela-topo">Pré-visualização</div>
+      <div class="tela-corpo" id="preview"></div>
+    </div>
+  </div>
+</div>
+
+<!-- modal código -->
+<div class="fundo" id="fundo">
+  <div class="modal">
+    <div class="modal-topo">
+      <h2 id="modalTitulo">Formulário gerado</h2>
+      <button type="button" class="btn" id="btCopiar">Copiar</button>
+      <button type="button" class="btn" id="btBaixar">Baixar arquivo</button>
+      <button type="button" class="icone" id="btFechar">×</button>
+    </div>
+    <div class="modal-corpo">
+      <div class="aviso" id="avisoModal">
+        <b>Como usar</b>
+        Salve este conteúdo como <code>formulario.html</code>. Ele funciona sozinho — basta abrir no navegador ou publicar no GitHub Pages. Precisa de internet na primeira abertura para carregar a biblioteca de PDF.
+      </div>
+      <textarea id="saida" spellcheck="false" readonly></textarea>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="arqModelo" accept=".json,application/json" class="oculto">
+<input type="file" id="arqImagem" accept="image/*" class="oculto">
+
+<!-- ================= TEMPLATE DO FORMULÁRIO GERADO ================= -->
+<script id="tpl" type="text/plain">
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITULO__</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">@@FIM@@
+<style>
+  :root{
+    --papel:#F2F3F1;--carta:#fff;--tinta:#1A2329;--tinta-2:#5C6A73;--linha:#D6DBD8;
+    --aco:#12466B;--sinal:#C2410C;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--papel);color:var(--tinta);font-size:16px;line-height:1.5;
+    font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
+  button{font-family:inherit;font-size:inherit;cursor:pointer}
+  input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
+  .topo{background:var(--tinta);color:#fff;padding:16px}
+  .topo h1{margin:0;font-size:19px;letter-spacing:-.01em}
+  .topo p{margin:3px 0 0;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.8}
+  .folha{max-width:720px;margin:0 auto;padding:16px 14px 110px}
+  .bloco{background:var(--carta);border:1px solid var(--linha);border-left:4px solid var(--aco);
+    border-radius:2px;padding:14px;margin-bottom:12px}
+  .bloco.erro{border-left-color:var(--sinal);background:#FFF9F6}
+  .rot{display:block;font-weight:600;margin-bottom:2px}
+  .obr{color:var(--sinal);font-family:var(--mono);font-size:12px}
+  .ajuda{font-size:13px;color:var(--tinta-2);margin:0 0 8px}
+  .ex{max-width:100%;border:1px solid var(--linha);border-radius:2px;margin:8px 0;display:block;cursor:zoom-in}
+  .entrada{width:100%;padding:11px 10px;border:1px solid var(--linha);border-radius:2px;background:#fff}
+  .entrada:focus-visible{outline:2px solid var(--aco);outline-offset:1px}
+  textarea.entrada{min-height:88px;resize:vertical}
+  .opc{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:15px}
+  .opc input{width:19px;height:19px;accent-color:var(--aco);flex:0 0 auto}
+  .btn{border:1px solid var(--linha);background:#fff;border-radius:2px;padding:9px 13px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+  .btn:hover{border-color:var(--aco);color:var(--aco)}
+  .btn-linha{display:flex;gap:8px;flex-wrap:wrap}
+  .btn-linha .btn{flex:1;min-width:130px}
+  .fotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:9px}
+  .miniat{position:relative;border:1px solid var(--linha);border-radius:2px;overflow:hidden;aspect-ratio:4/3;background:#fff}
+  .miniat img{width:100%;height:100%;object-fit:cover;display:block}
+  .miniat button{position:absolute;top:3px;right:3px;width:24px;height:24px;border:0;border-radius:2px;
+    background:rgba(26,35,41,.82);color:#fff;line-height:1;padding:0}
+  .assin{border:1px solid var(--linha);border-radius:2px;background:#fff;touch-action:none;width:100%;height:170px;display:block}
+  .tab-caixa{overflow-x:auto;margin-top:8px}
+  table{width:100%;border-collapse:collapse;font-size:14px;min-width:420px}
+  th{background:#F2F4F3;border:1px solid var(--linha);padding:7px;text-align:left;
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-2)}
+  td{border:1px solid var(--linha);padding:0}
+  td input{width:100%;border:0;padding:9px 7px;background:transparent}
+  td input:focus-visible{outline:2px solid var(--aco);outline-offset:-2px}
+  td.acao{width:38px;text-align:center}
+  td.acao button{border:0;background:transparent;color:var(--tinta-2);width:100%;padding:8px}
+  .rodape{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--linha);
+    padding:10px 14px;display:flex;gap:10px;align-items:center;justify-content:center}
+  .enviar{background:var(--aco);color:#fff;border:1px solid var(--aco);border-radius:2px;
+    padding:13px 22px;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;flex:1;max-width:420px}
+  .enviar:hover{background:#175a86}
+  .enviar:disabled{opacity:.6}
+  .msg{max-width:720px;margin:0 auto 12px;padding:11px 13px;border-radius:2px;font-size:14px;display:none}
+  .msg.mostrar{display:block}
+  .msg.ruim{background:#FFF1EC;border:1px solid #F3C4AF;color:#7C2D12}
+  .msg.bom{background:#EDF7F2;border:1px solid #A8D5C2;color:#0F6E4F}
+  .msg.aviso{background:#FFF8ED;border:1px solid #F0D9B5;color:#7A4A0B}
+  .fim{background:#fff;border:1px solid var(--linha);border-radius:2px;padding:30px 20px;text-align:center}
+  .fim-selo{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    background:#0F6E4F;color:#fff;padding:5px 12px;border-radius:2px;margin-bottom:14px}
+  .fim h2{margin:0 0 6px;font-size:18px}
+  .fim p{margin:0 0 6px;color:var(--tinta-2);font-size:14px}
+  .fim-caminho{font-family:var(--mono);font-size:11px;word-break:break-all;margin-bottom:18px !important}
+  .lupa{position:fixed;inset:0;background:rgba(26,35,41,.9);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .lupa.aberta{display:flex}
+  .lupa img{max-width:100%;max-height:100%}
+</style>
+</head>
+<body>
+<div class="topo"><h1 id="tTitulo"></h1><p id="tSub"></p></div>
+<div class="folha">
+  <div class="msg" id="msg"></div>
+  <form id="form" novalidate></form>
+</div>
+<div class="rodape"><button type="button" class="enviar" id="btPdf">Gerar PDF</button></div>
+<div class="lupa" id="lupa"><img id="lupaImg" alt=""></div>
+
+<script>
+const SCHEMA = __SCHEMA__;
+const $ = (s,r)=> (r||document).querySelector(s);
+const form = $('#form'), msg = $('#msg');
+document.getElementById('tTitulo').textContent = SCHEMA.titulo || 'Formulário';
+document.getElementById('tSub').textContent = SCHEMA.subtitulo || '';
+document.title = SCHEMA.titulo || 'Formulário';
+
+const assinaturas = {}, fotos = {};
+document.getElementById('btPdf').textContent =
+  (SCHEMA.destino && SCHEMA.destino.url) ? 'Gerar PDF e enviar' : 'Gerar PDF';
+
+function el(tag, attrs, txt){
+  const n = document.createElement(tag);
+  if(attrs) for(const k in attrs) n.setAttribute(k, attrs[k]);
+  if(txt != null) n.textContent = txt;
+  return n;
+}
+
+function comprimir(file, maxLado, qual){
+  return new Promise((ok, err)=>{
+    const fr = new FileReader();
+    fr.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let {width:w, height:h} = img;
+        const f = Math.min(1, maxLado/Math.max(w,h));
+        w = Math.round(w*f); h = Math.round(h*f);
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const cx = c.getContext('2d');
+        cx.fillStyle = '#fff'; cx.fillRect(0,0,w,h);
+        cx.drawImage(img,0,0,w,h);
+        ok(c.toDataURL('image/jpeg', qual));
+      };
+      img.onerror = ()=> err(new Error('imagem inválida'));
+      img.src = fr.result;
+    };
+    fr.onerror = ()=> err(new Error('falha ao ler arquivo'));
+    fr.readAsDataURL(file);
+  });
+}
+
+setTimeout(function(){ atualizarCondicoes(); }, 30);
+
+function abrirLupa(src){ $('#lupaImg').src = src; $('#lupa').classList.add('aberta'); }
+$('#lupa').addEventListener('click', ()=> $('#lupa').classList.remove('aberta'));
+
+SCHEMA.campos.forEach((c, i)=>{
+  const b = el('div', {class:'bloco', 'data-bloco':i});
+  const rot = el('label', {class:'rot'}, c.rotulo || 'Campo ' + (i+1));
+  if(c.obrigatorio) rot.appendChild(el('span', {class:'obr'}, ' *'));
+  b.appendChild(rot);
+  if(c.ajuda) b.appendChild(el('p', {class:'ajuda'}, c.ajuda));
+  if(c.exemplo){
+    const im = el('img', {class:'ex', src:c.exemplo, alt:'Exemplo'});
+    im.addEventListener('click', ()=> abrirLupa(c.exemplo));
+    b.appendChild(im);
+  }
+  b.appendChild(montar(c, i));
+  form.appendChild(b);
+});
+
+function montar(c, i){
+  const id = 'c'+i;
+  if(c.tipo === 'texto')   return el('input', {class:'entrada', id, type:'text'});
+  if(c.tipo === 'textao')  return el('textarea', {class:'entrada', id});
+  if(c.tipo === 'numero')  return el('input', {class:'entrada', id, type:'number', inputmode:'decimal', step:'any'});
+  if(c.tipo === 'data')    return el('input', {class:'entrada', id, type:'date'});
+  if(c.tipo === 'hora')    return el('input', {class:'entrada', id, type:'time'});
+  if(c.tipo === 'select'){
+    const s = el('select', {class:'entrada', id});
+    s.appendChild(el('option', {value:''}, 'Selecione...'));
+    (c.opcoes||[]).forEach(o=> s.appendChild(el('option', {value:o}, o)));
+    return s;
+  }
+  if(c.tipo === 'radio' || c.tipo === 'checkbox'){
+    const w = el('div', {id});
+    (c.opcoes||[]).forEach((o, k)=>{
+      const l = el('label', {class:'opc'});
+      const inp = el('input', {type: c.tipo === 'radio' ? 'radio' : 'checkbox', value:o, name: id});
+      l.appendChild(inp); l.appendChild(el('span', null, o));
+      w.appendChild(l);
+    });
+    return w;
+  }
+  if(c.tipo === 'foto'){
+    const w = el('div', {id});
+    fotos[i] = [];
+    const grade = el('div', {class:'fotos'});
+
+    // Dois inputs separados: com "multiple" o Android costuma abrir SÓ a galeria,
+    // e com "capture" abre SÓ a câmera. Um botão para cada caminho resolve os dois.
+    const inpCam = el('input', {type:'file', accept:'image/*', capture:'environment', style:'display:none'});
+    const inpGal = el('input', {type:'file', accept:'image/*', style:'display:none'});
+    if(c.varias) inpGal.setAttribute('multiple','multiple');
+
+    async function receber(inp){
+      for(const f of Array.from(inp.files || [])){
+        try{
+          fotos[i].push(await comprimir(f, 1400, 0.72));
+        }catch(e){ alerta('ruim', 'Não foi possível ler uma das imagens.'); }
+      }
+      inp.value = '';
+      desenharFotos(i, grade);
+      atualizarCondicoes();
+    }
+    inpCam.addEventListener('change', ()=> receber(inpCam));
+    inpGal.addEventListener('change', ()=> receber(inpGal));
+
+    const linha = el('div', {class:'btn-linha'});
+    const btCam = el('button', {type:'button', class:'btn'}, 'Tirar foto');
+    btCam.addEventListener('click', ()=> inpCam.click());
+    const btGal = el('button', {type:'button', class:'btn'}, 'Escolher da galeria');
+    btGal.addEventListener('click', ()=> inpGal.click());
+    linha.appendChild(btCam); linha.appendChild(btGal);
+
+    w.appendChild(inpCam); w.appendChild(inpGal); w.appendChild(linha); w.appendChild(grade);
+    return w;
+  }
+  if(c.tipo === 'assinatura'){
+    const w = el('div', {id});
+    const cv = el('canvas', {class:'assin'});
+    w.appendChild(cv);
+    const bt = el('button', {type:'button', class:'btn', style:'margin-top:8px'}, 'Limpar assinatura');
+    w.appendChild(bt);
+    setTimeout(()=> prepararAssinatura(cv, bt, i), 0);
+    return w;
+  }
+  if(c.tipo === 'tabela'){
+    const w = el('div', {id});
+    const cx = el('div', {class:'tab-caixa'});
+    const t = el('table');
+    const thead = el('thead'), tr = el('tr');
+    (c.colunas||[]).forEach(col=> tr.appendChild(el('th', null, col.rotulo)));
+    tr.appendChild(el('th', {class:'acao'}, ''));
+    thead.appendChild(tr); t.appendChild(thead);
+    const tb = el('tbody'); t.appendChild(tb);
+    cx.appendChild(t); w.appendChild(cx);
+    const bt = el('button', {type:'button', class:'btn', style:'margin-top:8px'}, 'Adicionar linha');
+    bt.addEventListener('click', ()=> novaLinha(tb, c));
+    w.appendChild(bt);
+    novaLinha(tb, c);
+    return w;
+  }
+  return el('div');
+}
+
+function novaLinha(tb, c){
+  const tr = el('tr');
+  (c.colunas||[]).forEach(col=>{
+    const td = el('td');
+    const tipo = col.tipo === 'numero' ? 'number' : (col.tipo === 'data' ? 'date' : (col.tipo === 'hora' ? 'time' : 'text'));
+    td.appendChild(el('input', {type:tipo}));
+    tr.appendChild(td);
+  });
+  const td = el('td', {class:'acao'});
+  const rm = el('button', {type:'button', title:'Remover linha'}, '×');
+  rm.addEventListener('click', ()=> tr.remove());
+  td.appendChild(rm); tr.appendChild(td);
+  tb.appendChild(tr);
+}
+
+/* ---------- lógica condicional ---------- */
+const porUid = {};
+SCHEMA.campos.forEach(function(c, i){ if(c.uid != null) porUid[String(c.uid)] = i; });
+
+function condicaoAtendida(i, pilha){
+  const c = SCHEMA.campos[i];
+  if(!c.cond || c.cond.uid == null) return true;
+  const j = porUid[String(c.cond.uid)];
+  if(j == null || j === i) return true;
+  pilha = pilha || {};
+  if(pilha[i]) return true;
+  pilha[i] = 1;
+  if(!condicaoAtendida(j, pilha)) return false;
+
+  const v = ler(SCHEMA.campos[j], j);
+  const lista = Array.isArray(v) ? v.map(String) : [String(v)];
+  const alvo = String(c.cond.valor == null ? '' : c.cond.valor);
+  const op = c.cond.op || 'igual';
+  if(op === 'preenchido') return !vazioValor(v);
+  if(op === 'vazio') return vazioValor(v);
+  if(op === 'diferente') return lista.indexOf(alvo) < 0;
+  return lista.indexOf(alvo) >= 0;
+}
+
+function atualizarCondicoes(){
+  SCHEMA.campos.forEach(function(c, i){
+    const b = document.querySelector('[data-bloco="' + i + '"]');
+    if(!b) return;
+    const mostrar = condicaoAtendida(i);
+    b.style.display = mostrar ? '' : 'none';
+    b.setAttribute('data-oculto', mostrar ? '0' : '1');
+  });
+}
+
+function estaOculto(i){
+  const b = document.querySelector('[data-bloco="' + i + '"]');
+  return !!(b && b.getAttribute('data-oculto') === '1');
+}
+
+form.addEventListener('input', atualizarCondicoes);
+form.addEventListener('change', atualizarCondicoes);
+
+function desenharFotos(i, grade){
+  grade.innerHTML = '';
+  fotos[i].forEach((d, k)=>{
+    const m = el('div', {class:'miniat'});
+    m.appendChild(el('img', {src:d, alt:'Foto ' + (k+1)}));
+    const x = el('button', {type:'button', title:'Remover'}, '×');
+    x.addEventListener('click', ()=>{ fotos[i].splice(k,1); desenharFotos(i, grade); });
+    m.appendChild(x);
+    grade.appendChild(m);
+  });
+}
+
+function prepararAssinatura(cv, bt, i){
+  const escala = window.devicePixelRatio || 1;
+  const r = cv.getBoundingClientRect();
+  cv.width = Math.round(r.width * escala);
+  cv.height = Math.round(r.height * escala);
+  const cx = cv.getContext('2d');
+  cx.scale(escala, escala);
+  cx.fillStyle = '#fff'; cx.fillRect(0,0,r.width,r.height);
+  cx.lineWidth = 2; cx.lineCap = 'round'; cx.lineJoin = 'round'; cx.strokeStyle = '#1A2329';
+  let desenhando = false, vazio = true;
+  const ponto = ev=>{
+    const b = cv.getBoundingClientRect();
+    return {x: ev.clientX - b.left, y: ev.clientY - b.top};
+  };
+  cv.addEventListener('pointerdown', ev=>{
+    desenhando = true; vazio = false; cv.setPointerCapture(ev.pointerId);
+    const p = ponto(ev); cx.beginPath(); cx.moveTo(p.x, p.y);
+  });
+  cv.addEventListener('pointermove', ev=>{
+    if(!desenhando) return;
+    const p = ponto(ev); cx.lineTo(p.x, p.y); cx.stroke();
+  });
+  const parar = ()=>{ desenhando = false; assinaturas[i] = vazio ? null : cv.toDataURL('image/png'); };
+  cv.addEventListener('pointerup', parar);
+  cv.addEventListener('pointercancel', parar);
+  cv.addEventListener('pointerleave', parar);
+  bt.addEventListener('click', ()=>{
+    const b = cv.getBoundingClientRect();
+    cx.fillStyle = '#fff'; cx.fillRect(0,0,b.width,b.height);
+    vazio = true; assinaturas[i] = null;
+    atualizarCondicoes();
+  });
+  assinaturas[i] = null;
+}
+
+function ler(c, i){
+  const id = 'c'+i, n = document.getElementById(id);
+  if(['texto','textao','numero','data','hora','select'].indexOf(c.tipo) >= 0) return (n.value||'').trim();
+  if(c.tipo === 'radio'){ const m = n.querySelector('input:checked'); return m ? m.value : ''; }
+  if(c.tipo === 'checkbox') return Array.from(n.querySelectorAll('input:checked')).map(x=> x.value);
+  if(c.tipo === 'foto') return fotos[i] || [];
+  if(c.tipo === 'assinatura') return assinaturas[i] || '';
+  if(c.tipo === 'tabela'){
+    const linhas = [];
+    n.querySelectorAll('tbody tr').forEach(tr=>{
+      const vals = Array.from(tr.querySelectorAll('input')).map(x=> (x.value||'').trim());
+      if(vals.some(v=> v !== '')) linhas.push(vals);
+    });
+    return linhas;
+  }
+  return '';
+}
+
+function vazioValor(v){
+  if(Array.isArray(v)) return v.length === 0;
+  return !v;
+}
+
+function alerta(tipo, texto){
+  msg.className = 'msg mostrar ' + tipo;
+  msg.textContent = texto;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function dataHoje(){
+  const d = new Date(), p = n=> String(n).padStart(2,'0');
+  return p(d.getDate()) + '/' + p(d.getMonth()+1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+document.getElementById('btPdf').addEventListener('click', async function(){
+  const bt = this;
+  document.querySelectorAll('.bloco').forEach(b=> b.classList.remove('erro'));
+  const dados = [];
+  let faltando = null;
+  SCHEMA.campos.forEach((c, i)=>{
+    if(estaOculto(i)) return;          // campo escondido por condição não é exigido nem entra no PDF
+    const v = ler(c, i);
+    if(c.obrigatorio && vazioValor(v)){
+      document.querySelector('[data-bloco="'+i+'"]').classList.add('erro');
+      if(faltando === null) faltando = c.rotulo;
+    }
+    dados.push({campo:c, valor:v});
+  });
+  if(faltando !== null){
+    alerta('ruim', 'Preencha os campos marcados. O primeiro é: ' + faltando);
+    return;
+  }
+  if(!window.jspdf){
+    alerta('ruim', 'A biblioteca de PDF não carregou. Conecte à internet e recarregue a página.');
+    return;
+  }
+  const D = SCHEMA.destino || {};
+  bt.disabled = true; bt.textContent = 'Gerando PDF...';
+  let doc, nomeLocal;
+  try{
+    doc = await montarPDF(dados);
+    nomeLocal = resolver(D.arquivo, dados).replace(/\{ID\}/g,'').replace(/[_-]+$/,'') || 'formulario';
+    doc.save(nomeLocal + '.pdf');
+  }catch(e){
+    console.error(e);
+    alerta('ruim', 'Falha ao gerar o PDF: ' + e.message);
+    bt.disabled = false; bt.textContent = rotuloBotao();
+    return;
+  }
+
+  if(!D.url){
+    alerta('bom', 'PDF gerado. Verifique os downloads do aparelho.');
+    bt.disabled = false; bt.textContent = rotuloBotao();
+    return;
+  }
+
+  bt.textContent = 'Enviando...';
+  alerta('aviso', 'PDF salvo no aparelho. Enviando para o Dropbox — não feche a página.');
+  try{
+    const r = await enviar(doc, dados, D);
+    if(r && r.ok){
+      sucesso(r);
+    }else{
+      alerta('ruim', 'O servidor recusou o envio: ' + ((r && r.erro) || 'motivo não informado') +
+                     '. O PDF já está salvo no aparelho — reenvie depois.');
+      bt.disabled = false; bt.textContent = rotuloBotao();
+    }
+  }catch(e){
+    console.error(e);
+    alerta('aviso', 'Não recebi confirmação do servidor. Isso às vezes acontece mesmo quando o envio deu certo — ' +
+                    'confira a pasta no Dropbox antes de reenviar. O PDF está salvo no aparelho.');
+    bt.disabled = false; bt.textContent = rotuloBotao();
+  }
+});
+
+function rotuloBotao(){
+  return (SCHEMA.destino && SCHEMA.destino.url) ? 'Gerar PDF e enviar' : 'Gerar PDF';
+}
+
+function limpar(t){
+  return String(t == null ? '' : t)
+    .replace(/[\\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function resolver(padrao, dados){
+  const d = new Date(), p = n=> String(n).padStart(2,'0');
+  const mapa = {
+    '{AAAA}': String(d.getFullYear()),
+    '{MM}': p(d.getMonth()+1),
+    '{DD}': p(d.getDate()),
+    '{MM-AAAA}': p(d.getMonth()+1) + '-' + d.getFullYear(),
+    '{HH}': p(d.getHours()),
+    '{mm}': p(d.getMinutes())
+  };
+  return String(padrao || '')
+    .replace(/\{(AAAA|MM-AAAA|MM|DD|HH|mm)\}/g, m=> mapa[m])
+    .replace(/\{campo:([^}]+)\}/g, function(m, rot){
+      const alvo = rot.trim();
+      for(const item of dados){
+        if((item.campo.rotulo||'').trim() === alvo){
+          const v = item.valor;
+          return limpar(Array.isArray(v) ? v.join('-') : v);
+        }
+      }
+      return '';
+    });
+}
+
+function paraTexto(item){
+  const c = item.campo, v = item.valor;
+  if(c.tipo === 'tabela') return v.map(l=> l.join(' | ')).join(' ;; ');
+  if(c.tipo === 'checkbox') return v.join(', ');
+  if(c.tipo === 'foto') return v.length + ' foto(s)';
+  if(c.tipo === 'assinatura') return v ? 'assinado' : 'em branco';
+  return String(v);
+}
+
+async function enviar(doc, dados, D){
+  const b64 = doc.output('datauristring').split(',')[1];
+  const base = String(D.pasta || '/').replace(/\/+$/,'');
+  const sub = resolver(D.sub, dados).replace(/^\/+|\/+$/g,'');
+  const corpo = {
+    formulario: SCHEMA.titulo || 'Formulário',
+    pasta: base + (sub ? '/' + sub : ''),
+    arquivo: (resolver(D.arquivo, dados) || 'arquivo') + '.pdf',
+    planilha: D.sheet !== false,
+    planilhaId: D.sheetId || '',
+    pdf: b64,
+    campos: dados.map(function(item){
+      return {rotulo: item.campo.rotulo || '', valor: paraTexto(item)};
+    })
+  };
+  const resp = await fetch(D.url, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify(corpo),
+    redirect: 'follow'
+  });
+  const bruto = await resp.text();
+  try{
+    return JSON.parse(bruto);
+  }catch(e){
+    // Quase sempre é a tela de login do Google: implantação não está como "Qualquer pessoa".
+    return {ok:false, erro:'resposta ' + resp.status + ' fora do formato esperado — verifique se a implantação está como "Qualquer pessoa". Início: ' + bruto.substring(0,100)};
+  }
+}
+
+function sucesso(r){
+  document.querySelector('.folha').innerHTML =
+    '<div class="fim">' +
+      '<div class="fim-selo">Enviado</div>' +
+      '<h2>' + (SCHEMA.titulo || 'Formulário') + '</h2>' +
+      '<p>Protocolo <b>' + (r.id || '—') + '</b></p>' +
+      '<p class="fim-caminho">' + (r.caminho || '') + '</p>' +
+      '<button type="button" class="btn" onclick="location.reload()">Preencher outro</button>' +
+    '</div>';
+  document.querySelector('.rodape').style.display = 'none';
+  window.scrollTo(0,0);
+}
+
+async function montarPDF(dados){
+  const doc = new window.jspdf.jsPDF({unit:'mm', format:'a4'});
+  const M = 15, LARG = 210, UTIL = LARG - M*2, FIM = 297 - M;
+  let y = M;
+
+  function espaco(h){ if(y + h > FIM){ doc.addPage(); y = M; } }
+  function texto(t, tam, estilo){
+    doc.setFont('helvetica', estilo || 'normal');
+    doc.setFontSize(tam);
+    doc.setTextColor(26, 35, 41);
+    const linhas = doc.splitTextToSize(String(t), UTIL);
+    linhas.forEach(l=>{ espaco(tam*0.45); doc.text(l, M, y); y += tam*0.45 + 1.2; });
+  }
+
+  doc.setFillColor(26,35,41); doc.rect(0,0,LARG,22,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text(String(SCHEMA.titulo || 'Formulário').substring(0,60), M, 11);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+  doc.text(String(SCHEMA.subtitulo || ''), M, 17);
+  doc.text('Emitido em ' + dataHoje(), LARG - M, 17, {align:'right'});
+  y = 32;
+
+  for(const d of dados){
+    const c = d.campo, v = d.valor;
+    espaco(14);
+    doc.setDrawColor(214,219,216); doc.setLineWidth(0.2);
+    doc.line(M, y-3.5, LARG-M, y-3.5);
+    doc.setTextColor(92,106,115); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    const rl = doc.splitTextToSize(String(c.rotulo||'').toUpperCase(), UTIL);
+    rl.forEach(l=>{ espaco(5); doc.text(l, M, y); y += 4; });
+    y += 0.5;
+
+    if(c.tipo === 'assinatura'){
+      if(v){ espaco(28); doc.addImage(v, 'PNG', M, y, 70, 25); y += 28; }
+      else { texto('(sem assinatura)', 10, 'italic'); }
+    }
+    else if(c.tipo === 'foto'){
+      if(!v.length){ texto('(sem fotos)', 10, 'italic'); }
+      else {
+        const lg = (UTIL - 4) / 2, al = lg * 0.75;
+        for(let k=0; k<v.length; k+=2){
+          espaco(al + 4);
+          doc.addImage(v[k], 'JPEG', M, y, lg, al);
+          if(v[k+1]) doc.addImage(v[k+1], 'JPEG', M + lg + 4, y, lg, al);
+          y += al + 4;
+        }
+      }
+    }
+    else if(c.tipo === 'tabela'){
+      const cols = c.colunas || [];
+      const lc = UTIL / Math.max(cols.length, 1);
+      espaco(9);
+      doc.setFillColor(242,244,243); doc.rect(M, y-3.5, UTIL, 6, 'F');
+      doc.setFontSize(7.5); doc.setTextColor(92,106,115);
+      cols.forEach((col, k)=> doc.text(String(col.rotulo).substring(0,22), M + k*lc + 1.5, y));
+      y += 4;
+      doc.setTextColor(26,35,41); doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+      if(!v.length){ y += 1; texto('(nenhuma linha preenchida)', 9, 'italic'); }
+      v.forEach(linha=>{
+        espaco(7);
+        linha.forEach((cel, k)=>{
+          const t = doc.splitTextToSize(String(cel), lc - 3)[0] || '';
+          doc.text(t, M + k*lc + 1.5, y + 1);
+        });
+        y += 5;
+        doc.setDrawColor(230,233,231); doc.line(M, y-2, LARG-M, y-2);
+      });
+      y += 2;
+    }
+    else {
+      const t = Array.isArray(v) ? v.join(' • ') : v;
+      texto(t || '—', 10.5, 'normal');
+      y += 1.5;
+    }
+    y += 3;
+  }
+
+  const tot = doc.internal.getNumberOfPages();
+  for(let p=1; p<=tot; p++){
+    doc.setPage(p);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(140,150,156);
+    doc.text('Página ' + p + ' de ' + tot, LARG - M, 292, {align:'right'});
+  }
+
+  return doc;
+}
+@@FIM@@
+</body>
+</html>
+</script>
+<!-- ================= FIM DO TEMPLATE ================= -->
+
+<script>
+(function(){
+  'use strict';
+
+  const TIPOS = {
+    texto:      {cod:'TXT',  nome:'Texto curto'},
+    textao:     {cod:'OBS',  nome:'Texto longo'},
+    numero:     {cod:'NUM',  nome:'Número'},
+    data:       {cod:'DATA', nome:'Data'},
+    hora:       {cod:'HORA', nome:'Hora'},
+    select:     {cod:'LIST', nome:'Lista suspensa'},
+    radio:      {cod:'OPC',  nome:'Escolha única'},
+    checkbox:   {cod:'MULT', nome:'Múltipla escolha'},
+    foto:       {cod:'FOTO', nome:'Foto / anexo'},
+    assinatura: {cod:'ASS',  nome:'Assinatura'},
+    tabela:     {cod:'TAB',  nome:'Linhas repetíveis'}
+  };
+  const COM_OPCOES = ['select','radio','checkbox'];
+
+  let modelo = {
+    titulo: 'Relatório de campo',
+    subtitulo: 'Extreme Wind Blade Services',
+    destino: {url:'', pasta:'', sub:'{MM-AAAA}', arquivo:'RELATORIO_{DD}-{MM}-{AAAA}_{ID}',
+              sheet:true, sheetUrl:'', sheetId:''},
+    campos: []
+  };
+  let seq = 0;
+  let alvoImagem = null;
+
+  const $ = s => document.querySelector(s);
+  const lista = $('#lista'), preview = $('#preview');
+
+  /* ---------- paleta ---------- */
+  const paleta = $('#paleta');
+  Object.keys(TIPOS).forEach(t=>{
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = '<span class="cod">' + TIPOS[t].cod + '</span><span class="nome">' + TIPOS[t].nome + '</span>';
+    b.addEventListener('click', ()=> adicionar(t));
+    paleta.appendChild(b);
+  });
+
+  function adicionar(tipo){
+    const c = {
+      uid: ++seq, tipo,
+      rotulo: '', ajuda: '', obrigatorio: false, exemplo: '',
+      opcoes: COM_OPCOES.indexOf(tipo) >= 0 ? ['Opção 1','Opção 2'] : [],
+      colunas: tipo === 'tabela' ? [{rotulo:'Atividade', tipo:'texto'},{rotulo:'Início', tipo:'hora'},{rotulo:'Fim', tipo:'hora'}] : [],
+      varias: tipo === 'foto'
+    };
+    modelo.campos.push(c);
+    desenhar();
+    const fichas = lista.querySelectorAll('.ficha');
+    const ultima = fichas[fichas.length-1];
+    if(ultima){ ultima.scrollIntoView({behavior:'smooth', block:'center'}); const inp = ultima.querySelector('input[data-k="rotulo"]'); if(inp) inp.focus(); }
+  }
+
+  /* ---------- editor ---------- */
+  function desenhar(){
+    if(!modelo.destino) modelo.destino = {url:'', pasta:'', sub:'', arquivo:'', sheet:true};
+    $('#fTitulo').value = modelo.titulo;
+    $('#fSub').value = modelo.subtitulo;
+    $('#dUrl').value   = modelo.destino.url || '';
+    $('#dPasta').value = modelo.destino.pasta || '';
+    $('#dSub').value   = modelo.destino.sub || '';
+    $('#dArq').value   = modelo.destino.arquivo || '';
+    $('#dSheet').checked = modelo.destino.sheet !== false;
+    $('#dSheetUrl').value = modelo.destino.sheetUrl || '';
+    alternarSheet();
+    desenharTokens();
+    $('#contador').textContent = modelo.campos.length ? '(' + modelo.campos.length + ')' : '';
+    lista.innerHTML = '';
+    if(!modelo.campos.length){
+      const v = document.createElement('div');
+      v.className = 'vazio';
+      v.textContent = 'Nenhum campo ainda. Escolha um tipo acima para começar.';
+      lista.appendChild(v);
+    }
+    limparCondicoesInvalidas();
+    modelo.campos.forEach((c, i)=> lista.appendChild(ficha(c, i)));
+    desenharTokens();
+    desenharPreview();
+  }
+
+  function ficha(c, i){
+    const f = document.createElement('div');
+    f.className = 'ficha';
+
+    const topo = document.createElement('div');
+    topo.className = 'ficha-topo';
+    topo.innerHTML = '<span class="ficha-cod">' + TIPOS[c.tipo].cod + '</span>' +
+                     '<span class="ficha-nome">' + ((c.rotulo||'') ? esc(c.rotulo) : TIPOS[c.tipo].nome) + '</span>';
+    topo.appendChild(icone('↑','Mover para cima', ()=> mover(i,-1), i === 0));
+    topo.appendChild(icone('↓','Mover para baixo', ()=> mover(i,1), i === modelo.campos.length-1));
+    topo.appendChild(icone('⧉','Duplicar', ()=> duplicar(i)));
+    topo.appendChild(icone('×','Excluir', ()=> excluir(i), false, true));
+    f.appendChild(topo);
+
+    const corpo = document.createElement('div');
+    corpo.className = 'ficha-corpo';
+
+    corpo.appendChild(entrada('Pergunta', c.rotulo, 'rotulo', i, 'Ex.: Número da pá inspecionada'));
+    corpo.appendChild(entrada('Instrução para o técnico (opcional)', c.ajuda, 'ajuda', i, 'Ex.: informe conforme a etiqueta na raiz'));
+
+    const ob = document.createElement('label');
+    ob.className = 'marcar';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = c.obrigatorio;
+    cb.addEventListener('change', ()=>{ c.obrigatorio = cb.checked; desenharPreview(); });
+    ob.appendChild(cb); ob.appendChild(document.createTextNode('Obrigatório'));
+    corpo.appendChild(ob);
+
+    if(c.tipo === 'foto'){
+      const vv = document.createElement('label');
+      vv.className = 'marcar';
+      const cb2 = document.createElement('input');
+      cb2.type = 'checkbox'; cb2.checked = c.varias;
+      cb2.addEventListener('change', ()=>{ c.varias = cb2.checked; });
+      vv.appendChild(cb2); vv.appendChild(document.createTextNode('Permitir várias fotos'));
+      corpo.appendChild(vv);
+    }
+
+    if(COM_OPCOES.indexOf(c.tipo) >= 0){
+      const l = document.createElement('label');
+      l.className = 'campo';
+      l.innerHTML = '<span>Opções — uma por linha</span>';
+      const ta = document.createElement('textarea');
+      ta.className = 'entrada'; ta.value = (c.opcoes||[]).join('\n');
+      ta.addEventListener('input', ()=>{
+        c.opcoes = ta.value.split('\n').map(s=> s.trim()).filter(Boolean);
+        desenharPreview();
+      });
+      l.appendChild(ta);
+      corpo.appendChild(l);
+    }
+
+    if(c.tipo === 'tabela'){
+      const cx = document.createElement('div');
+      cx.style.marginBottom = '10px';
+      const t = document.createElement('span');
+      t.className = 'exemplo-topo';
+      t.textContent = 'Colunas';
+      cx.appendChild(t);
+      (c.colunas||[]).forEach((col, k)=>{
+        const linha = document.createElement('div');
+        linha.className = 'col-item';
+        const inp = document.createElement('input');
+        inp.className = 'entrada'; inp.value = col.rotulo; inp.placeholder = 'Nome da coluna';
+        inp.addEventListener('input', ()=>{ col.rotulo = inp.value; desenharPreview(); });
+        const sel = document.createElement('select');
+        sel.className = 'entrada';
+        [['texto','Texto'],['numero','Número'],['data','Data'],['hora','Hora']].forEach(o=>{
+          const op = document.createElement('option');
+          op.value = o[0]; op.textContent = o[1];
+          if(col.tipo === o[0]) op.selected = true;
+          sel.appendChild(op);
+        });
+        sel.addEventListener('change', ()=>{ col.tipo = sel.value; });
+        linha.appendChild(inp); linha.appendChild(sel);
+        linha.appendChild(icone('×','Remover coluna', ()=>{ c.colunas.splice(k,1); desenhar(); }, false, true));
+        cx.appendChild(linha);
+      });
+      const add = document.createElement('button');
+      add.type = 'button'; add.className = 'btn'; add.textContent = 'Adicionar coluna';
+      add.addEventListener('click', ()=>{ c.colunas.push({rotulo:'Nova coluna', tipo:'texto'}); desenhar(); });
+      cx.appendChild(add);
+      corpo.appendChild(cx);
+    }
+
+    /* condição de exibição */
+    corpo.appendChild(editorCondicao(c, i));
+
+    /* imagem de exemplo */
+    const ex = document.createElement('div');
+    ex.className = 'exemplo';
+    const et = document.createElement('div');
+    et.className = 'exemplo-topo';
+    et.textContent = 'Imagem de exemplo';
+    ex.appendChild(et);
+    if(c.exemplo){
+      const im = document.createElement('img');
+      im.src = c.exemplo; im.alt = 'Exemplo';
+      ex.appendChild(im);
+    }
+    const bl = document.createElement('div');
+    bl.className = 'btn-linha';
+    const bAdd = document.createElement('button');
+    bAdd.type = 'button'; bAdd.className = 'btn';
+    bAdd.textContent = c.exemplo ? 'Trocar imagem' : 'Escolher imagem';
+    bAdd.addEventListener('click', ()=>{ alvoImagem = c; $('#arqImagem').click(); });
+    bl.appendChild(bAdd);
+    if(c.exemplo){
+      const bDel = document.createElement('button');
+      bDel.type = 'button'; bDel.className = 'btn';
+      bDel.textContent = 'Remover';
+      bDel.addEventListener('click', ()=>{ c.exemplo = ''; desenhar(); });
+      bl.appendChild(bDel);
+    }
+    ex.appendChild(bl);
+    corpo.appendChild(ex);
+
+    f.appendChild(corpo);
+    return f;
+  }
+
+  const OPERADORES = [
+    ['igual','for igual a'],
+    ['diferente','for diferente de'],
+    ['preenchido','estiver preenchido'],
+    ['vazio','estiver em branco']
+  ];
+
+  function editorCondicao(c, i){
+    const cx = document.createElement('div');
+    cx.className = 'exemplo';
+    cx.style.marginBottom = '10px';
+    const t = document.createElement('div');
+    t.className = 'exemplo-topo';
+    t.textContent = 'Quando mostrar este campo';
+    cx.appendChild(t);
+
+    const anteriores = modelo.campos.slice(0, i).filter(x=> (x.rotulo||'').trim());
+
+    const selCampo = document.createElement('select');
+    selCampo.className = 'entrada';
+    selCampo.style.marginBottom = '6px';
+    const op0 = document.createElement('option');
+    op0.value = ''; op0.textContent = 'Sempre mostrar';
+    selCampo.appendChild(op0);
+    anteriores.forEach(x=>{
+      const o = document.createElement('option');
+      o.value = String(x.uid);
+      o.textContent = x.rotulo;
+      if(c.cond && String(c.cond.uid) === String(x.uid)) o.selected = true;
+      selCampo.appendChild(o);
+    });
+    cx.appendChild(selCampo);
+
+    if(!anteriores.length){
+      const aviso = document.createElement('div');
+      aviso.className = 'dica';
+      aviso.style.margin = '4px 0 0';
+      aviso.textContent = 'Só é possível depender de um campo que venha antes deste.';
+      cx.appendChild(aviso);
+    }
+
+    if(c.cond && c.cond.uid != null){
+      const dono = modelo.campos.filter(x=> String(x.uid) === String(c.cond.uid))[0];
+
+      const selOp = document.createElement('select');
+      selOp.className = 'entrada';
+      selOp.style.marginBottom = '6px';
+      OPERADORES.forEach(o=>{
+        const n = document.createElement('option');
+        n.value = o[0]; n.textContent = 'Se a resposta ' + o[1];
+        if((c.cond.op||'igual') === o[0]) n.selected = true;
+        selOp.appendChild(n);
+      });
+      selOp.addEventListener('change', ()=>{ c.cond.op = selOp.value; desenhar(); });
+      cx.appendChild(selOp);
+
+      const precisaValor = ['igual','diferente'].indexOf(c.cond.op || 'igual') >= 0;
+      if(precisaValor){
+        if(dono && (dono.opcoes||[]).length){
+          const selV = document.createElement('select');
+          selV.className = 'entrada';
+          (dono.opcoes||[]).forEach(o=>{
+            const n = document.createElement('option');
+            n.value = o; n.textContent = o;
+            if(c.cond.valor === o) n.selected = true;
+            selV.appendChild(n);
+          });
+          if(c.cond.valor == null || (dono.opcoes||[]).indexOf(c.cond.valor) < 0){
+            c.cond.valor = dono.opcoes[0];
+            selV.value = c.cond.valor;
+          }
+          selV.addEventListener('change', ()=>{ c.cond.valor = selV.value; });
+          cx.appendChild(selV);
+        }else{
+          const inp = document.createElement('input');
+          inp.className = 'entrada';
+          inp.placeholder = 'Valor exato da resposta';
+          inp.value = c.cond.valor || '';
+          inp.addEventListener('input', ()=>{ c.cond.valor = inp.value; });
+          cx.appendChild(inp);
+        }
+      }
+    }
+
+    selCampo.addEventListener('change', ()=>{
+      if(!selCampo.value){ delete c.cond; }
+      else { c.cond = {uid: Number(selCampo.value), op: (c.cond && c.cond.op) || 'igual', valor: (c.cond && c.cond.valor) || ''}; }
+      desenhar();
+    });
+
+    return cx;
+  }
+
+  function entrada(rot, valor, chave, i, ph){
+    const l = document.createElement('label');
+    l.className = 'campo';
+    const s = document.createElement('span');
+    s.textContent = rot;
+    const inp = document.createElement('input');
+    inp.className = 'entrada'; inp.value = valor || ''; inp.placeholder = ph || '';
+    inp.setAttribute('data-k', chave);
+    inp.addEventListener('input', ()=>{
+      modelo.campos[i][chave] = inp.value;
+      const nome = inp.closest('.ficha').querySelector('.ficha-nome');
+      if(chave === 'rotulo' && nome) nome.textContent = inp.value || TIPOS[modelo.campos[i].tipo].nome;
+      desenharPreview();
+    });
+    l.appendChild(s); l.appendChild(inp);
+    return l;
+  }
+
+  function icone(txt, titulo, fn, desativado, perigo){
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'icone' + (perigo ? ' perigo' : '');
+    b.textContent = txt; b.title = titulo;
+    if(desativado){ b.disabled = true; b.style.opacity = '.3'; b.style.cursor = 'default'; }
+    else b.addEventListener('click', fn);
+    return b;
+  }
+
+  function mover(i, d){
+    const j = i + d;
+    if(j < 0 || j >= modelo.campos.length) return;
+    const t = modelo.campos[i];
+    modelo.campos[i] = modelo.campos[j];
+    modelo.campos[j] = t;
+    desenhar();
+  }
+  function duplicar(i){
+    const c = JSON.parse(JSON.stringify(modelo.campos[i]));
+    c.uid = ++seq;
+    modelo.campos.splice(i+1, 0, c);
+    desenhar();
+  }
+  function excluir(i){
+    if(!confirm('Excluir o campo "' + (modelo.campos[i].rotulo || TIPOS[modelo.campos[i].tipo].nome) + '"?')) return;
+    const uid = modelo.campos[i].uid;
+    modelo.campos.splice(i,1);
+    modelo.campos.forEach(x=>{ if(x.cond && String(x.cond.uid) === String(uid)) delete x.cond; });
+    desenhar();
+  }
+
+  /* uma condição só vale se o campo de origem vier ANTES */
+  function limparCondicoesInvalidas(){
+    const posicao = {};
+    modelo.campos.forEach((c, k)=>{ posicao[c.uid] = k; });
+    modelo.campos.forEach((c, k)=>{
+      if(c.cond && (posicao[c.cond.uid] == null || posicao[c.cond.uid] >= k)) delete c.cond;
+    });
+  }
+
+  /* ---------- destino ---------- */
+  let ultimoFoco = 'dArq';
+  [['dUrl','url'],['dPasta','pasta'],['dSub','sub'],['dArq','arquivo']].forEach(par=>{
+    const n = $('#'+par[0]);
+    n.addEventListener('input', ()=>{ modelo.destino[par[1]] = n.value; desenharPrevia(); });
+    n.addEventListener('focus', ()=>{ if(par[0]==='dSub'||par[0]==='dArq') ultimoFoco = par[0]; });
+  });
+  /* aceita o link completo do Sheets ou o ID solto */
+  function extrairIdSheets(txt){
+    const t = String(txt || '').trim();
+    if(!t) return '';
+    const m = t.match(/\/d\/([a-zA-Z0-9-_]{20,})/);
+    if(m) return m[1];
+    if(/^[a-zA-Z0-9-_]{25,}$/.test(t)) return t;
+    return '';
+  }
+
+  function alternarSheet(){
+    const ligado = $('#dSheet').checked;
+    $('#cxSheet').classList.toggle('oculto', !ligado);
+    if(!ligado){ $('#dSheetInfo').textContent = ''; return; }
+    const bruto = $('#dSheetUrl').value.trim();
+    const id = extrairIdSheets(bruto);
+    modelo.destino.sheetId = id;
+    if(!bruto){
+      $('#dSheetInfo').textContent = 'Em branco = usa a planilha padrão configurada no Apps Script (SHEET_ID).';
+    }else if(id){
+      $('#dSheetInfo').textContent = 'ID reconhecido: ' + id;
+    }else{
+      $('#dSheetInfo').textContent = 'Não reconheci um ID nesse texto. Cole a URL inteira da planilha.';
+    }
+  }
+
+  $('#dSheet').addEventListener('change', e=>{ modelo.destino.sheet = e.target.checked; alternarSheet(); });
+  $('#dSheetUrl').addEventListener('input', e=>{ modelo.destino.sheetUrl = e.target.value; alternarSheet(); });
+
+  $('#btTestar').addEventListener('click', async function(){
+    const d = $('#dTeste'), b = this;
+    const url = (modelo.destino.url||'').trim();
+    if(!url){ d.textContent = 'Cole a URL do app da web primeiro.'; return; }
+    if(!/\/exec$/.test(url)){
+      d.textContent = 'A URL precisa terminar em /exec. A que termina em /dev não funciona para os técnicos.';
+      return;
+    }
+    b.disabled = true; d.textContent = 'Testando...';
+    try{
+      const r = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({teste:true, pasta: modelo.destino.pasta || '',
+                              planilhaId: (modelo.destino.sheet !== false ? (modelo.destino.sheetId || '') : '')})
+      });
+      const bruto = await r.text();
+      let j = null;
+      try{ j = JSON.parse(bruto); }catch(e){}
+      if(!j){
+        d.textContent = 'O servidor respondeu ' + r.status + ', mas não em JSON. Quase sempre é a tela de login do Google: '
+          + 'na implantação, "Quem pode acessar" precisa ser "Qualquer pessoa". Início da resposta: '
+          + bruto.substring(0,120);
+      }else if(j.ok){
+        d.textContent = 'Conexão OK. Dropbox: ' + (j.dropbox||'?') + ' · Pasta: ' + (j.pasta||'?')
+                      + ' · Planilha: ' + (j.planilha||'?');
+      }else{
+        d.textContent = 'O backend respondeu com erro: ' + (j.erro || 'sem detalhe');
+      }
+    }catch(e){
+      d.textContent = 'Não consegui falar com o servidor (' + e.message + '). '
+        + 'Causas comuns: implantação não é "Qualquer pessoa", URL errada, ou o script não foi reimplantado depois de colar o código.';
+    }finally{ b.disabled = false; }
+  });
+
+  const TOKENS_FIXOS = ['{AAAA}','{MM}','{DD}','{MM-AAAA}','{HH}','{mm}','{ID}'];
+
+  function desenharTokens(){
+    const cx = $('#tokens');
+    cx.innerHTML = '';
+    const lista2 = TOKENS_FIXOS.concat(
+      modelo.campos.filter(c=> (c.rotulo||'').trim() && ['foto','assinatura','tabela'].indexOf(c.tipo) < 0)
+                   .map(c=> '{campo:' + c.rotulo.trim() + '}')
+    );
+    lista2.forEach(t=>{
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'btn'; b.textContent = t;
+      b.style.textTransform = 'none'; b.style.letterSpacing = '0';
+      b.addEventListener('click', ()=>{
+        const n = $('#'+ultimoFoco);
+        const chave = ultimoFoco === 'dSub' ? 'sub' : 'arquivo';
+        n.value = (n.value || '') + t;
+        modelo.destino[chave] = n.value;
+        desenharPrevia(); n.focus();
+      });
+      cx.appendChild(b);
+    });
+    desenharPrevia();
+  }
+
+  function amostraToken(t){
+    const d = new Date(), p = n=> String(n).padStart(2,'0');
+    if(t === '{AAAA}') return String(d.getFullYear());
+    if(t === '{MM}') return p(d.getMonth()+1);
+    if(t === '{DD}') return p(d.getDate());
+    if(t === '{MM-AAAA}') return p(d.getMonth()+1) + '-' + d.getFullYear();
+    if(t === '{HH}') return p(d.getHours());
+    if(t === '{mm}') return p(d.getMinutes());
+    if(t === '{ID}') return 'A7K3M9';
+    return '';
+  }
+
+  function resolverAmostra(txt){
+    return String(txt||'')
+      .replace(/\{(AAAA|MM-AAAA|MM|DD|HH|mm|ID)\}/g, m=> amostraToken(m))
+      .replace(/\{campo:([^}]+)\}/g, (m, rot)=> '<' + rot.trim().toLowerCase().replace(/\s+/g,'-') + '>');
+  }
+
+  function desenharPrevia(){
+    const D = modelo.destino;
+    if(!D.url){ $('#previa').textContent = 'Sem envio — o PDF só será baixado no aparelho.'; return; }
+    let base = (D.pasta || '/').replace(/\/+$/,'');
+    const sub = resolverAmostra(D.sub).replace(/^\/+|\/+$/g,'');
+    const arq = resolverAmostra(D.arquivo) || 'arquivo';
+    $('#previa').textContent = base + (sub ? '/' + sub : '') + '/' + arq + '.pdf';
+  }
+
+  $('#fTitulo').addEventListener('input', e=>{ modelo.titulo = e.target.value; desenharPreview(); });
+  $('#fSub').addEventListener('input', e=>{ modelo.subtitulo = e.target.value; desenharPreview(); });
+
+  /* ---------- imagem de exemplo ---------- */
+  $('#arqImagem').addEventListener('change', function(){
+    const f = this.files && this.files[0];
+    this.value = '';
+    if(!f || !alvoImagem) return;
+    comprimir(f, 800, 0.68).then(d=>{
+      alvoImagem.exemplo = d;
+      alvoImagem = null;
+      desenhar();
+    }).catch(()=> alert('Não foi possível ler essa imagem.'));
+  });
+
+  function comprimir(file, maxLado, qual){
+    return new Promise((ok, err)=>{
+      const fr = new FileReader();
+      fr.onload = ()=>{
+        const img = new Image();
+        img.onload = ()=>{
+          let w = img.width, h = img.height;
+          const fator = Math.min(1, maxLado / Math.max(w,h));
+          w = Math.round(w*fator); h = Math.round(h*fator);
+          const cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          const cx = cv.getContext('2d');
+          cx.fillStyle = '#fff'; cx.fillRect(0,0,w,h);
+          cx.drawImage(img, 0, 0, w, h);
+          ok(cv.toDataURL('image/jpeg', qual));
+        };
+        img.onerror = ()=> err();
+        img.src = fr.result;
+      };
+      fr.onerror = ()=> err();
+      fr.readAsDataURL(file);
+    });
+  }
+
+  /* ---------- preview ---------- */
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, m=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function desenharPreview(){
+    let h = '<h2 class="pv-titulo">' + esc(modelo.titulo || 'Formulário') + '</h2>';
+    if(modelo.subtitulo) h += '<p class="pv-sub">' + esc(modelo.subtitulo) + '</p>';
+    if(!modelo.campos.length){
+      h += '<div class="pv-caixa">Os campos aparecem aqui conforme você adiciona.</div>';
+    }
+    modelo.campos.forEach((c, i)=>{
+      h += '<div class="pv-campo">';
+      h += '<span class="pv-rot">' + esc(c.rotulo || TIPOS[c.tipo].nome) + (c.obrigatorio ? ' <span class="pv-obr">*</span>' : '') + '</span>';
+      if(c.cond && c.cond.uid != null){
+        const dono = modelo.campos.filter(x=> String(x.uid) === String(c.cond.uid))[0];
+        const rotuloOp = (OPERADORES.filter(o=> o[0] === (c.cond.op||'igual'))[0]||['','?'])[1];
+        h += '<div class="pv-ajuda" style="color:var(--aco)">Condicional — aparece se "' +
+             esc(dono ? dono.rotulo : '?') + '" ' + rotuloOp +
+             (['igual','diferente'].indexOf(c.cond.op||'igual') >= 0 ? ' "' + esc(c.cond.valor||'') + '"' : '') + '</div>';
+      }
+      if(c.ajuda) h += '<div class="pv-ajuda">' + esc(c.ajuda) + '</div>';
+      if(c.exemplo) h += '<img class="ex" src="' + c.exemplo + '" alt="Exemplo">';
+
+      if(c.tipo === 'texto' || c.tipo === 'numero') h += '<input class="entrada" disabled>';
+      else if(c.tipo === 'textao') h += '<textarea class="entrada" disabled></textarea>';
+      else if(c.tipo === 'data') h += '<input class="entrada" type="date" disabled>';
+      else if(c.tipo === 'hora') h += '<input class="entrada" type="time" disabled>';
+      else if(c.tipo === 'select'){
+        h += '<select class="entrada" disabled><option>Selecione...</option>';
+        (c.opcoes||[]).forEach(o=> h += '<option>' + esc(o) + '</option>');
+        h += '</select>';
+      }
+      else if(c.tipo === 'radio' || c.tipo === 'checkbox'){
+        (c.opcoes||[]).forEach(o=>{
+          h += '<label class="pv-opc"><input type="' + (c.tipo === 'radio' ? 'radio' : 'checkbox') + '" disabled><span>' + esc(o) + '</span></label>';
+        });
+        if(!(c.opcoes||[]).length) h += '<div class="pv-caixa">Sem opções cadastradas.</div>';
+      }
+      else if(c.tipo === 'foto') h += '<div class="pv-caixa">Botão de câmera / galeria' + (c.varias ? ' — várias fotos' : ' — uma foto') + '</div>';
+      else if(c.tipo === 'assinatura') h += '<div class="pv-caixa" style="height:70px;line-height:52px">Área de assinatura a dedo</div>';
+      else if(c.tipo === 'tabela'){
+        h += '<table class="pv-tab"><thead><tr>';
+        (c.colunas||[]).forEach(col=> h += '<th>' + esc(col.rotulo) + '</th>');
+        h += '</tr></thead><tbody><tr>';
+        (c.colunas||[]).forEach(()=> h += '<td></td>');
+        h += '</tr></tbody></table>';
+      }
+      h += '</div>';
+    });
+    preview.innerHTML = h;
+  }
+
+  /* ---------- abas mobile ---------- */
+  document.querySelectorAll('.abas button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('.abas button').forEach(x=> x.setAttribute('aria-selected','false'));
+      b.setAttribute('aria-selected','true');
+      document.body.classList.toggle('ver-preview', b.dataset.ir === 'preview');
+    });
+  });
+
+  /* ---------- modelo: salvar / abrir ---------- */
+  $('#btExportar').addEventListener('click', ()=>{
+    baixar(JSON.stringify(modelo, null, 2), nomeArquivo('modelo') + '.json', 'application/json');
+  });
+  $('#btImportar').addEventListener('click', ()=> $('#arqModelo').click());
+  $('#arqModelo').addEventListener('change', function(){
+    const f = this.files && this.files[0];
+    this.value = '';
+    if(!f) return;
+    const fr = new FileReader();
+    fr.onload = ()=>{
+      try{
+        const m = JSON.parse(fr.result);
+        if(!m || !Array.isArray(m.campos)) throw new Error('estrutura inesperada');
+        modelo = m;
+        seq = 0;
+        modelo.campos.forEach((c, k)=>{
+          if(c.uid == null) c.uid = k + 1;
+          if(c.uid > seq) seq = c.uid;
+        });
+        desenhar();
+      }catch(e){
+        alert('Esse arquivo não é um modelo válido deste construtor.');
+      }
+    };
+    fr.readAsText(f);
+  });
+
+  /* ---------- gerar formulário ---------- */
+  $('#btGerar').addEventListener('click', ()=>{
+    if(!modelo.campos.length){ alert('Adicione pelo menos um campo antes de gerar.'); return; }
+    const semRotulo = modelo.campos.filter(c=> !(c.rotulo||'').trim()).length;
+    if(semRotulo && !confirm(semRotulo + ' campo(s) sem pergunta escrita. Gerar mesmo assim?')) return;
+
+    const tpl = document.getElementById('tpl').textContent;
+    const json = JSON.stringify(modelo).replace(/</g,'\\u003c').replace(/\u2028|\u2029/g,'');
+    const html = tpl
+      .replace('__TITULO__', function(){ return esc(modelo.titulo || 'Formulário'); })
+      .replace('__SCHEMA__', function(){ return json; })
+      .split('@@FIM@@').join('</scr' + 'ipt>')
+      .trim();
+
+    ultimoHTML = html;
+    $('#saida').value = html;
+    const kb = Math.round(html.length/1024);
+    $('#modalTitulo').textContent = 'Formulário gerado — ' + kb + ' KB';
+    $('#fundo').classList.add('aberto');
+  });
+
+  let ultimoHTML = '';
+  $('#btFechar').addEventListener('click', ()=> $('#fundo').classList.remove('aberto'));
+  $('#fundo').addEventListener('click', e=>{ if(e.target === $('#fundo')) $('#fundo').classList.remove('aberto'); });
+  $('#btBaixar').addEventListener('click', ()=> baixar(ultimoHTML, nomeArquivo('form') + '.html', 'text/html'));
+  $('#btCopiar').addEventListener('click', async ()=>{
+    const ta = $('#saida');
+    try{
+      await navigator.clipboard.writeText(ultimoHTML);
+      $('#btCopiar').textContent = 'Copiado';
+      setTimeout(()=> $('#btCopiar').textContent = 'Copiar', 1600);
+    }catch(e){
+      ta.removeAttribute('readonly'); ta.select(); ta.setSelectionRange(0, 999999);
+      alert('Selecione tudo e copie manualmente (Ctrl+C).');
+    }
+  });
+
+  function nomeArquivo(prefixo){
+    const base = (modelo.titulo || prefixo).replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_|_$/g,'').substring(0,40);
+    return base || prefixo;
+  }
+
+  function baixar(conteudo, nome, tipo){
+    try{
+      const blob = new Blob([conteudo], {type: tipo + ';charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = nome;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=> URL.revokeObjectURL(url), 4000);
+    }catch(e){
+      alert('O download foi bloqueado neste ambiente. Use "Copiar" e cole num arquivo de texto salvo como .html');
+    }
+  }
+
+  /* ---------- exemplo inicial ---------- */
+  modelo.campos = [
+    {uid:++seq, tipo:'texto', rotulo:'Parque eólico', ajuda:'', obrigatorio:true, exemplo:'', opcoes:[], colunas:[], varias:false},
+    {uid:++seq, tipo:'select', rotulo:'Pá inspecionada', ajuda:'Conforme etiqueta na raiz', obrigatorio:true, exemplo:'', opcoes:['Pá A','Pá B','Pá C'], colunas:[], varias:false},
+    {uid:++seq, tipo:'tabela', rotulo:'Atividades do dia', ajuda:'', obrigatorio:false, exemplo:'', opcoes:[],
+     colunas:[{rotulo:'Atividade', tipo:'texto'},{rotulo:'Início', tipo:'hora'},{rotulo:'Fim', tipo:'hora'}], varias:false},
+    {uid:++seq, tipo:'foto', rotulo:'Fotos do dano', ajuda:'Enquadre com referência de escala', obrigatorio:false, exemplo:'', opcoes:[], colunas:[], varias:true},
+    {uid:++seq, tipo:'assinatura', rotulo:'Assinatura do técnico', ajuda:'', obrigatorio:true, exemplo:'', opcoes:[], colunas:[], varias:false}
+  ];
+
+  desenhar();
+})();
+</script>
+</body>
+</html>

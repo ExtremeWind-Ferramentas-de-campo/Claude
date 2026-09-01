@@ -60,14 +60,11 @@ const PRECO_NORDEX_GE = {
   /* ── tecidos e núcleo ── */
   "TRIAX 1200":                                        39.32,   /* 169 TRIAX 1170/1200G */
   "TECIDO BIAX 830":                                   39.14,   /* 160 TECIDO BIAX 830 */
-  "TECIDO BIAX 750":                                   39.14,   /* a lista não tem BIAX 750; decisão da
-                                                                   engenharia (26/08/2026): mesmo valor do
-                                                                   BIAX 800/830 */
   "TECIDO BIAX 450":                                   44.20,   /* 335 MATERIAL COMBINADO X1300 - BIAX 450G */
   "TECIDO UD 1000":                                    36.82,   /* 174 TECIDO UD 1000 */
   "TECIDO UD 661":                                     44.20,   /* 337 TECIDO UNIDIRECIONAL 661 - GAMESA */
   "TECIDO BIZERO 750":                                 37.80,   /* 367 TECIDO TRIAXIAL TV1800 - TRIAX 750 BIZERO */
-  "COMBI":                                             44.20,   /* 334 COMBI 900. A lista traz esse valor em
+  "COMBI 900":                                         44.20,   /* 334 COMBI 900. A lista traz esse valor em
                                                                    METRO e o checklist conta em KG: a
                                                                    engenharia confirmou (26/08/2026) que para
                                                                    este material metro e quilo são
@@ -76,8 +73,6 @@ const PRECO_NORDEX_GE = {
   "CSM 300":                                           22.00,   /* 253 CSM 300 */
   "NYLON":                                             11.27,   /* 177 NYLON */
   "BALSA CORE 15/20MM":                               445.06,   /* 168 BALSA CORE 15MM */
-  "BALSA CORE 50":                                    550.20,   /* 363 BALSA CORE 45MM */
-  "ESPUMA 20MM":                                      232.50,   /* 202 ESPUMA S/ GROOVING 20MM - RIGIDA AIREX */
   "ESPUMA FLEXÍVEL DE PVC H60 GS 20MM":               285.24,   /* 540 ESPUMA DE PVC H60 GS 20MM 1200x800 FLEXÍVEL */
   "ESPUMA FLEXÍVEL PET FOAM 50MM":                   1130.49,   /* 362 ESPUMA 45MM 1.500x1.000 */
   /* ── consumível de infusão ── */
@@ -89,8 +84,9 @@ const PRECO_NORDEX_GE = {
   "TUBO ESPIRAL":                                       7.23,   /* 178 */
   "BAMBAM — MAP TAPE 12N (3MM × 12MM × 15M)":          73.00,   /* 247 */
   /* ── químicos ── */
-  "RESINA LR-135":                                    265.23,   /* 115 (descontinuada na lista) */
-  "ENDURECEDOR LH-135":                               265.00,   /* 50 ENDURECEDOR LH135 (descontinuada) */
+  "ENDURECEDOR LH-637":                               286.38,   /* 708 ENDURECEDOR LH637. Entrou em 27/08/2026
+                                                                   no lugar do par LR-135 / LH-135, que a
+                                                                   própria lista já marcava DESCONTINUADA. */
   "RESINA SIKABIRESIN CH910":                         315.37,   /* 271 RESINA SIKABRESIN CR910 */
   "ENDURECEDOR SIKABIRESIN CH910":                    366.98,   /* 272 ENDURECEDOR SIKA CH910 */
   "ADESIVO EPOXY 135G3":                              313.52,   /* 20 */
@@ -102,12 +98,16 @@ const PRECO_NORDEX_GE = {
   "TOP COAT 12 — ALEXIT / Mankiewicz — 12 kg":        298.11,   /* 143 */
   "HARDENER 12 — ALEXIT / Mankiewicz — 3 kg":         438.42,   /* 67 */
   "THINNER — Mankiewicz — 1 kg":                      257.34,   /* 140 */
-  "TOP COAT 12 RAL 3020 (RED)":                       392.40,   /* 348 TOP COAT 12 RAL 3020 VERMELHO - MANKIEWICZ */
-  "TOP COAT 12 RAL 7035 (GRAY)":                      392.40,   /* a lista não tem top coat 12 em RAL 7035;
-                                                                   decisão da engenharia (26/08/2026): mesmo
-                                                                   valor do vermelho */
+  "TOP COAT 12 RAL 7035 (GRAY)":                      392.40,   /* 348 TOP COAT 12 RAL 3020 - MANKIEWICZ. A
+                                                                   lista só tem o vermelho; a engenharia
+                                                                   (27/08/2026) fixou o cinza como referência
+                                                                   e mandou o vermelho seguir ele. Como o
+                                                                   único valor de nota é esse, os dois ficam
+                                                                   iguais — o que muda é qual manda se um dia
+                                                                   aparecer preço próprio de um deles. */
+  "TOP COAT 12 RAL 3020 (RED)":                       392.40,   /* = o cinza acima, por decisão de 27/08/2026 */
   /* ── ferramenta e consumível de oficina ── */
-  "LOCTITE":                                          169.90,   /* 365 LOCTITE 243 */
+  "LOCTITE-243":                                      169.90,   /* 365 LOCTITE 243 */
   "ÓLEO BOMBA DE VÁCUO":                               66.89,   /* 535 ÓLEO P/ BOMBA DE VÁCUO 1L */
   "FITA CREPE LARGA":                                  13.00,   /* 351 */
   "LIXA OSCILANTE 80":                                  3.50,   /* 249 LIXA OSCILANTE 80 - 125mm */
@@ -116,12 +116,28 @@ const PRECO_NORDEX_GE = {
   "ROLO DE LÃ":                                        11.90,   /* 199 ROLO LAMINAÇÃO - LÃ 9cm */
   "ROLO DE PINTURA":                                    8.90,   /* 198 ROLO PINTURA - ESPUMA 9cm */
   /* ── EPI ── */
-  "TYVEK 60%":                                         20.80,   /* lista Nordex antiga; não está na lista mestra */
-  "MACACÃO 100%":                                      20.80    /* = "TYVEK 100%" da lista Nordex antiga. CONFIRMAR */
-  /* Os 47 itens da lista Nordex/GE têm preço. Três não vieram direto da lista
-     mestra e foram decididos pela engenharia em 26/08/2026: TECIDO BIAX 750
-     (= BIAX 830), COMBI (= COMBI 900, com a ressalva da unidade) e
-     TOP COAT 12 RAL 7035 GRAY (= o vermelho). */
+  "TYVEK":                                             20.80    /* lista Nordex antiga; não está na lista mestra.
+                                                                   Em 27/08/2026 o item perdeu o "60%" do nome —
+                                                                   passou a existir um TYVEK só. O valor é o que
+                                                                   o TYVEK 60% já tinha. A Siemens segue com
+                                                                   R$ 22,00 na tabela dela: são a mesma coisa
+                                                                   com dois valores herdados de listas
+                                                                   diferentes — vale unificar quando alguém
+                                                                   conferir a nota. */
+};
+
+/* Itens que só existem na lista de um dos dois. Ficam fora da tabela comum
+   para não dar a entender que o outro cliente também usa. */
+const PRECO_SO_NORDEX = {
+  "ESPUMA 20MM":                                      232.50    /* 202 ESPUMA S/ GROOVING 20MM - RIGIDA AIREX */
+};
+const PRECO_SO_GE = {
+  "BALSA CORE 32MM":                                  346.00,   /* 726 BALSA 32MM */
+  "BALSA CORE 45MM":                                  550.20,   /* 363 BALSA CORE 45MM */
+  "ESPUMA DE PVC S/ GROOVING 20MM":                   232.50,   /* 202 — mesmo item da "ESPUMA 20MM" da Nordex,
+                                                                   com o nome de catálogo que a GE pediu */
+  "RESINA ALTERNATIVA DE BALANCEAMENTO EPÓXI":         50.33,   /* 720 RESINA ALTERNATIVA */
+  "ENDURECEDOR ALTERNATIVO DE BALANCEAMENTO EPÓXI":    70.56    /* 721 ENDURECEDOR ALTERNATIVO */
 };
 
 const PRECO_SIEMENS = {
@@ -154,7 +170,6 @@ const PRECO_SIEMENS = {
   "LIXA ANGULAR 36":                                    2.97,   /* 279 DISCO DE LIXA 36 */
   "RESINA AROPOL 70452":                               63.00,   /* 341 */
   "ENDURECEDOR BUTANOX M-50":                          55.00,   /* 252 ENDURECEDOR BUTANOX M50 */
-  "CYTEC — SCOTER TINTA GAMESA + ENDURECEDOR":         26.00,   /* lista Siemens; não está na lista mestra */
   "PARAFINA":                                          45.00,   /* 343 SOLUÇÃO DE PARAFINA */
   "CSM 300":                                           22.00,   /* 253 */
   "ESPUMA FLEXÍVEL BRANCA 50MM":                     1130.49,   /* 362 ESPUMA 45MM 1.500x1.000 */
@@ -167,23 +182,21 @@ const PRECO_SIEMENS = {
   "ENDURECEDOR PUTTY PROFILE FILLER 3":               250.93,   /* 270 */
   "TYVEK":                                             22.00,   /* lista Siemens; não está na lista mestra */
   "WPT2 W8751 CLEAR — FITA 3M (254MM × 33M)":        1083.00,   /* 539 WPT2 W8751 CLEAR 254MMx33MM FITA 3M */
-  "BASE ADESIVO — SIKAFORCE-818 L07":                 212.00,   /* 338 SIKAFORCE-818 L07(AB)(+12MIX) /12 CTR 195 */
+  "ADESIVO — SIKAFORCE 818-L07":                      212.00,   /* 338 SIKAFORCE-818 L07(AB)(+12MIX) /12 CTR 195.
+                                                                   Em 27/08/2026 deixou de ser "BASE ADESIVO":
+                                                                   o produto é o AB já pareado, e o endurecedor
+                                                                   separado (SikaForce-050) saiu da lista. */
   "BASE GEL COAT — CRYSTIC RAL 7035":                  57.50,   /* 339 CRYSTIC 0209 RAL 7035 - SCOTT BADER - GEL COAT */
-  /* Os três abaixo são casamento por tipo de produto, não por nome igual.
-     CONFERIR antes de confiar no valor: */
-  "BASE MASSA — CRYSTIC X401":                         36.00,   /* 340 MASSA PUTTY GAMESA- MAX */
-  "ENDURECEDOR MASSA — MEKP":                          55.00,   /* MEKP = 252 ENDURECEDOR BUTANOX M50 */
-  "ENDURECEDOR GEL COAT — MEKP":                       55.00,   /* idem */
-  /* ⚠️ ESTIMATIVA — NÃO É PREÇO DE COMPRA.
-     O SikaForce-050 (B) não tem preço público: windsourcing e Castro
-     Composites só mostram valor após login, e o único número aberto que achei
-     foi € 56,55 pelo cartucho de 195 ml do 818 L07 já misturado — preço de
-     cartucho fica 2 a 3 vezes acima do barril por quilo, então não serve.
-     O valor abaixo está ancorado no material COMPARÁVEL da própria lista da
-     EW: EPOXY ENDURECEDOR 137GF, endurecedor de adesivo estrutural de pá, a
-     R$ 303,65/kg (o END PUTTY fica em R$ 250,93/kg). Arredondado para 300.
-     TROCAR pelo valor real na primeira nota fiscal do produto. */
-  "ENDURECEDOR ADESIVO — SIKAFORCE-050":              300.00
+  "MASSA FILLER POLYESTER":                            70.52    /* 733 MASSA FILLER POLIESTER (FL 122ORG IBX).
+                                                                   Substituiu a "BASE MASSA — CRYSTIC X401",
+                                                                   que estava casada por tipo de produto com a
+                                                                   340 MASSA PUTTY GAMESA-MAX (R$ 36,00). Agora
+                                                                   é item próprio, com preço próprio. */
+  /* ⚠️ SEM PREÇO: MASSA GT60 — não existe na lista mestra de compras (nenhum
+     código com "GT60"). Enquanto não tiver nota, o item conta normalmente no
+     checklist e aparece no bloco "MATERIAIS SEM PREÇO" do relatório de gasto,
+     com consumo certo e gasto zero. Enquanto ele estiver nesse bloco, o total
+     em R$ da Siemens está subestimado. */
 };
 
 /* Índice normalizado, montado uma vez por execução. Sem ele, a busca falharia
@@ -197,6 +210,8 @@ function precoIndice_() {
     PRECO_IDX.NORDEX[norm(k)] = PRECO_NORDEX_GE[k];
     PRECO_IDX.GE[norm(k)] = PRECO_NORDEX_GE[k];
   });
+  Object.keys(PRECO_SO_NORDEX).forEach(k => { PRECO_IDX.NORDEX[norm(k)] = PRECO_SO_NORDEX[k]; });
+  Object.keys(PRECO_SO_GE).forEach(k => { PRECO_IDX.GE[norm(k)] = PRECO_SO_GE[k]; });
   Object.keys(PRECO_SIEMENS).forEach(k => { PRECO_IDX.SIEMENS[norm(k)] = PRECO_SIEMENS[k]; });
   return PRECO_IDX;
 }
@@ -255,6 +270,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Atualizar comparativos por parque', 'atualizarTodosParques')
     .addItem('📊 Gerar Análise Mensal (1ª→última semana)', 'analisarMensal')
+    .addItem('📅 Resumo semanal — quanto tem em campo (R$)', 'gerarResumoSemanal')
     .addItem('💰 Gasto semanal em R$', 'gerarGastoSemanal')
     .addItem('💰 Gasto mensal em R$', 'gerarGastoMensal')
     .addItem('Gerar Análise vs Realizado (com mês anterior)', 'analisarConsumoVsDelta')
@@ -674,7 +690,8 @@ const MAPA_MAT = [
   ["TOPCOAT 12",                "TOP COAT 12 - ALEXIT / MANKIEWICZ - 12 KG"],
   ["THINNER 12",                "THINNER - MANKIEWICZ - 1 KG"],
   ["THINNER MANKIEWICZ",        "THINNER - MANKIEWICZ - 1 KG"],
-  ["LH637",                     "ENDURECEDOR LH 635"],
+  ["LH637",                     "ENDURECEDOR LH-637"],   /* até 27/08/2026 caía no LH 635, porque o LH-637
+                                                            não existia no checklist. Agora existe. */
   ["LH635",                     "ENDURECEDOR LH 635"],
   ["LR635",                     "RESINA LR 635"],
   ["137GF",                     "EPOXY ENDURECEDOR 137GF"],
@@ -683,14 +700,15 @@ const MAPA_MAT = [
   ["BPH 137",                   "EPOXY ENDURECEDOR 137GF"],
   ["TRIAX 1200",                "TRIAX 1200"],
   ["BIAX 830",                  "TECIDO BIAX 830"],
-  ["BIAX 750",                  "TECIDO BIAX 750"],
   ["BIAX 450",                  "TECIDO BIAX 450"],
   ["UD 1000",                   "TECIDO UD 1000"],
   ["UD 661",                    "TECIDO UD 661"],
   ["BIZERO 750",                "TECIDO BIZERO 750"],
   ["CSM 300",                   "CSM 300"],
   ["BALSA CORE 15",             "BALSA CORE 15/20MM"],
-  ["BALSA CORE 50",             "BALSA CORE 50"],
+  ["BALSA CORE 32",             "BALSA CORE 32MM"],   /* só GE */
+  ["BALSA CORE 45",             "BALSA CORE 45MM"],   /* só GE — substituiu a "BALSA CORE 50", que saiu
+                                                         das listas em 27/08/2026 */
   ["ESPUMA FLEXIVEL DE PVC",    "ESPUMA FLEXÍVEL DE PVC H60 GS 20MM"],
   ["ESPUMA 20MM",               "ESPUMA FLEXÍVEL DE PVC H60 GS 20MM"],
 
@@ -704,17 +722,26 @@ const MAPA_MAT = [
   ["ADESIVO DE COLAGEM G3 - ENDURECEDOR",           "EPOXY ENDURECEDOR 137GF"],
   ["ADESIVO DE COLAGEM G3",                         "ADESIVO EPOXY 135G3"],
   ["ENDURECEDOR G3",                                "EPOXY ENDURECEDOR 137GF"],
-  ["HEXION LR135",                                  "RESINA LR-135"],
-  ["ENDURECEDOR HEXION",                            "ENDURECEDOR LH-135"],
+  /* ⚠️ O par Hexion LR-135 / LH-135 saiu das listas em 27/08/2026 (a própria
+     lista de compras já os marcava DESCONTINUADA). As duas linhas de tradução
+     foram removidas de propósito, e NÃO redirecionadas a palpite: se alguma
+     calculadora ainda lançar esse material, ele aparece na análise como
+     "Material não encontrado no checklist deste parque" — visível, em vez de
+     somar em silêncio no material errado. Quando a engenharia disser qual é o
+     substituto (provavelmente ENDURECEDOR LH-637 para o LH-135), aponte aqui. */
 
   // ── Siemens ── (confirmados pelo engenheiro: mesmo material, marca trocada)
   ["POLYLITE M413",             "RESINA AROPOL 70452"],
   ["MEKP BUTANOX M-50",         "ENDURECEDOR BUTANOX M-50"],
   ["ALEXIT TOPCOAT 12",         "TOP COAT 12 - ALEXIT / MANKIEWICZ - 12 KG"],
-  ["CRYSTIC X401",              "BASE MASSA - CRYSTIC X401"],
+  ["CRYSTIC X401",              "MASSA FILLER POLYESTER"],   /* renomeado em 27/08/2026 */
+  ["MASSA FILLER",              "MASSA FILLER POLYESTER"],
   ["CRYSTIC RAL 7035",          "BASE GEL COAT - CRYSTIC RAL 7035"],
-  ["SIKAFORCE-818 L07",         "BASE ADESIVO - SIKAFORCE-818 L07"],
-  ["SIKAFORCE-050",             "ENDURECEDOR ADESIVO - SIKAFORCE-050"],
+  ["SIKAFORCE-818 L07",         "ADESIVO — SIKAFORCE 818-L07"],   /* renomeado em 27/08/2026 */
+  /* ⚠️ SIKAFORCE-050 saiu da lista em 27/08/2026 — o adesivo passou a ser
+     contado como produto AB já pareado. Linha removida em vez de redirecionada:
+     se a calculadora ainda lançar o endurecedor separado, ele aparece na
+     análise como material não encontrado, e não somado no lugar errado. */
   // "MEKP" sozinho (sem marca) é usado em Massa Putty e Gel Coat também —
   // fica de fora do mapa automático por ser ambíguo; considerar renomear
   // no futuro para algo mais específico (ex.: "MEKP MASSA"/"MEKP GEL COAT").
@@ -1207,6 +1234,261 @@ function gerarGastoSemanal() {
   return { linhas: g.detalhe.length, semPreco: g.semPreco.length };
 }
 
+// ═══════════════════════════════════════════════════════════
+//  RESUMO SEMANAL — QUANTO TEM EM CAMPO, EM R$
+//
+//  Responde três perguntas que as outras abas não respondiam:
+//    1. Quanto vale, em reais, o material parado em cada parque — em TODAS as
+//       semanas da janela, não só na última.
+//    2. Quanto isso variou em relação à semana anterior e à primeira semana do
+//       mês (as duas comparações que a engenharia pediu).
+//    3. Quantos materiais diferentes cada parque tem em estoque.
+//
+//  E fecha com a tabela no formato do relatório gerencial "Matéria Prima por
+//  HH". As colunas que dependem de apontamento de hora (SOMA DE HH,
+//  Produtividade, Custo EPI/HH) e de devolução de material saem EM BRANCO de
+//  propósito: nada disso passa pelo checklist. Preenchê-las com zero daria a
+//  impressão de que o dado existe e vale zero.
+//
+//  A JANELA é de 8 semanas, igual à do gasto semanal — no começo do mês uma
+//  janela mensal mostraria uma coluna só e não haveria o que comparar.
+// ═══════════════════════════════════════════════════════════
+
+/* Materiais que são EPI. Alimenta a coluna "R$ EPI'S" do relatório gerencial.
+   Comparação por nome normalizado, igual ao resto do arquivo. */
+const EPIS = ["TYVEK", "TYVEK 60%", "MACACÃO 100%"];
+function ehEpi_(material) {
+  const m = norm(material);
+  return EPIS.some(e => m === norm(e));
+}
+
+/* Fotografia do parque por semana: valor em R$ do estoque, quantos materiais
+   diferentes tem, e quanto entrou de material naquela semana.
+
+   O estoque de uma semana é a ÚLTIMA contagem daquela semana (reenvio corrige,
+   não soma — mesma regra do upsert que grava a linha). */
+function estoquePorParqueSemana_(linhas, semanas) {
+  const naJanela = {};
+  semanas.forEach(w => { naJanela[w] = true; });
+
+  const cel = {};   // cliente|parque|semana
+  const ultima = {};   // cliente|parque|semana|material -> {data, qtd}
+
+  linhas.forEach(l => {
+    /* Linha sem data utilizável não entra: getISOWeek de data inválida devolve
+       NaN e a linha iria parar num balde fantasma. */
+    if (!l.data || isNaN(l.data.getTime())) return;
+    const w = getISOWeek(l.data);
+    if (!naJanela[w]) return;
+    const kc = [l.cliente, l.parque, w].join("");
+    if (!cel[kc]) cel[kc] = { cliente: l.cliente, parque: l.parque, semana: w,
+                              valorEstoque: 0, qtdMateriais: 0, valorEntrada: 0,
+                              valorEpi: 0, semPreco: 0 };
+    if (l.tipo === "ENTRADA") {
+      const p = precoDe_(l.cliente, l.material);
+      if (p !== null) cel[kc].valorEntrada += l.qtd * p;
+      return;
+    }
+    const km = kc + "" + norm(l.material);
+    if (!ultima[km] || l.data >= ultima[km].data) ultima[km] = { data: l.data, qtd: l.qtd, material: l.material, chave: kc };
+  });
+
+  Object.keys(ultima).forEach(km => {
+    const u = ultima[km], c = cel[u.chave];
+    if (!c) return;
+    if (u.qtd > 0) c.qtdMateriais++;
+    const p = precoDe_(c.cliente, u.material);
+    if (p === null) { if (u.qtd > 0) c.semPreco++; return; }
+    const v = u.qtd * p;
+    c.valorEstoque += v;
+    if (ehEpi_(u.material)) c.valorEpi += v;
+  });
+
+  return cel;
+}
+
+function gerarResumoSemanal() {
+  const SEMANAS_JANELA = 8;
+  const MESES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+                    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  const hoje = new Date();
+  const fim = new Date(hoje); fim.setHours(23, 59, 59, 999);
+  const inicio = inicioSemanaISO_(hoje);
+  inicio.setDate(inicio.getDate() - 7 * (SEMANAS_JANELA - 1));
+
+  /* Semanas da janela, em ordem. Vem da DATA e não de contagem crua de número
+     de semana, senão a virada de ano (semana 52 -> 1) sai fora de ordem. */
+  const SEMANAS = [], rotuloSemana = {};
+  for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 7)) {
+    const w = getISOWeek(d);
+    SEMANAS.push(w);
+    rotuloSemana[w] = "W" + w;
+  }
+  const wkAtual = SEMANAS[SEMANAS.length - 1];
+  const wkAnterior = SEMANAS.length > 1 ? SEMANAS[SEMANAS.length - 2] : null;
+
+  /* Primeira semana do MÊS CORRENTE, se ela cair dentro da janela. Fora dela,
+     a coluna de diferença sai vazia em vez de comparar com semana errada. */
+  const semanasDoMes = getSemanasDoMes(hoje.getFullYear(), hoje.getMonth());
+  const wkPrimeiraDoMes = SEMANAS.indexOf(semanasDoMes[0]) >= 0 ? semanasDoMes[0] : null;
+
+  const linhas = lerChecklistCombinado();
+  const cel = estoquePorParqueSemana_(linhas, SEMANAS);
+
+  /* Consumo em R$ na janela, por parque. Usa a mesma fonte do gasto semanal
+     para os dois relatórios não divergirem. */
+  const gasto = coletarGasto_(inicio, fim);
+  const consumoPorParque = {};
+  gasto.resumo.forEach(r => {
+    const k = [r.cliente, r.parque].join("");
+    if (!consumoPorParque[k]) consumoPorParque[k] = 0;
+    consumoPorParque[k] += r.gastoCl;
+  });
+
+  const chaves = {};
+  Object.keys(cel).forEach(k => {
+    const c = cel[k];
+    chaves[[c.cliente, c.parque].join("")] = { cliente: c.cliente, parque: c.parque };
+  });
+  const parques = Object.keys(chaves).map(k => chaves[k])
+    .sort((a, b) => String(a.cliente).localeCompare(String(b.cliente))
+                 || String(a.parque).localeCompare(String(b.parque)));
+
+  const ss = SpreadsheetApp.openById(ID_DESTINO);
+  if (!parques.length) {
+    avisar("❌ Resumo Semanal: nenhuma contagem de estoque nas últimas " +
+      SEMANAS_JANELA + " semanas (" + inicio.toLocaleDateString("pt-BR") +
+      " a " + fim.toLocaleDateString("pt-BR") + ").");
+    return { parques: 0 };
+  }
+
+  let sh = getAba(ss, "Resumo Semanal");
+  if (!sh) sh = ss.insertSheet("Resumo Semanal");
+  sh.clearContents(); sh.clearFormats();
+
+  sh.getRange(1, 1).setValue("RESUMO SEMANAL — ESTOQUE EM PARQUE  |  " +
+      inicio.toLocaleDateString("pt-BR") + " a " + fim.toLocaleDateString("pt-BR") +
+      "  |  W" + SEMANAS[0] + "→W" + wkAtual +
+      "  |  Atualizado: " + hoje.toLocaleDateString("pt-BR"))
+    .setFontWeight("bold").setFontSize(12);
+  let linha = 3;
+
+  const valorDe = (p, w) => {
+    const c = cel[[p.cliente, p.parque, w].join("")];
+    return c ? n2_(c.valorEstoque) : "";
+  };
+  const qtdDe = (p, w) => {
+    const c = cel[[p.cliente, p.parque, w].join("")];
+    return c ? c.qtdMateriais : "";
+  };
+
+  /* ── BLOCO 1: estoque em R$, semana a semana ── */
+  const cab1 = ["PARQUE", "CLIENTE"].concat(SEMANAS.map(w => rotuloSemana[w] + "\nR$"));
+  cab1.push("Δ vs W" + (wkAnterior === null ? "—" : wkAnterior) + "\nR$");
+  cab1.push("Δ vs 1ª do mês\n" + (wkPrimeiraDoMes === null ? "(fora da janela)" : "W" + wkPrimeiraDoMes) + "\nR$");
+  const dados1 = parques.map(p => {
+    const l = [p.parque, p.cliente].concat(SEMANAS.map(w => valorDe(p, w)));
+    const atual = valorDe(p, wkAtual);
+    const ant = wkAnterior === null ? "" : valorDe(p, wkAnterior);
+    const pri = wkPrimeiraDoMes === null ? "" : valorDe(p, wkPrimeiraDoMes);
+    l.push(atual === "" || ant === "" ? "" : n2_(atual - ant));
+    l.push(atual === "" || pri === "" ? "" : n2_(atual - pri));
+    return l;
+  });
+  /* Total por coluna. Só soma número — célula vazia é "não houve contagem",
+     não zero, e somar como zero derrubaria o total do parque inteiro. */
+  const total1 = ["TOTAL", ""];
+  for (let c = 2; c < cab1.length; c++) {
+    let s = 0, tem = false;
+    dados1.forEach(l => { if (typeof l[c] === "number") { s += l[c]; tem = true; } });
+    total1.push(tem ? n2_(s) : "");
+  }
+  dados1.push(total1);
+  linha = escreverBloco_(sh, linha, "1. ESTOQUE EM PARQUE (R$) — semana a semana", cab1, dados1);
+  sh.getRange(linha - 3, 1, 1, cab1.length).setFontWeight("bold").setBackground("#e8f0fe");
+
+  /* ── BLOCO 2: quantos materiais diferentes cada parque tem ── */
+  const cab2 = ["PARQUE", "CLIENTE"].concat(SEMANAS.map(w => rotuloSemana[w]));
+  const dados2 = parques.map(p => [p.parque, p.cliente].concat(SEMANAS.map(w => qtdDe(p, w))));
+  linha = escreverBloco_(sh, linha,
+    "2. QTD DE MATERIAIS EM PARQUE — materiais distintos com estoque acima de zero", cab2, dados2);
+
+  /* ── BLOCO 3: formato do relatório gerencial "Matéria Prima por HH" ── */
+  const cabG = ["PROJETOS", "R$ MATÉRIA-PRIMA", "R$ DEVOLUÇÃO MP", "R$ MP PARQUE " + rotuloSemana[wkAtual],
+                "CONSUMO R$", "SOMA DE HH", "Produtividade\n(MP-DMP-MPP)/HH", "FIM", "TRIMESTRE",
+                "R$ EPI'S", "Custo EPI / HH", "OBS"];
+  const porCliente = {};
+  parques.forEach(p => { (porCliente[p.cliente] = porCliente[p.cliente] || []).push(p); });
+
+  let geral = { mp: 0, estoque: 0, consumo: 0, epi: 0 };
+  Object.keys(porCliente).sort().forEach(cliente => {
+    const dadosG = [], soma = { mp: 0, estoque: 0, consumo: 0, epi: 0 };
+    porCliente[cliente].forEach(p => {
+      /* Matéria-prima = tudo que foi lançado como ENTRADA na janela. É o dado
+         mais próximo de "material enviado ao parque" que o checklist tem. Se a
+         equipe não lançar as entradas, esta coluna fica subestimada — e é por
+         isso que ela vem acompanhada do estoque e do consumo, que não dependem
+         de lançamento de entrada. */
+      let mp = 0;
+      SEMANAS.forEach(w => {
+        const c = cel[[p.cliente, p.parque, w].join("")];
+        if (c) mp += c.valorEntrada;
+      });
+      const estoque = valorDe(p, wkAtual);
+      const consumo = consumoPorParque[[p.cliente, p.parque].join("")] || 0;
+      const cAtual = cel[[p.cliente, p.parque, wkAtual].join("")];
+      const epi = cAtual ? cAtual.valorEpi : 0;
+      const semPreco = cAtual ? cAtual.semPreco : 0;
+      soma.mp += mp; soma.estoque += (typeof estoque === "number" ? estoque : 0);
+      soma.consumo += consumo; soma.epi += epi;
+      dadosG.push([p.parque, n2_(mp), "", estoque, n2_(consumo), "", "", "", "",
+                   n2_(epi), "",
+                   semPreco ? semPreco + " material(is) sem preço — total subestimado" : ""]);
+    });
+    dadosG.push(["TOTAL " + cliente, n2_(soma.mp), "", n2_(soma.estoque), n2_(soma.consumo),
+                 "", "", "", "", n2_(soma.epi), "", ""]);
+    geral.mp += soma.mp; geral.estoque += soma.estoque;
+    geral.consumo += soma.consumo; geral.epi += soma.epi;
+    linha = escreverBloco_(sh, linha, "3. MATÉRIA PRIMA POR PARQUE — " + cliente.toUpperCase(), cabG, dadosG);
+    sh.getRange(linha - 3, 1, 1, cabG.length).setFontWeight("bold").setBackground("#e8f0fe");
+  });
+
+  sh.getRange(linha, 1, 1, cabG.length)
+    .setValues([["TOTAL GERAL", n2_(geral.mp), "", n2_(geral.estoque), n2_(geral.consumo),
+                 "", "", "", "", n2_(geral.epi), "", ""]])
+    .setFontWeight("bold").setBackground(COR_TITULO).setFontColor("#ffffff");
+  linha += 2;
+
+  sh.getRange(linha, 1).setValue(
+    "Colunas em branco (DEVOLUÇÃO MP, SOMA DE HH, Produtividade, FIM, TRIMESTRE, Custo EPI/HH) " +
+    "não passam pelo checklist — ficam vazias de propósito, para não parecer que valem zero. " +
+    "R$ MATÉRIA-PRIMA = entradas lançadas na janela.")
+    .setFontColor("#999999").setFontSize(9);
+
+  sh.setFrozenRows(1);
+  sh.autoResizeColumns(1, Math.max(cab1.length, cabG.length));
+
+  /* Conta material sem preço pelo ESTOQUE, não pelo consumo: um material que
+     só foi contado uma vez ainda não gera linha de consumo, mas já está
+     parado no parque valendo zero no relatório. É justamente o caso de item
+     novo — que é quando o cadastro de preço costuma faltar. */
+  let semPrecoAgora = 0;
+  parques.forEach(p => {
+    const c = cel[[p.cliente, p.parque, wkAtual].join("")];
+    if (c) semPrecoAgora += c.semPreco;
+  });
+
+  avisar("✅ Resumo Semanal gerado!\n\n" +
+    "🏗️ " + parques.length + " parque(s) em " + SEMANAS.length + " semana(s)\n" +
+    "💰 Estoque em campo agora: " + brl_(geral.estoque) + "\n" +
+    "📦 Consumo na janela: " + brl_(geral.consumo) + "\n" +
+    (semPrecoAgora
+      ? "⚠️ " + semPrecoAgora + " material(is) em estoque SEM PREÇO — o total está subestimado\n"
+      : "") +
+    "📋 Aba: Resumo Semanal");
+  return { parques: parques.length, semanas: SEMANAS.length, semPreco: semPrecoAgora };
+}
+
 /* ═══ GASTO MENSAL — mês corrente em detalhe + histórico de 6 meses ═══ */
 function gerarGastoMensal() {
   const MESES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -1308,6 +1590,7 @@ function executarTudo() {
   try { analisarMensal(); }        catch (e) { falhas.push("analisarMensal: " + e.message); }
   try { analisarConsumoVsDelta(); } catch (e) { falhas.push("analisarConsumoVsDelta: " + e.message); }
   try { verificarValidades(); }     catch (e) { falhas.push("verificarValidades: " + e.message); }
+  try { gerarResumoSemanal(); }     catch (e) { falhas.push("gerarResumoSemanal: " + e.message); }
   try { gerarGastoSemanal(); }      catch (e) { falhas.push("gerarGastoSemanal: " + e.message); }
   try { gerarGastoMensal(); }       catch (e) { falhas.push("gerarGastoMensal: " + e.message); }
   avisar(falhas.length ? "⚠️ Concluído com erros:\n\n" + falhas.join("\n") : "✅ Tudo atualizado.");
