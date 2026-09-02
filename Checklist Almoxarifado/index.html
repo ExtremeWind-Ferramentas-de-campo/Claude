@@ -182,7 +182,7 @@
     border-radius:8px;padding:7px 0;letter-spacing:.2px}
 
   /* Terceira linha do item: foto do químico (só nos químicos) */
-  .item .foto{flex-basis:100%;display:none;gap:9px;align-items:center;
+  .item .foto{flex-basis:100%;display:none;gap:9px;align-items:center;flex-wrap:wrap;
     padding-top:8px;margin-top:2px;border-top:1px dashed var(--card-line)}
   .item[data-quim="1"] .foto{display:flex}
   .item .foto input[type=file]{display:none}
@@ -191,6 +191,7 @@
     border:1px solid var(--card-line);color:var(--muted);background:transparent}
   .item .foto .fbtn.pede{border-color:var(--amber);color:var(--amber)}
   .item .foto .fbtn.tem{border-color:#1d7a4b;color:#1d7a4b}
+  .item .foto .fbtn.fgal{padding:7px 10px}
   .item .foto img{height:46px;width:46px;object-fit:cover;border-radius:8px;
     border:1px solid var(--card-line);display:none}
   .item .foto img.on{display:block}
@@ -831,15 +832,22 @@ function renderLista(){
         ${st?`<span class="val-tag ${st.classe}">${st.txt}</span>`:''}
       </div>` : '';
     /* Químico ganha a linha da foto. Só é COBRADA quando há quantidade — item
-       zerado não tem tambor no parque para fotografar. */
+       zerado não tem tambor no parque para fotografar.
+       Dois caminhos: o botão da câmera leva "capture" e abre a câmera direto; o da
+       galeria vai sem "capture", então o aparelho abre o seletor de imagens. É
+       comum a foto do tambor já estar no rolo antes de abrir o checklist. */
     const quim = ehQuimico(nome);
     const temFoto = !!(fotos[nome] && fotos[nome].d);
     const pedeFoto = quim && q!=='' && Number(q)>0 && !temFoto;
     const blocoFoto = quim ? `
       <div class="foto">
-        <label class="fbtn ${temFoto?'tem':(pedeFoto?'pede':'')}">
+        <label class="fbtn fcam ${temFoto?'tem':(pedeFoto?'pede':'')}">
           <i class="fas fa-camera"></i> <span class="ftxt">${temFoto?'Trocar foto':'Anexar foto'}</span>
           <input type="file" accept="image/*" capture="environment" onchange="onFoto(this)">
+        </label>
+        <label class="fbtn fgal ${temFoto?'tem':(pedeFoto?'pede':'')}" title="Importar da galeria">
+          <i class="fas fa-images"></i> <span>Galeria</span>
+          <input type="file" accept="image/*" onchange="onFoto(this)">
         </label>
         <img class="${temFoto?'on':''}" alt="Foto de ${esc(nome)}">
         <button type="button" class="fdel ${temFoto?'on':''}" title="Remover foto"
@@ -1130,10 +1138,12 @@ function marcarFoto(it){
   const img = bloco.querySelector('img');
   const tem = !!(img.getAttribute('src'));
   const qtd = Number(it.querySelector('.num input').value);
-  const btn = bloco.querySelector('.fbtn');
-  btn.classList.toggle('tem', tem);
-  btn.classList.toggle('pede', !tem && qtd > 0);
-  btn.querySelector('.ftxt').textContent = tem ? 'Trocar foto' : 'Anexar foto';
+  /* Câmera e galeria pintam juntas: o estado é do item, não do caminho usado. */
+  bloco.querySelectorAll('.fbtn').forEach(btn=>{
+    btn.classList.toggle('tem', tem);
+    btn.classList.toggle('pede', !tem && qtd > 0);
+  });
+  bloco.querySelector('.ftxt').textContent = tem ? 'Trocar foto' : 'Anexar foto';
   img.classList.toggle('on', tem);
   bloco.querySelector('.fdel').classList.toggle('on', tem);
 }
