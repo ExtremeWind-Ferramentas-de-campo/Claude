@@ -86,21 +86,24 @@ ALVOS.forEach(alvo => {
     if (html.indexOf('prazos.js') < 0) {
       html = html.replace('<meta name="viewport"', () => PRAZOS_JS + '<meta name="viewport"');
     }
-    /* O construtor já mudou uma vez a forma de salvar o PDF (doc.save ->
-       blob). Aceita as duas; se aparecer uma terceira, o script para e avisa
-       em vez de gravar um arquivo sem a marcação. */
+    /* A marcação entra no ramo em que o servidor confirmou o envio: o prazo do
+       cartão só cai quando o PDF realmente chegou na pasta do Dropbox — é a
+       mesma linha que libera o botão de compartilhar. Duas formas porque o
+       construtor mudou uma vez como guarda o PDF (doc.save -> blob); se
+       aparecer uma terceira, o script para e avisa em vez de gravar um arquivo
+       sem a marcação. */
     const ANCORAS = [
-      'document.body.appendChild(liga); liga.click(); liga.remove();',
-      "doc.save(nomeLocal + '.pdf');"
+      'guardarPDF(pdfBlob, nomeLocal);   // libera o compartilhamento: o Dropbox confirmou',
+      "guardarPDF(doc.output('blob'), nomeLocal);   // libera o compartilhamento: o Dropbox confirmou"
     ];
     const ancora = ANCORAS.filter(a => html.indexOf(a) >= 0)[0];
     if (!ancora) {
-      console.log(nome.padEnd(22) + 'ERRO: não achei onde o PDF é salvo — o construtor mudou de novo?');
+      console.log(nome.padEnd(22) + 'ERRO: não achei onde o envio é confirmado — o construtor mudou de novo?');
       erros++;
       return;
     }
     html = html.replace(ancora, () => ancora +
-      "\n    if(window.EWPrazo) window.EWPrazo.marcarFeito('" + alvo.prazo + "');" +
+      "\n      if(window.EWPrazo) window.EWPrazo.marcarFeito('" + alvo.prazo + "');" +
       "   // baixa o alerta de prazo do cartão");
     feito.push('prazo');
   }

@@ -68,6 +68,24 @@ A lógica condicional foi mantida inteira:
 - **Veículo** — as 9 perguntas da carrocinha só aparecem com "transporta
   carrocinha = SIM"; a foto da avaria só aparece com "houve avaria = sim".
 
+## Foto: só câmera
+
+O campo de foto abre **a câmera, e só a câmera** — `type=file` com
+`capture="environment"`, sem caminho para a galeria. A folha "Adicionar foto /
+Tirar foto agora / Escolher da galeria" saiu; o botão do campo dispara a câmera
+direto.
+
+É por causa do que a foto significa aqui: evidência do estado do equipamento no
+momento do checklist. Foto antiga do rolo do celular não serve, e olhando o PDF
+não havia como saber por qual caminho ela tinha entrado.
+
+Campo de "várias fotos" continua aceitando várias — toca em **Tirar foto** de
+novo para cada uma.
+
+No **Checklist de Materiais** (almoxarifado) a regra é a oposta e de propósito:
+lá a galeria é permitida, porque a foto é conferência de rótulo de tambor, não
+flagrante de estado.
+
 ## Erros que vieram do formulário original
 
 A regra usada foi: **texto de pergunta fica igual ao original** (é o que o
@@ -94,8 +112,19 @@ Corrigidos:
 
 O envio está **ligado** nos três: o botão diz "Gerar PDF e enviar" e aponta
 para o mesmo Apps Script (`script.google.com/macros/s/AKfycbx...`), com registro
-em planilha desligado. O PDF também continua caindo nos downloads do aparelho
-antes de subir — se o envio falhar, o arquivo não se perde.
+em planilha desligado.
+
+**O PDF só é liberado para compartilhar depois que o Dropbox confirma.** Ele é
+montado em memória e fica lá; nada é baixado antes do envio. Com o `ok` do
+servidor, a tela de conclusão traz o botão **Compartilhar PDF**, que abre a
+folha do sistema ("enviar para...") ou baixa o arquivo onde o navegador não
+compartilha arquivo. Servidor que recusa não libera nada; servidor que não
+responde libera um **Compartilhar PDF** no rodapé, para conferir a pasta em vez
+de gerar duplicata.
+
+Antes o arquivo era baixado no instante em que terminava de ser montado — ou
+seja, antes do envio, e mesmo quando o envio falhava, o que deixava sair por
+WhatsApp um checklist que nunca chegou na pasta.
 
 Pasta de destino configurada nos três:
 

@@ -482,11 +482,10 @@ function montar(c, i){
     fotos[i] = [];
     const grade = el('div', {class:'fotos'});
 
-    // Dois inputs separados: com "multiple" o Android costuma abrir SÓ a galeria,
-    // e com "capture" abre SÓ a câmera. Um botão para cada caminho resolve os dois.
+    // Só a câmera: "capture" faz o Android/iOS abrir a câmera direto, sem passar
+    // pela galeria. Neste checklist a foto vale como evidência do estado do
+    // equipamento naquele momento, então imagem antiga do rolo não serve.
     const inpCam = el('input', {type:'file', accept:'image/*', capture:'environment', style:'display:none'});
-    const inpGal = el('input', {type:'file', accept:'image/*', style:'display:none'});
-    if(c.varias) inpGal.setAttribute('multiple','multiple');
 
     async function receber(inp){
       for(const f of Array.from(inp.files || [])){
@@ -499,16 +498,11 @@ function montar(c, i){
       atualizarCondicoes();
     }
     inpCam.addEventListener('change', ()=> receber(inpCam));
-    inpGal.addEventListener('change', ()=> receber(inpGal));
 
-    const linha = el('div', {class:'btn-linha'});
-    const btCam = el('button', {type:'button', class:'btn'}, 'Tirar foto');
-    btCam.addEventListener('click', ()=> inpCam.click());
-    const btGal = el('button', {type:'button', class:'btn'}, 'Escolher da galeria');
-    btGal.addEventListener('click', ()=> inpGal.click());
-    linha.appendChild(btCam); linha.appendChild(btGal);
+    const bt = el('button', {type:'button', class:'btn'}, 'Tirar foto');
+    bt.addEventListener('click', ()=> inpCam.click());
 
-    w.appendChild(inpCam); w.appendChild(inpGal); w.appendChild(linha); w.appendChild(grade);
+    w.appendChild(inpCam); w.appendChild(bt); w.appendChild(grade);
     return w;
   }
   if(c.tipo === 'assinatura'){
@@ -705,7 +699,6 @@ document.getElementById('btPdf').addEventListener('click', async function(){
   try{
     doc = await montarPDF(dados);
     nomeLocal = resolver(D.arquivo, dados).replace(/\{ID\}/g,'').replace(/[_-]+$/,'') || 'formulario';
-    doc.save(nomeLocal + '.pdf');
   }catch(e){
     console.error(e);
     alerta('ruim', 'Falha ao gerar o PDF: ' + e.message);
@@ -714,29 +707,88 @@ document.getElementById('btPdf').addEventListener('click', async function(){
   }
 
   if(!D.url){
+    // Sem Dropbox configurado não há confirmação para esperar: entrega na hora.
+    guardarPDF(doc.output('blob'), nomeLocal);
+    baixarPDF();
     alerta('bom', 'PDF gerado. Verifique os downloads do aparelho.');
     bt.disabled = false; bt.textContent = rotuloBotao();
     return;
   }
 
   bt.textContent = 'Enviando...';
-  alerta('aviso', 'PDF salvo no aparelho. Enviando para o Dropbox — não feche a página.');
+  alerta('aviso', 'Enviando para o Dropbox — não feche a página. O PDF fica disponível para compartilhar assim que o envio for confirmado.');
   try{
     const r = await enviar(doc, dados, D);
     if(r && r.ok){
+      guardarPDF(doc.output('blob'), nomeLocal);   // libera o compartilhamento: o Dropbox confirmou
       sucesso(r);
     }else{
       alerta('ruim', 'O servidor recusou o envio: ' + ((r && r.erro) || 'motivo não informado') +
-                     '. O PDF já está salvo no aparelho — reenvie depois.');
+                     '. Nada foi para o Dropbox e o PDF não foi liberado — corrija e envie de novo.');
       bt.disabled = false; bt.textContent = rotuloBotao();
     }
   }catch(e){
     console.error(e);
     alerta('aviso', 'Não recebi confirmação do servidor. Isso às vezes acontece mesmo quando o envio deu certo — ' +
-                    'confira a pasta no Dropbox antes de reenviar. O PDF está salvo no aparelho.');
+                    'confira a pasta no Dropbox antes de reenviar. Se o arquivo já estiver lá, use ' +
+                    '"Compartilhar PDF" no rodapé em vez de enviar outra vez.');
+    guardarPDF(doc.output('blob'), nomeLocal);
+    mostrarBotaoShare();
     bt.disabled = false; bt.textContent = rotuloBotao();
   }
 });
+
+/* ---------------- entrega do PDF ----------------
+   Quem manda é a pasta do Dropbox: a cópia no aparelho é conveniência. Por isso
+   o PDF fica guardado aqui em memória e a folha do sistema ("enviar para...")
+   só abre no clique do botão que aparece DEPOIS que o servidor confirma o
+   recebimento — nunca antes, para ninguém sair compartilhando um checklist que
+   não chegou na pasta. */
+let pdfPronto = null;
+
+function guardarPDF(blob, nome){
+  pdfPronto = {blob: blob, nome: (nome || 'formulario') + '.pdf'};
+}
+
+function baixarPDF(){
+  if(!pdfPronto) return;
+  const liga = document.createElement('a');
+  const endereco = URL.createObjectURL(pdfPronto.blob);
+  liga.href = endereco; liga.download = pdfPronto.nome;
+  document.body.appendChild(liga); liga.click(); liga.remove();
+  setTimeout(function(){ URL.revokeObjectURL(endereco); }, 8000);
+}
+
+/* Precisa ser chamada de dentro de um clique: sem gesto do usuário o navegador
+   recusa o navigator.share. Onde não existe share de arquivo, cai no download. */
+async function compartilharPDF(){
+  if(!pdfPronto){ alerta('ruim', 'O PDF não está mais na memória desta aba. Gere de novo.'); return; }
+  try{
+    const arq = new File([pdfPronto.blob], pdfPronto.nome, {type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[arq]})){
+      await navigator.share({files:[arq], title: pdfPronto.nome});
+      return;
+    }
+  }catch(e){
+    // Fechar a folha de compartilhamento também cai aqui; nesse caso não faz
+    // sentido baixar por cima do que o usuário acabou de cancelar.
+    if(e && e.name === 'AbortError') return;
+    console.error(e);
+  }
+  baixarPDF();
+}
+
+/* Só aparece quando o servidor não confirmou o envio: aí o operador precisa de
+   um caminho para não perder o arquivo enquanto confere a pasta do Dropbox. */
+function mostrarBotaoShare(){
+  if(!pdfPronto || document.getElementById('btShare')) return;
+  const bt = document.createElement('button');
+  bt.type = 'button'; bt.className = 'btn'; bt.id = 'btShare';
+  bt.style.flex = '0 0 auto';
+  bt.textContent = 'Compartilhar PDF';
+  bt.addEventListener('click', compartilharPDF);
+  document.querySelector('.rodape').appendChild(bt);
+}
 
 function rotuloBotao(){
   return (SCHEMA.destino && SCHEMA.destino.url) ? 'Gerar PDF e enviar' : 'Gerar PDF';
@@ -819,6 +871,7 @@ function sucesso(r){
       '<h2>' + (SCHEMA.titulo || 'Formulário') + '</h2>' +
       '<p>Protocolo <b>' + (r.id || '—') + '</b></p>' +
       '<p class="fim-caminho">' + (r.caminho || '') + '</p>' +
+      '<button type="button" class="btn" style="margin-bottom:10px" onclick="compartilharPDF()">Compartilhar PDF</button>' +
       '<button type="button" class="btn" onclick="location.reload()">Preencher outro</button>' +
     '</div>';
   document.querySelector('.rodape').style.display = 'none';
@@ -1475,7 +1528,7 @@ async function montarPDF(dados){
         });
         if(!(c.opcoes||[]).length) h += '<div class="pv-caixa">Sem opções cadastradas.</div>';
       }
-      else if(c.tipo === 'foto') h += '<div class="pv-caixa">Botão de câmera / galeria' + (c.varias ? ' — várias fotos' : ' — uma foto') + '</div>';
+      else if(c.tipo === 'foto') h += '<div class="pv-caixa">Botão de câmera' + (c.varias ? ' — várias fotos' : ' — uma foto') + '</div>';
       else if(c.tipo === 'assinatura') h += '<div class="pv-caixa" style="height:70px;line-height:52px">Área de assinatura a dedo</div>';
       else if(c.tipo === 'tabela'){
         h += '<table class="pv-tab"><thead><tr>';
