@@ -108,6 +108,11 @@
   /* Identificação */
   .idgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
   .idgrid .full{grid-column:1/-1}
+  /* Dica sob o campo Parque: diz quantos parques o cliente tem cadastrados e
+     avisa quando o nome digitado está fora da lista. */
+  .parque-dica{font-size:.7rem;margin-top:4px;color:var(--muted);min-height:1em}
+  .parque-dica.novo{color:var(--amber);font-weight:700}
+  #i-parque.novo{border-color:var(--amber)}
   label.lbl{display:block;font-size:.72rem;color:var(--muted);font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
   input,select{width:100%;padding:9px 11px;background:var(--field);border:1px solid var(--field-line);border-radius:9px;
     color:var(--ink);font-size:.92rem;font-family:inherit;outline:none}
@@ -344,7 +349,16 @@
     </div>
 
     <div class="idgrid">
-      <div class="full"><label class="lbl">Parque / Projeto</label><input id="i-parque" type="text" placeholder="Ex: São Clemente" oninput="salvarEstado()"></div>
+      <!-- A lista vem do "Banco de Inputs" da planilha, filtrada pelo cliente
+           escolhido. datalist (e não select) de propósito: parque novo precisa
+           ter como entrar, senão o primeiro registro de um parque seria
+           impossível. Quem digita fora da lista é avisado antes de enviar. -->
+      <div class="full"><label class="lbl">Parque / Projeto</label>
+        <input id="i-parque" type="text" list="lista-parques" autocomplete="off"
+               placeholder="Escolha na lista" oninput="onParque()">
+        <datalist id="lista-parques"></datalist>
+        <div class="parque-dica" id="parqueDica"></div>
+      </div>
       <div><label class="lbl">Responsável</label><input id="i-resp" type="text" placeholder="Nome" oninput="salvarEstado()"></div>
       <div><label class="lbl">Data</label><input id="i-data" type="date" oninput="salvarEstado()"></div>
     </div>
@@ -803,6 +817,9 @@ function selecionarCliente(cli){
   document.querySelectorAll('.oem-tab').forEach(t=>t.classList.toggle('on', t.dataset.cli===cli));
   document.querySelector('meta[name=theme-color]');
   localStorage.setItem('ew_checklist_cli', cli);
+  /* Trocar de cliente troca a lista do campo Parque: cada cliente tem os seus.
+     É o gesto que o pedido descreve — clicar no cliente e a lista aparecer. */
+  popularParques();
   renderLista();
 }
 
@@ -1650,6 +1667,99 @@ function filaSyncAll(){ return safeParseArr(SYNC_KEY); }
 function filaSyncSave(arr){ localStorage.setItem(SYNC_KEY, JSON.stringify(arr)); }
 function safeParseArr(k){ try{ const v=JSON.parse(localStorage.getItem(k)||'[]'); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
 
+/* ══ BANCO DE INPUTS — a lista de parques por cliente ══
+   O campo Parque era texto livre, e era aí que nascia a divergência de nome:
+   "São Fernando" numa semana, "Sõa Fernando 1" na outra viravam dois parques na
+   planilha — duas contagens do mesmo material na mesma semana, duas abas no
+   comparativo, duas colunas no resumo.
+
+   A correção é na ORIGEM: ao escolher o cliente, o técnico recebe a lista dos
+   parques já cadastrados DAQUELE cliente e escolhe um. A lista mora na aba
+   "Banco de Inputs" da planilha e se alimenta sozinha — todo envio com par
+   (cliente, parque) novo é cadastrado lá pelo Code.gs.
+
+   Cache no localStorage porque o app tem de funcionar offline: a lista guardada
+   é usada na hora e a rede só serve para atualizá-la depois. */
+const PARQUES_KEY = 'ew_checklist_parques_cli';
+
+function parquesDoCliente(){
+  try{
+    const m = JSON.parse(localStorage.getItem(PARQUES_KEY) || '{}');
+    const lista = m[NOME_CLI[clienteAtual]];
+    return Array.isArray(lista) ? lista : [];
+  }catch(e){ return []; }
+}
+
+/* Monta via DOM, não via innerHTML: nome de parque vem da planilha e não pode
+   virar HTML executável dentro do app. */
+function popularParques(){
+  const dl = document.getElementById('lista-parques');
+  if(!dl) return;
+  dl.textContent = '';
+  parquesDoCliente().slice(0,3000).forEach(function(n){
+    const o = document.createElement('option'); o.value = String(n); dl.appendChild(o);
+  });
+  dicaParque();
+}
+
+/* Avisa, sem travar, quando o nome digitado não está na lista do cliente. Não
+   travar é deliberado: parque novo precisa ter como entrar, senão o primeiro
+   registro de um parque seria impossível (a lista é alimentada pelos envios). */
+function parqueForaDaLista(){
+  const v = (val('i-parque')||'').trim();
+  if(!v) return false;
+  const lista = parquesDoCliente();
+  if(!lista.length) return false;            // sem lista ainda: não há o que conferir
+  const n = s => String(s).trim().toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ');
+  return !lista.some(p => n(p) === n(v));
+}
+
+function dicaParque(){
+  const cx = document.getElementById('parqueDica');
+  const inp = document.getElementById('i-parque');
+  if(!cx || !inp) return;
+  const lista = parquesDoCliente();
+  const fora = parqueForaDaLista();
+  inp.classList.toggle('novo', fora);
+  cx.classList.toggle('novo', fora);
+  if(fora){
+    cx.textContent = 'Parque não cadastrado para ' + NOME_CLI[clienteAtual]
+      + ' — confira a grafia. Se for parque novo, ele será cadastrado no envio.';
+  }else if(lista.length){
+    cx.textContent = lista.length + ' parque(s) cadastrado(s) para ' + NOME_CLI[clienteAtual];
+  }else{
+    cx.textContent = 'Lista ainda não sincronizada — o nome digitado será cadastrado.';
+  }
+}
+
+function onParque(){ salvarEstado(); dicaParque(); }
+
+async function sincronizarParques(){
+  if(!navigator.onLine || !API) return;
+  try{
+    const r = await fetch(API + '/parques');
+    const d = await r.json();
+    /* `porCliente` é o campo novo do Apps Script. Se vier uma resposta antiga
+       (só `parques`), o cache não é sobrescrito: melhor manter a lista que já
+       está no aparelho do que zerá-la. */
+    if(d && d.porCliente && typeof d.porCliente === 'object'){
+      localStorage.setItem(PARQUES_KEY, JSON.stringify(d.porCliente));
+      popularParques();
+    }
+  }catch(e){ console.log('Parques: sem sincronização', e); }
+}
+
+/* Matrícula de quem está logado — vai na planilha como AUDITORIA (quem enviou),
+   não como chave. O guard.js já garante que existe sessão válida para esta
+   página ter montado; devolve '' se a sessão expirou entre abrir e enviar, e
+   nesse caso o registro só fica sem o carimbo de quem mandou. */
+function matriculaDaSessao(){
+  try{
+    const s = JSON.parse(localStorage.getItem('ew_sessao') || 'null');
+    return String((s && s.mat) || '').replace(/[^0-9]/g,'');
+  }catch(e){ return ''; }
+}
+
 function enviarPlanilha(){
   const itens = coletados();
   if(!itens.length){ toast('Preencha ao menos uma QTD antes de enviar','error'); return false; }
@@ -1669,6 +1779,29 @@ function enviarPlanilha(){
     setTimeout(()=>{campo.style.borderColor='';},2500);
     return false;
   }
+  /* Parque fora da lista do cliente: NÃO trava, mas exige um "sim" explícito.
+     Travar impediria o primeiro registro de um parque novo — a lista é
+     alimentada pelos próprios envios. Confirmar é o que faz a diferença entre
+     cadastrar um parque de propósito e deixar um erro de digitação virar um
+     segundo parque na planilha, que é o que acontecia antes. */
+  if(parqueForaDaLista()){
+    const lista = parquesDoCliente();
+    const proximos = lista.slice(0,6).map(n=>'• '+n).join('\n')
+      + (lista.length>6 ? '\n… e mais '+(lista.length-6) : '');
+    const segue = confirm(
+      '"' + (id.parque||'').trim() + '" não está cadastrado para '
+      + NOME_CLI[clienteAtual] + '.\n\n'
+      + 'Cadastrados:\n' + proximos + '\n\n'
+      + 'Se for o mesmo parque com outra grafia, CANCELE e escolha na lista — '
+      + 'grafias diferentes viram dois parques na planilha.\n\n'
+      + 'Cadastrar "' + (id.parque||'').trim() + '" como parque novo?');
+    if(!segue){
+      const campo = document.getElementById('i-parque');
+      campo.focus(); campo.select(); campo.scrollIntoView({block:'center'});
+      return false;
+    }
+  }
+
   /* Entrada de perecível SEM lote/validade não sai daqui.
      ATENÇÃO ao mexer nisto: antes era só um aviso, porque em campo acontece
      rótulo ilegível ou tambor já transferido. Passou a bloquear a pedido da
@@ -1696,6 +1829,12 @@ function enviarPlanilha(){
     registro: modoAtual,           // 'estoque' (contagem) ou 'entrada' (recebido)
     id: Date.now()+'-'+Math.round(Math.random()*1e9),
     cliente: NOME_CLI[clienteAtual],
+    /* A matrícula é a identidade do parque na planilha: é ela que faz "São
+       Fernando" e "Sõa Fernando 1" caírem na MESMA linha, em vez de virarem
+       duas contagens do mesmo parque na mesma semana. Sai da sessão do login,
+       não de campo digitado — o técnico já informou a matrícula para entrar no
+       site, e pedir de novo só criaria uma segunda chance de errar. */
+    mat: matriculaDaSessao(),
     parque: id.parque||'', responsavel: id.resp||'', data: formatarData(id.data)||new Date().toLocaleDateString('pt-BR'),
     /* lote e validade só fazem sentido na ENTRADA (material recebido);
        na contagem de estoque vão vazios e a planilha ignora */
@@ -1750,9 +1889,10 @@ carregarEstado();
 clienteAtual = localStorage.getItem('ew_checklist_cli') || 'nordex';
 aplicarEstadoEntrada();
 setModo(localStorage.getItem('ew_checklist_modo') || 'estoque');  // já chama renderLista()
-selecionarCliente(clienteAtual);
+selecionarCliente(clienteAtual);   // já popula a lista de parques do cache
 atualizarStatusSync();
 tentarSincronizarPlanilha();
+sincronizarParques();              // atualiza a lista depois, se houver rede
 </script>
 <script>
 /* PWA — registra o service worker (uso offline) */
