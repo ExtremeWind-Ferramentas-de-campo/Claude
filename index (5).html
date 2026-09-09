@@ -4,15 +4,15 @@
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Extreme Wind — Calculadoras de Reparo em Pás Eólicas por cliente">
-<meta name="theme-color" content="#2b7fd0">
-<title>Extreme Wind | Calculadora de Reparos</title>
+<meta name="description" content="Extreme Wind — Checklist Frotas: gerador elétrico, plataforma e inspeção semanal de veículos">
+<meta name="theme-color" content="#12466B">
+<title>Extreme Wind | Checklist Frotas</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous" referrerpolicy="no-referrer">
 <link rel="manifest" href="../manifest.json">
 <link rel="apple-touch-icon" href="../icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="EW Calc">
+<meta name="apple-mobile-web-app-title" content="EW Frotas">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   :root{
@@ -30,7 +30,7 @@
   :root[data-theme="dark"]{
     --ink:#e8eff8; --muted:#9fb2c6;
     --panel:rgba(15,29,48,.74); --panel-border:rgba(120,150,185,.22);
-    --card:#f3f7fb; --card-line:#2a3c52;
+    --card:#0f1d2e; --card-line:#2a3c52;
     --sky-1:#081525; --sky-2:#173251;
     --hill-1:#123049; --hill-2:#0d2439; --hill-3:#081a2b;
     --turbine:#a9bccf; --turbine-edge:#6d859c; --tower:#93a8bf;
@@ -42,7 +42,7 @@
     :root:not([data-theme="light"]){
       --ink:#e8eff8; --muted:#9fb2c6;
       --panel:rgba(15,29,48,.74); --panel-border:rgba(120,150,185,.22);
-      --card:#f3f7fb; --card-line:#2a3c52;
+      --card:#0f1d2e; --card-line:#2a3c52;
       --sky-1:#081525; --sky-2:#173251;
       --hill-1:#123049; --hill-2:#0d2439; --hill-3:#081a2b;
       --turbine:#a9bccf; --turbine-edge:#6d859c; --tower:#93a8bf;
@@ -68,9 +68,9 @@
   .cloud{fill:var(--cloud)}
   .star{fill:var(--star)}
 
-  /* ── TEMA ── */
+  /* ── TEMA / VOLTAR ── */
   .theme-btn{position:fixed;top:14px;right:14px;z-index:20;width:42px;height:42px;border-radius:50%;
-    border:none;cursor:pointer;background:var(--panel);color:var(--ink);font-size:1.05rem;
+    cursor:pointer;background:var(--panel);color:var(--ink);font-size:1.05rem;
     box-shadow:var(--shadow);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid var(--panel-border)}
   .theme-btn:hover{filter:brightness(1.05)}
   .nav-back-link{position:fixed;top:14px;left:14px;z-index:20;width:42px;height:42px;border-radius:50%;
@@ -80,7 +80,7 @@
   .nav-back-link:hover{filter:brightness(1.05)}
 
   /* ── CONTEÚDO ── */
-  .landing{flex:1;width:100%;max-width:920px;margin:0 auto;padding:34px 18px 24px;
+  .landing{flex:1;width:100%;max-width:900px;margin:0 auto;padding:34px 18px 24px;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center}
   .brand-pill{background:#fff;border-radius:16px;padding:12px 20px;box-shadow:var(--shadow);display:inline-block}
   .brand-pill img{height:46px;width:auto;display:block}
@@ -96,15 +96,18 @@
   .picker h2{font-size:1.1rem;font-weight:700;margin-bottom:4px}
   .picker .hint{font-size:.9rem;color:var(--muted);margin-bottom:22px}
   .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-  .oem-card{background:var(--card);border:1px solid var(--card-line);border-top:5px solid var(--c,#004aad);
-    border-radius:18px;padding:26px 16px 18px;text-decoration:none;color:var(--ink);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:150px;
+  .opt-card{background:var(--card);border:1px solid var(--card-line);border-top:5px solid var(--c);
+    border-radius:20px;padding:26px 18px 20px;text-decoration:none;color:var(--ink);
+    display:flex;flex-direction:column;align-items:center;gap:10px;min-height:230px;justify-content:center;
     box-shadow:0 6px 18px rgba(9,34,64,.10);transition:transform .18s ease,box-shadow .18s ease;position:relative}
-  .oem-card:hover,.oem-card:focus-visible{transform:translateY(-6px);box-shadow:0 16px 34px rgba(9,34,64,.22);outline:none}
-  .oem-card img{width:auto;height:auto;max-width:100%;max-height:50px;object-fit:contain;display:block}
-  .oem-card .go{font-size:.8rem;font-weight:700;color:var(--c,#004aad);display:flex;align-items:center;gap:6px;opacity:.85}
-  .oem-card .go i{transition:transform .18s ease}
-  .oem-card:hover .go i{transform:translateX(4px)}
+  .opt-card:hover,.opt-card:focus-visible{transform:translateY(-6px);box-shadow:0 16px 34px rgba(9,34,64,.22);outline:none}
+  .opt-card .ico{width:72px;height:72px;border-radius:20px;display:grid;place-items:center;color:#fff;font-size:1.9rem;
+    background:linear-gradient(135deg,var(--c),color-mix(in srgb,var(--c) 60%,#fff))}
+  .opt-title{font-size:1.08rem;font-weight:800;line-height:1.2;margin-top:4px}
+  .opt-desc{font-size:.85rem;color:var(--muted);line-height:1.35}
+  .opt-card .go{margin-top:6px;font-size:.85rem;font-weight:700;color:var(--c);display:flex;align-items:center;gap:6px}
+  .opt-card .go i{transition:transform .18s ease}
+  .opt-card:hover .go i{transform:translateX(4px)}
 
   footer{text-align:center;color:var(--muted);font-size:.8rem;padding:22px 16px 10px;
     text-shadow:0 1px 8px rgba(255,255,255,.3)}
@@ -115,16 +118,22 @@
     .brand-pill{padding:10px 16px}
     .brand-pill img{height:38px}
     h1{font-size:1.4rem}
-    .subtitle{font-size:.9rem}
+    .subtitle{font-size:.9rem;margin-top:8px}
     .picker{padding:20px 14px 22px;border-radius:20px}
     .picker h2{font-size:1.05rem}
     .picker .hint{margin-bottom:16px;font-size:.85rem}
     .cards{grid-template-columns:1fr;gap:12px}
-    .oem-card{min-height:0;padding:18px 12px 14px;gap:10px}
-    .oem-card img{max-height:54px}
+    .opt-card{min-height:0;padding:20px 16px;flex-direction:row;text-align:left;align-items:center;gap:14px}
+    .opt-card .ico{width:58px;height:58px;font-size:1.5rem;flex-shrink:0}
+    .opt-card .txt{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}
+    .opt-card .go{margin-top:2px;flex-shrink:0}
+    /* Sobra pouca largura para o texto em 375px: o rótulo vira só a seta,
+       que é o que o dedo entende de qualquer forma. */
+    .opt-card .go .rot{display:none}
   }
 </style>
 <script src="../guard.js"></script>
+<script src="../prazos.js" defer></script>
 </head>
 <body>
 
@@ -138,7 +147,6 @@
       <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
         <stop offset="0" class="sun-glow"/><stop offset="1" stop-color="transparent"/>
       </radialGradient>
-      <!-- pá (aponta para cima a partir do cubo em 0,0) -->
       <path id="blade" class="blade" d="M0 0 C 6 -44 4 -98 1.4 -124 C 0.6 -129 -0.6 -129 -1.4 -124 C -3 -98 -6 -44 0 0 Z"/>
       <g id="turbine">
         <path class="tower" d="M -3.2 4 L 3.2 4 L 9 262 L -9 262 Z"/>
@@ -154,35 +162,24 @@
       </g>
     </defs>
 
-    <!-- céu -->
     <rect x="0" y="0" width="1200" height="700" fill="url(#sky)"/>
-
-    <!-- sol / lua -->
     <circle class="sun-glow" cx="985" cy="135" r="150" fill="url(#glow)"/>
     <circle class="sun" cx="985" cy="135" r="60"/>
-
-    <!-- estrelas (só no modo escuro via var) -->
     <g>
       <circle class="star" cx="140" cy="90" r="2"/><circle class="star" cx="320" cy="150" r="1.6"/>
       <circle class="star" cx="520" cy="70" r="2.2"/><circle class="star" cx="700" cy="120" r="1.5"/>
       <circle class="star" cx="250" cy="220" r="1.6"/><circle class="star" cx="1120" cy="220" r="2"/>
       <circle class="star" cx="60" cy="180" r="1.6"/><circle class="star" cx="860" cy="60" r="1.8"/>
     </g>
-
-    <!-- nuvens (só no modo claro) -->
     <g class="cloud">
       <ellipse cx="230" cy="140" rx="70" ry="24"/><ellipse cx="290" cy="130" rx="52" ry="26"/>
     </g>
     <g class="cloud">
       <ellipse cx="640" cy="210" rx="60" ry="20"/><ellipse cx="690" cy="202" rx="42" ry="22"/>
     </g>
-
-    <!-- colinas -->
     <path class="hill-1" d="M0 470 C 220 428 430 472 620 456 C 820 440 1010 448 1200 470 L1200 700 L0 700 Z"/>
     <path class="hill-2" d="M0 532 C 260 496 520 540 760 518 C 980 498 1110 522 1200 536 L1200 700 L0 700 Z"/>
     <path class="hill-3" d="M0 590 C 300 558 660 594 900 578 C 1080 566 1150 588 1200 592 L1200 700 L0 700 Z"/>
-
-    <!-- turbinas (atrás->frente) -->
     <use href="#turbine" transform="translate(1035 358) scale(0.55)"/>
     <use href="#turbine" transform="translate(545 342) scale(0.72)"/>
     <use href="#turbine" transform="translate(835 312) scale(0.9)"/>
@@ -190,7 +187,7 @@
   </svg>
 </div>
 
-<a class="nav-back-link" href="../index.html#ferramentas" title="Voltar"><i class="fas fa-arrow-left"></i></a>
+<a class="nav-back-link" href="../Checklist%20Almoxarifado/menu.html" title="Voltar"><i class="fas fa-arrow-left"></i></a>
 <button class="theme-btn" id="theme-btn" title="Alternar tema"><i class="fas fa-moon"></i></button>
 
 <main class="landing">
@@ -200,26 +197,42 @@
   </div>
 
   <div>
-    <h1>Calculadora de Reparos em Pás Eólicas</h1>
+    <h1>Checklist Frotas</h1>
     <p class="subtitle">Extreme Wind Blade Services</p>
   </div>
 
   <section class="picker">
-    <h2>Selecione o cliente</h2>
-    <p class="hint">Cada cliente tem sua calculadora com os químicos e proporções específicos.</p>
+    <h2>Selecione o checklist</h2>
+    <p class="hint">Preencha no celular, gere o PDF e guarde na pasta do equipamento.</p>
     <div class="cards">
-      <a class="oem-card" href="calculadora-nordex.html" style="--c:#135091">
-        <img src="../logo-oem.png" alt="Nordex">
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
+
+      <a class="opt-card" href="gerador-eletrico.html" style="--c:#c26a12">
+        <span class="ico"><i class="fas fa-bolt"></i></span>
+        <span class="txt">
+          <span class="opt-title">Gerador elétrico</span>
+          <span class="opt-desc">Segurança, eletromecânica e registro fotográfico</span>
+        </span>
+        <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-right"></i></span>
       </a>
-      <a class="oem-card" href="calculadora-ge.html" style="--c:#005e60">
-        <img src="../logo-oem-ge.png" alt="GE Vernova">
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
+
+      <a class="opt-card" href="plataforma.html" style="--c:#0F6E4F">
+        <span class="ico"><i class="fas fa-elevator"></i></span>
+        <span class="txt">
+          <span class="opt-title">Plataforma</span>
+          <span class="opt-desc">Conformidade dos 23 itens e evidências por componente</span>
+        </span>
+        <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-right"></i></span>
       </a>
-      <a class="oem-card" href="calculadora-siemens.html" style="--c:#0098a2">
-        <img src="../logo-oem-siemens.png" alt="Siemens Gamesa">
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
+
+      <a class="opt-card" href="veiculo.html" style="--c:#12466B" data-ew-prazo="veiculo">
+        <span class="ico"><i class="fas fa-car-side"></i></span>
+        <span class="txt">
+          <span class="opt-title">Veículo — semanal</span>
+          <span class="opt-desc">Inspeção, volta completa em fotos, pneus e carrocinha</span>
+        </span>
+        <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-right"></i></span>
       </a>
+
     </div>
   </section>
 </main>

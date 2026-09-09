@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self' https://ew-dropbox-proxy.ew-fotos.workers.dev; object-src 'none'; base-uri 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Extreme Wind — Calculadora de Reparos GE Vernova (sistema epóxi)">
+<meta name="theme-color" content="#005E60">
+<title>Extreme Wind | Calculadora GE Vernova</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link rel="manifest" href="../manifest.json">
+<link rel="apple-touch-icon" href="../icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="EW Calc">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --petrol:#005e60;      /* "Evergreen" — cor OFICIAL GE Vernova (SVG oficial) */
+    --petrol-dark:#003f41;
+    --petrol-deep:#002a2b;
+    --accent:#2fbfb9;      /* teal claro de acento */
+    --accent-soft:#cceeec;
+    --amber:#f59e0b;
+    --red:#ef4444;
+    --green:#16a34a;
+    --ink:#0f172a;
+    --muted:#64748b;
+    --line:#e2e8f0;
+    --bg:#eef3f2;
+    --card:#ffffff;
+    --card-soft:#f4faf9;
+    --shadow:0 6px 24px rgba(0,42,43,.10);
+    --shadow-sm:0 2px 8px rgba(0,42,43,.07);
+    --radius:16px;
+    --radius-sm:10px;
+    --ff:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  }
+  :root[data-theme="dark"]{
+    --ink:#e6efed; --muted:#93aca8; --line:#22383a; --bg:#081312;
+    --card:#0f2120; --card-soft:#0c1a19; --accent-soft:#0c3634;
+    --shadow:0 6px 24px rgba(0,0,0,.45); --shadow-sm:0 2px 8px rgba(0,0,0,.4);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ink:#e6efed; --muted:#93aca8; --line:#22383a; --bg:#081312;
+      --card:#0f2120; --card-soft:#0c1a19; --accent-soft:#0c3634;
+      --shadow:0 6px 24px rgba(0,0,0,.45); --shadow-sm:0 2px 8px rgba(0,0,0,.4);
+    }
+  }
+  html{overflow-x:hidden}
+  body{font-family:var(--ff);background:var(--bg);color:var(--ink);line-height:1.55;min-height:100vh;
+    overflow-x:hidden;padding-bottom:70px;-webkit-tap-highlight-color:transparent}
+
+  .topbar{position:sticky;top:0;z-index:50;background:linear-gradient(120deg,var(--petrol-deep),var(--petrol));
+    color:#fff;box-shadow:var(--shadow-sm)}
+  .topbar-inner{max-width:960px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:14px}
+  .brand{display:flex;align-items:center;gap:12px;min-width:0}
+  .brand-logo{height:34px;width:auto;display:block;filter:brightness(0) invert(1)}
+  .brand-fallback{font-weight:800;letter-spacing:.5px;font-size:1.05rem;white-space:nowrap}
+  .brand-fallback span{color:var(--accent-soft)}
+  .brand-sub{font-size:.72rem;opacity:.85;font-weight:500;line-height:1.1}
+  .topbar-spacer{flex:1}
+  .oem-chip{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right}
+  .oem-logo{height:30px;width:auto;max-width:180px;display:block;background:#fff;padding:5px 10px;border-radius:8px;object-fit:contain}
+  .oem-chip .oem-name{font-weight:700;font-size:.92rem;line-height:1}
+  .oem-chip .oem-tag{font-size:.66rem;opacity:.8;letter-spacing:1px;text-transform:uppercase}
+  .theme-btn{background:rgba(255,255,255,.15);border:none;color:#fff;width:38px;height:38px;border-radius:50%;
+    cursor:pointer;font-size:1rem;transition:background .2s;flex-shrink:0}
+  .theme-btn:hover{background:rgba(255,255,255,.28)}
+  .nav-back{background:rgba(255,255,255,.15);border:none;color:#fff;width:38px;height:38px;border-radius:50%;
+    cursor:pointer;font-size:1rem;transition:background .2s;flex-shrink:0}
+  .nav-back:hover{background:rgba(255,255,255,.28)}
+
+  .wrap{max-width:960px;margin:0 auto;padding:16px}
+
+  .id-banner{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;
+    gap:10px;box-shadow:var(--shadow-sm);flex-wrap:wrap}
+  .id-banner .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.85rem}
+  .pill{background:var(--card-soft);border:1px solid var(--line);padding:3px 10px;border-radius:20px;
+    font-size:.8rem;font-weight:600;color:var(--ink)}
+  .pill.accent{background:var(--accent-soft);border-color:transparent;color:var(--petrol-dark)}
+  :root[data-theme="dark"] .pill.accent{color:var(--accent)}
+  .ghost-btn{background:transparent;border:1px solid var(--line);color:var(--petrol);padding:6px 12px;
+    border-radius:var(--radius-sm);cursor:pointer;font-weight:600;font-size:.85rem;display:inline-flex;
+    align-items:center;gap:6px;transition:all .2s}
+  .ghost-btn:hover{background:var(--petrol);color:#fff;border-color:var(--petrol)}
+
+  .nav{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 12px;margin-bottom:6px;scrollbar-width:thin}
+  .nav::-webkit-scrollbar{height:6px}
+  .nav::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .tab{flex:0 0 auto;background:var(--card);border:1px solid var(--line);border-radius:999px;
+    padding:9px 16px;cursor:pointer;font-weight:600;font-size:.88rem;color:var(--muted);
+    display:flex;align-items:center;gap:8px;transition:all .2s;white-space:nowrap}
+  .tab:hover{border-color:var(--petrol);color:var(--petrol)}
+  .tab.active{background:var(--petrol);border-color:var(--petrol);color:#fff;box-shadow:var(--shadow-sm)}
+  .tab.hidden{display:none}
+  .tab i{font-size:.9rem}
+
+  .panel{display:none;animation:fade .25s ease}
+  .panel.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px;margin-bottom:16px;box-shadow:var(--shadow-sm)}
+  .card-title{display:flex;align-items:center;gap:10px;font-size:1.12rem;font-weight:700;margin-bottom:4px}
+  .card-title .ico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;
+    background:linear-gradient(135deg,var(--petrol),var(--accent));font-size:1rem;flex-shrink:0}
+  .card-desc{color:var(--muted);font-size:.9rem;margin-bottom:16px}
+
+  .field{margin-bottom:14px}
+  .field label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
+  .hint{font-size:.78rem;color:var(--muted);font-weight:400;margin-left:2px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  input[type=text],input[type=number],input[type=date],select{width:100%;padding:12px 14px;
+    border:2px solid var(--line);border-radius:var(--radius-sm);font-size:.97rem;font-family:inherit;
+    background:var(--card);color:var(--ink);transition:border-color .2s}
+  input:focus,select:focus{outline:none;border-color:var(--petrol)}
+  .seg{display:flex;flex-wrap:wrap;gap:8px}
+  .seg label{display:flex;align-items:center;gap:7px;padding:10px 14px;border:2px solid var(--line);
+    border-radius:var(--radius-sm);cursor:pointer;font-weight:600;font-size:.88rem;margin:0;transition:all .2s;flex:1;min-width:120px;justify-content:center}
+  .seg input{display:none}
+  .seg label.sel{background:var(--petrol);border-color:var(--petrol);color:#fff}
+  .seg label:hover{border-color:var(--petrol)}
+  .check{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card-soft);
+    border:1px solid var(--line);border-radius:var(--radius-sm);cursor:pointer;font-weight:600;font-size:.9rem}
+  .check input{width:20px;height:20px;accent-color:var(--petrol);cursor:pointer;flex-shrink:0}
+
+  .spec{background:var(--card-soft);border:1px solid var(--line);border-left:4px solid var(--petrol);
+    border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:16px;font-size:.9rem}
+  .spec b{color:var(--petrol)}
+  :root[data-theme="dark"] .spec b{color:var(--accent)}
+  .spec .row{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
+  .spec.warn{border-left-color:var(--amber)}
+  .spec.warn .head{color:var(--amber)}
+  .note{font-size:.82rem;color:var(--muted);margin-top:8px}
+
+  .taglist{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+  .tagitem{display:flex;justify-content:space-between;align-items:center;background:var(--card-soft);
+    border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 12px;font-size:.85rem}
+  .tagitem button{background:#fdecea;color:#c0392b;border:none;border-radius:6px;padding:5px 9px;cursor:pointer}
+
+  .btn{border:none;border-radius:var(--radius-sm);padding:13px 18px;font-weight:700;font-size:.95rem;
+    cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:9px;transition:all .2s;width:100%}
+  .btn-primary{background:var(--petrol);color:#fff}
+  .btn-primary:hover{background:var(--petrol-dark);transform:translateY(-1px)}
+  .btn-accent{background:var(--accent);color:#04302e}
+  .btn-accent:hover{filter:brightness(1.05)}
+  .btn-ghost{background:transparent;border:2px solid var(--line);color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--petrol);color:var(--petrol)}
+  .btn-sm{width:auto;padding:10px 14px;font-size:.88rem}
+  .btn-row{display:flex;gap:10px;margin-top:10px}
+  .btn-row .btn{width:auto;flex:1}
+
+  .result{margin-top:16px;padding:18px;background:var(--card-soft);border:1px solid var(--line);
+    border-left:4px solid var(--green);border-radius:var(--radius-sm);display:none}
+  .result.show{display:block;animation:fade .25s ease}
+  .result-head{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--green);margin-bottom:14px;font-size:1rem}
+  .result-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
+  .rItem{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);padding:13px}
+  .rItem .k{font-size:.78rem;color:var(--muted);font-weight:600;display:block}
+  .rItem .val{font-size:1.35rem;font-weight:800;margin-top:3px}
+  .rItem .u{font-size:.8rem;color:var(--muted);font-weight:600;margin-left:2px}
+  .rItem.total{grid-column:1/-1;border-left:4px solid var(--petrol)}
+
+  #hist-list{max-height:60vh;overflow-y:auto}
+  .hitem{background:var(--card-soft);border:1px solid var(--line);border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:13px;margin-bottom:10px}
+  .hitem-top{display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+  .hitem-type{font-weight:700;color:var(--petrol);font-size:.9rem}
+  :root[data-theme="dark"] .hitem-type{color:var(--accent)}
+  .hitem-date{font-size:.78rem;color:var(--muted)}
+  .hitem-det{font-size:.85rem}
+  .hitem-actions{display:flex;gap:8px;margin-top:10px}
+  .hitem-actions button{flex:1;border:none;border-radius:6px;padding:7px;font-size:.78rem;font-weight:700;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+  .hi-del{background:#fdecea;color:#c0392b}
+  .sync-badge{font-size:.74rem;font-weight:700;padding:3px 10px;border-radius:20px}
+  .sync-badge.ok{background:var(--accent-soft);color:var(--petrol-dark)}
+  .sync-badge.pending{background:#fef3c7;color:#92400e}
+
+  .toast{position:fixed;top:16px;left:50%;transform:translate(-50%,-140%);background:var(--petrol);color:#fff;
+    padding:13px 20px;border-radius:var(--radius-sm);box-shadow:var(--shadow);z-index:1000;font-size:.9rem;
+    font-weight:600;transition:transform .3s ease;max-width:90vw}
+  .toast.show{transform:translate(-50%,0)}
+  .toast.error{background:var(--red)} .toast.success{background:var(--green)}
+
+  .steps{display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+  .step{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted)}
+  .step .n{width:22px;height:22px;border-radius:50%;background:var(--line);color:var(--muted);
+    display:grid;place-items:center;font-weight:700;font-size:.72rem}
+  .step.active .n{background:var(--petrol);color:#fff}
+  .step .arw{color:var(--line)}
+
+  footer{text-align:center;color:var(--muted);font-size:.82rem;padding:20px 16px}
+  footer .doc{font-size:.75rem;margin-top:4px}
+
+  @media(max-width:600px){
+    .grid2{grid-template-columns:1fr}
+    .result-grid{grid-template-columns:1fr 1fr}
+    .brand-sub{display:none}
+    .step span:not(.n){display:none}
+    .seg label{min-width:0}
+    .topbar-inner{gap:8px}
+    .oem-logo{max-width:112px;height:26px}
+    .theme-btn,.nav-back{width:36px;height:36px}
+  }
+</style>
+<script src="../guard.js"></script>
+</head>
+<body>
+
+<div id="toast" class="toast"></div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <button class="nav-back" id="btn-back" title="Voltar" onclick="voltar()"><i class="fas fa-arrow-left"></i></button>
+    <div class="brand">
+      <img src="../logo-ew.png" alt="Extreme Wind" class="brand-logo"
+           onerror="this.style.display='none';document.getElementById('brand-fb').style.display='block'">
+      <div>
+        <div id="brand-fb" class="brand-fallback" style="display:none">EXTREME<span>WIND</span></div>
+        <div class="brand-sub">Calculadora de Reparos em Pás Eólicas</div>
+      </div>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="oem-chip">
+      <img src="../logo-oem-ge.png" alt="GE Vernova" class="oem-logo"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="oem-text" style="display:none;flex-direction:column;align-items:flex-end;gap:2px">
+        <span class="oem-name">GE Vernova</span>
+        <span class="oem-tag">Cliente</span>
+      </div>
+    </div>
+    <button class="theme-btn" id="theme-btn" title="Alternar tema"><i class="fas fa-moon"></i></button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="id-banner" id="id-banner" style="display:none">
+    <div class="chips">
+      <span class="pill accent" id="b-tipo"></span>
+      <span class="pill"><i class="fas fa-wind"></i> <span id="b-projeto"></span></span>
+      <span class="pill">WTG <span id="b-wtg"></span></span>
+      <span class="pill">Pá <span id="b-blade"></span></span>
+      <span class="pill" id="b-nucleo" style="display:none"></span>
+      <span class="pill" id="b-tecidos" style="display:none"></span>
+    </div>
+    <button class="ghost-btn" onclick="goTab('id')"><i class="fas fa-pen"></i> Editar</button>
+  </div>
+
+  <nav class="nav" id="nav">
+    <button class="tab active" data-tab="id"         onclick="goTab('id')"><i class="fas fa-clipboard-list"></i> Identificação</button>
+    <button class="tab"        data-tab="estrutural" onclick="goTab('estrutural')"><i class="fas fa-layer-group"></i> Estrutural</button>
+    <button class="tab"        data-tab="nucleo"     onclick="goTab('nucleo')"><i class="fas fa-cube"></i> Núcleo</button>
+    <button class="tab"        data-tab="adesivo"    onclick="goTab('adesivo')"><i class="fas fa-droplet"></i> Adesivo G3</button>
+    <button class="tab"        data-tab="filler"     onclick="goTab('filler')"><i class="fas fa-fill-drip"></i> Filler</button>
+    <button class="tab"        data-tab="pintura"    onclick="goTab('pintura')"><i class="fas fa-paint-roller"></i> Pintura</button>
+    <button class="tab"        data-tab="hist"       onclick="goTab('hist')"><i class="fas fa-clock-rotate-left"></i> Histórico</button>
+  </nav>
+
+  <!-- IDENTIFICAÇÃO -->
+  <section class="panel active" id="panel-id">
+    <div class="steps">
+      <div class="step active"><span class="n">1</span><span>Identificação</span></div>
+      <span class="arw">›</span>
+      <div class="step"><span class="n">2</span><span>Cálculo do reparo</span></div>
+      <span class="arw">›</span>
+      <div class="step"><span class="n">3</span><span>Registro / Histórico</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-clipboard-list"></i></span> Identificação do Reparo</div>
+      <div class="card-desc">Preencha os dados da pá antes de calcular. Cliente fixo: <b>GE Vernova</b>.</div>
+
+      <div class="field">
+        <label for="i-projeto">Projeto / Parque Eólico</label>
+        <input type="text" id="i-projeto" list="lista-parques" autocomplete="off" placeholder="Ex: São Fernando 1">
+        <datalist id="lista-parques"></datalist>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="i-wtg">WTG (Aerogerador)</label><input type="text" id="i-wtg" placeholder="Ex: A2-16"></div>
+        <div class="field"><label for="i-blade">N° da Pá (Blade)</label><input type="text" id="i-blade" placeholder="Ex: 114"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="i-tecnico">Técnico Responsável</label><input type="text" id="i-tecnico" placeholder="Ex: João Silva"></div>
+        <div class="field"><label for="i-data">Data</label><input type="date" id="i-data"></div>
+      </div>
+
+      <div class="field">
+        <label>Tipo de Reparo <span class="hint">(define os módulos disponíveis)</span></label>
+        <div class="seg" id="seg-tipo">
+          <label class="sel"><input type="radio" name="tipo" value="Externo" checked><span>Externo</span></label>
+          <label><input type="radio" name="tipo" value="Interno"><span>Interno</span></label>
+          <label><input type="radio" name="tipo" value="LPS"><span>LPS</span></label>
+          <label><input type="radio" name="tipo" value="SBI"><span>SBI</span></label>
+        </div>
+        <p class="note" id="tipo-note"></p>
+      </div>
+
+      <div class="field">
+        <label>O núcleo foi afetado?</label>
+        <div class="seg" id="seg-nucleo">
+          <label class="sel"><input type="radio" name="nucleo" value="nao" checked><span>Não</span></label>
+          <label><input type="radio" name="nucleo" value="sim"><span>Sim — núcleo afetado</span></label>
+        </div>
+      </div>
+      <div id="nucleo-box" style="display:none">
+        <div class="field">
+          <label for="i-mat-nucleo">Material do núcleo</label>
+          <select id="i-mat-nucleo">
+            <option value="">— Selecione —</option>
+            <option value="BALSA CORE 15mm">BALSA CORE 15 mm</option>
+            <option value="BALSA CORE 20mm">BALSA CORE 20 mm</option>
+            <option value="BALSA CORE 32mm">BALSA CORE 32 mm</option>
+            <option value="ESPUMA PVC 20mm">ESPUMA PVC 20 mm</option>
+            <option value="ESPUMA FLEX PVC H60 20mm">ESPUMA FLEXÍVEL PVC H60 GS 20 mm</option>
+            <option value="ESPUMA FLEX PET FOAM 50mm">ESPUMA FLEXÍVEL PET FOAM 50 mm</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="i-peso-nucleo">Peso do núcleo utilizado <span class="hint">(g)</span></label>
+          <input type="text" id="i-peso-nucleo" inputmode="decimal" placeholder="Ex: 350">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Tecido(s) utilizado(s)</label>
+        <div class="grid2">
+          <select id="i-tecido">
+            <option value="">— Selecione o tecido —</option>
+            <option value="Triax 1200">Triax 1200</option>
+            <option value="Biax 830">Biax 830</option>
+            <option value="Biax 750">Biax 750</option>
+            <option value="Biax 450">Biax 450</option>
+            <option value="UD 1000">UD 1000</option>
+            <option value="UD 661">UD 661</option>
+            <option value="BiZero 750">BiZero 750</option>
+            <option value="CSM 300">CSM 300</option>
+          </select>
+          <input type="text" id="i-tecido-qtd" inputmode="decimal" placeholder="Peso (g)">
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="addTecido()"><i class="fas fa-plus"></i> Adicionar tecido</button>
+        <div id="tecidos-list" class="taglist"></div>
+      </div>
+
+      <button class="btn btn-primary" onclick="continuarId()">Continuar <i class="fas fa-arrow-right"></i></button>
+    </div>
+  </section>
+
+  <!-- ESTRUTURAL -->
+  <section class="panel" id="panel-estrutural">
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-layer-group"></i></span> Reparo Estrutural (Laminação)</div>
+      <div class="card-desc">Resina epóxi de laminação — selecione o produto.</div>
+      <div class="field">
+        <label for="estrutural-sel">Resina</label>
+        <select id="estrutural-sel">
+          <option value="ch910-1">SikaBiresin CH910-1 (rápido) — 100:20</option>
+          <option value="ch910-5">SikaBiresin CH910-5 (lento) — 100:20</option>
+          <option value="lr135">Hexion LR135 — 100:35</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="estrutural-resina">Quantidade de Resina <span class="hint">(g)</span></label>
+        <input type="text" id="estrutural-resina" inputmode="decimal" placeholder="Ex: 3000">
+      </div>
+      <button class="btn btn-primary" onclick="calcEstrutural()"><i class="fas fa-calculator"></i> Calcular</button>
+      <div class="result" id="res-estrutural"></div>
+    </div>
+  </section>
+
+  <!-- NÚCLEO -->
+  <section class="panel" id="panel-nucleo">
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-cube"></i></span> Núcleo (resina + Aerosil)</div>
+      <div class="card-desc">Colagem/enchimento do núcleo com resina epóxi engrossada com Aerosil.</div>
+      <div class="spec">
+        <div class="row"><span><b>Resina:</b> SikaBiresin CH910</span><span><b>100 : 20</b></span></div>
+        <div class="row"><span><b>Aerosil</b> (sobre a mistura)</span><span><b>1,8%</b></span></div>
+      </div>
+      <div class="field">
+        <label for="nucleo-resina">Quantidade de Resina <span class="hint">(g)</span></label>
+        <input type="text" id="nucleo-resina" inputmode="decimal" placeholder="Ex: 1000">
+      </div>
+      <button class="btn btn-primary" onclick="calcNucleo()"><i class="fas fa-calculator"></i> Calcular</button>
+      <div class="result" id="res-nucleo"></div>
+    </div>
+  </section>
+
+  <!-- ADESIVO G3 -->
+  <section class="panel" id="panel-adesivo">
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-droplet"></i></span> Adesivo Estrutural G3</div>
+      <div class="card-desc">Adesivo de colagem estrutural.</div>
+      <div class="spec"><div class="row"><span><b>Adesivo de colagem G3</b></span><span><b>100 : 45</b></span></div></div>
+      <div class="field">
+        <label for="adesivo-base">Quantidade de Base <span class="hint">(g)</span></label>
+        <input type="text" id="adesivo-base" inputmode="decimal" placeholder="Ex: 2000">
+      </div>
+      <button class="btn btn-primary" onclick="calcAdesivo()"><i class="fas fa-calculator"></i> Calcular</button>
+      <div class="result" id="res-adesivo"></div>
+    </div>
+  </section>
+
+  <!-- FILLER -->
+  <section class="panel" id="panel-filler">
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-fill-drip"></i></span> Acabamento — Filler</div>
+      <div class="card-desc">Preenchedor de perfil.</div>
+      <div class="spec"><div class="row"><span><b>Base:</b> Alexit Profile Filler 3</span><span><b>100 : 17</b></span></div></div>
+      <div class="field">
+        <label for="filler-base">Quantidade de Base <span class="hint">(g)</span></label>
+        <input type="text" id="filler-base" inputmode="decimal" placeholder="Ex: 5000">
+      </div>
+      <button class="btn btn-primary" onclick="calcFiller()"><i class="fas fa-calculator"></i> Calcular</button>
+      <div class="result" id="res-filler"></div>
+    </div>
+  </section>
+
+  <!-- PINTURA -->
+  <section class="panel" id="panel-pintura">
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-paint-roller"></i></span> Acabamento — Pintura (Top Coat 12)</div>
+      <div class="card-desc" id="pintura-desc">Revestimento final.</div>
+      <div class="spec">
+        <div class="row"><span><b>Base:</b> <span id="pintura-produto">Alexit Topcoat 12</span></span><span><b>100 : 25</b></span></div>
+        <div class="row"><span><b>Endurecedor:</b> HARDENER12 - ALEXIT</span></div>
+        <div class="row"><span><b>Thinner (opcional):</b> Mankiewicz</span><span><b>15% da mistura</b></span></div>
+      </div>
+      <div class="field" id="pintura-cor-sbi-wrap" style="display:none">
+        <label for="pintura-cor-sbi">Cor do Top Coat SBI</label>
+        <select id="pintura-cor-sbi" onchange="atualizarProdutoPintura()">
+          <option value="RED">Top Coat 12 RED 3020</option>
+          <option value="RAL">Top Coat 12 RAL 3020 RED</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="pintura-base">Quantidade de Base <span class="hint">(g)</span></label>
+        <input type="text" id="pintura-base" inputmode="decimal" placeholder="Ex: 4000">
+      </div>
+      <label class="check" style="margin-bottom:14px">
+        <input type="checkbox" id="pintura-thinner"> Adicionar Thinner (15% sobre a mistura Topcoat + Endurecedor)
+      </label>
+      <button class="btn btn-primary" onclick="calcPintura()"><i class="fas fa-calculator"></i> Calcular</button>
+      <div class="result" id="res-pintura"></div>
+    </div>
+  </section>
+
+  <!-- HISTÓRICO -->
+  <section class="panel" id="panel-hist">
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between">
+        <span style="display:flex;align-items:center;gap:10px"><span class="ico"><i class="fas fa-clock-rotate-left"></i></span> Histórico</span>
+        <span id="sync-badge" class="sync-badge"></span>
+      </div>
+      <div class="card-desc">Últimos 30 cálculos salvos neste dispositivo. Sincroniza com a planilha quando online.</div>
+      <div id="hist-list"></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="exportarCSV()"><i class="fas fa-download"></i> Exportar CSV</button>
+        <button class="btn btn-ghost" onclick="limparHist()" style="color:var(--red);border-color:#f3c2c2"><i class="fas fa-trash"></i> Limpar</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <p>Extreme Wind Blade Services &copy; <span id="year"></span> · Uso interno</p>
+  <p class="doc">GE Vernova · sistema epóxi (SikaBiresin CH910 / Hexion LR135 · Alexit)</p>
+</footer>
+
+<script>
+'use strict';
+
+/* ══ CONFIG — GE Vernova (sistema EPÓXI) ══ */
+const CFG = {
+  cliente: 'GE',
+  resinas: {
+    'ch910-1': { name:'SikaBiresin CH910-1 (rápido)', endurName:'SikaBiresin CH910 Hardener', ratio:0.20 },
+    'ch910-5': { name:'SikaBiresin CH910-5 (lento)',  endurName:'SikaBiresin CH910 Hardener', ratio:0.20 },
+    'lr135':   { name:'Hexion LR135',                 endurName:'Endurecedor Hexion (LR135)', ratio:0.35 }
+  },
+  nucleoRatio: 0.20,      // CH910 100:20
+  aerosilPct: 1.8,        // Aerosil = 1,8% da mistura
+  adesivoRatio: 0.45,     // G3 100:45
+  fillerRatio: 0.17,      // Alexit Profile Filler 3 = 100:17 (endur = base*0,17)
+  pinturaRatio: 0.25,     // Alexit Topcoat 12 = 100:25 (endur = base*0,25)
+  thinnerPct: 15          // Thinner 15% sobre a mistura (base + endurecedor)
+};
+
+const MODULOS_POR_TIPO = {
+  'Externo': ['estrutural','nucleo','adesivo','filler','pintura','hist'],
+  'Interno': ['estrutural','nucleo','adesivo','hist'],
+  'LPS':     ['estrutural','hist'],
+  'SBI':     ['estrutural','nucleo','adesivo','filler','pintura','hist']
+};
+const NOTAS_TIPO = {
+  'Externo': 'Reparo externo: laminação (+ núcleo, se afetado) + adesivo + acabamento (filler + pintura).',
+  'Interno': 'Reparo interno: laminação (+ núcleo, se afetado) + adesivo, sem acabamento externo.',
+  'LPS':     'LPS: informe o peso da resina diretamente (sem núcleo/tecido nem acabamento).',
+  'SBI':     'Reparo de SBI: laminação + adesivo + filler + pintura (Top coat 12 red 3020).'
+};
+
+/* ══ ESTADO ══ */
+function safeParse(k){ try{ return JSON.parse(localStorage.getItem(k)||'[]'); }catch(e){ return []; } }
+let HIST = safeParse('ge_history');
+let SYNC = safeParse('ge_sync_queue');
+let ID = {};
+let TECIDOS = [];
+let nucleoTecidoRegistrado = false;
+/* Endpoint único do app (Cloudflare Worker). NÃO é segredo: é só um endereço.
+   Quem guarda segredo é o Worker (URL do Apps Script, GAS_SECRET, credenciais
+   do Dropbox) — nada disso chega ao navegador. Ver ew-dropbox-proxy/worker.js.
+   Antes a URL do Apps Script vinha escrita aqui, e como este arquivo é público
+   no GitHub Pages, qualquer pessoa podia gravar na planilha de produção. */
+const API = 'https://ew-dropbox-proxy.ew-fotos.workers.dev';
+
+/* ══ HELPERS ══ */
+const $  = id => document.getElementById(id);
+const v  = id => ($(id)||{}).value || '';
+const num = s => parseFloat(String(s||'').replace(',','.')) || 0;
+const fmt = n => (isNaN(n)?0:n).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:2});
+function onlyNum(el){ el.value = el.value.replace(/[^0-9.,]/g,''); }
+function toast(msg,type){ const t=$('toast'); t.className='toast '+(type||''); t.textContent=msg;
+  requestAnimationFrame(()=>t.classList.add('show')); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3200); }
+
+/* ══ INIT ══ */
+document.addEventListener('DOMContentLoaded',()=>{
+  $('year').textContent = new Date().getFullYear();
+  /* Data já vem com hoje: o campo virou obrigatório, e obrigar a abrir o
+     seletor de data para digitar a data de hoje só atrasa quem está na torre.
+     Montada em hora LOCAL — toISOString() é UTC e viraria o dia depois das 21h. */
+  (function(){ const e=$('i-data'); if(e && !e.value){ const h=new Date(), z=n=>String(n).padStart(2,'0');
+    e.value = h.getFullYear()+'-'+z(h.getMonth()+1)+'-'+z(h.getDate()); } })();
+  aplicarTema(localStorage.getItem('ge_theme'));
+  atualizarNotaTipo();
+  ['estrutural-resina','nucleo-resina','adesivo-base','filler-base','pintura-base','i-peso-nucleo','i-tecido-qtd']
+    .forEach(id=>{ const e=$(id); if(e) e.addEventListener('input',()=>onlyNum(e)); });
+  document.querySelectorAll('.seg').forEach(seg=>{
+    seg.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>syncSeg(seg)));
+  });
+  document.querySelectorAll('input[name="tipo"]').forEach(r=>r.addEventListener('change',atualizarNotaTipo));
+  document.querySelectorAll('input[name="nucleo"]').forEach(r=>r.addEventListener('change',()=>{
+    $('nucleo-box').style.display=(getRadio('nucleo')==='sim')?'block':'none'; nucleoTecidoRegistrado=false;
+  }));
+  $('i-mat-nucleo').addEventListener('change',()=>nucleoTecidoRegistrado=false);
+  $('i-peso-nucleo').addEventListener('input',()=>nucleoTecidoRegistrado=false);
+  updateSyncBadge(); carregarHist(); carregarParquesCache(); tentarSincronizar(); sincronizarParques();
+  window.addEventListener('online',()=>{ if(SYNC.length){ toast('Reconectado — sincronizando…','success'); tentarSincronizar(); }});
+});
+
+function syncSeg(seg){ seg.querySelectorAll('label').forEach(l=>l.classList.toggle('sel', l.querySelector('input').checked)); }
+function getRadio(name){ const el=document.querySelector('input[name="'+name+'"]:checked'); return el?el.value:''; }
+function getTipo(){ return getRadio('tipo') || 'Externo'; }
+function atualizarNotaTipo(){ $('tipo-note').textContent = NOTAS_TIPO[getTipo()] || ''; }
+
+/* ══ TECIDOS ══ */
+function addTecido(){
+  const tec=v('i-tecido'), qtd=v('i-tecido-qtd');
+  if(!tec){ toast('Selecione o tecido','error'); return; }
+  if(!qtd){ toast('Informe o peso (g)','error'); return; }
+  TECIDOS.push({tecido:tec, qtd:qtd}); $('i-tecido').value=''; $('i-tecido-qtd').value='';
+  nucleoTecidoRegistrado=false; renderTecidos();
+}
+function removeTecido(i){ TECIDOS.splice(i,1); nucleoTecidoRegistrado=false; renderTecidos(); }
+function renderTecidos(){
+  $('tecidos-list').innerHTML = TECIDOS.map((t,i)=>`
+    <div class="tagitem"><span><strong>${t.tecido}</strong>${t.qtd?' — '+t.qtd+' g':''}</span>
+    <button onclick="removeTecido(${i})"><i class="fas fa-trash"></i></button></div>`).join('');
+}
+
+/* ══ TEMA ══ */
+function aplicarTema(t){
+  if(t==='light'||t==='dark'){ document.documentElement.setAttribute('data-theme',t); }
+  else { document.documentElement.removeAttribute('data-theme'); t=null; }
+  const dark = t==='dark' || (!t && window.matchMedia('(prefers-color-scheme:dark)').matches);
+  $('theme-btn').innerHTML = dark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+}
+$('theme-btn').addEventListener('click',()=>{
+  const cur=document.documentElement.getAttribute('data-theme');
+  const dark=cur==='dark'||(!cur&&window.matchMedia('(prefers-color-scheme:dark)').matches);
+  const next=dark?'light':'dark'; localStorage.setItem('ge_theme',next); aplicarTema(next);
+});
+
+/* ══ NAVEGAÇÃO ══ */
+let navHist=[];
+function goTab(tab, fromBack){
+  const act=document.querySelector('.tab.active'); const cur=act?act.dataset.tab:null;
+  if(!fromBack && cur && cur!==tab) navHist.push(cur);
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  $('panel-'+tab).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  if(tab==='hist') carregarHist();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+/* Botão Voltar: retorna à aba anterior; sem histórico, volta ao seletor de cliente */
+function voltar(){
+  if(navHist.length){ goTab(navHist.pop(), true); }
+  else { window.location.href='index.html'; }
+}
+/* Aponta o campo que falta: aviso, moldura vermelha, foco e rolagem até ele.
+   Devolve undefined de propósito, para poder ser usado como
+   `if(!x) return faltaCampo(...)` e encerrar a função na mesma linha. */
+function faltaCampo(id,msg){
+  toast(msg,'error');
+  const e=$(id); if(!e) return;
+  e.style.borderColor='#d1495b';
+  try{ e.focus({preventScroll:true}); }catch(err){ try{ e.focus(); }catch(err2){} }
+  try{ e.scrollIntoView({block:'center',behavior:'smooth'}); }catch(err){ e.scrollIntoView(); }
+  setTimeout(function(){ e.style.borderColor=''; },2600);
+}
+
+function continuarId(){
+  /* Nenhum campo da Identificação é opcional. O registro vai para a planilha e
+     alimenta a análise semanal: linha sem técnico ou sem data não serve para
+     nada lá na frente, e em campo ninguém volta para completar. */
+  const p=v('i-projeto').trim(), w=v('i-wtg').trim(), b=v('i-blade').trim();
+  const tec=v('i-tecnico').trim(), dt=v('i-data').trim();
+  if(!p)  return faltaCampo('i-projeto','Informe o Projeto / Parque');
+  if(!w)  return faltaCampo('i-wtg','Informe a WTG');
+  if(!b)  return faltaCampo('i-blade','Informe o N° da Pá');
+  if(!tec)return faltaCampo('i-tecnico','Informe o Técnico Responsável');
+  if(!dt) return faltaCampo('i-data','Informe a Data');
+  const nucleo = getRadio('nucleo')==='sim';
+  if(nucleo && !v('i-mat-nucleo'))  return faltaCampo('i-mat-nucleo','Selecione o material do núcleo');
+  if(nucleo && !v('i-peso-nucleo')) return faltaCampo('i-peso-nucleo','Informe o peso do núcleo (g)');
+  /* Sem tecido não há laminação para calcular, e o registro iria para a
+     planilha sem o material aplicado. */
+  if(!TECIDOS.length) return faltaCampo('i-tecido','Adicione pelo menos um tecido');
+  ID = { cliente:CFG.cliente, projeto:p, wtg:w, blade:b, tecnico:v('i-tecnico'), data:v('i-data'),
+    tipo:getTipo(), nucleo, matNucleo:v('i-mat-nucleo'), pesoNucleoG:v('i-peso-nucleo'), tecidos:TECIDOS.slice() };
+  nucleoTecidoRegistrado=false;
+  $('b-tipo').textContent='Reparo '+ID.tipo;
+  $('b-projeto').textContent=p; $('b-wtg').textContent=w; $('b-blade').textContent=b;
+  $('b-nucleo').style.display=nucleo?'inline-block':'none'; $('b-nucleo').textContent=nucleo?('Núcleo: '+ID.matNucleo):'';
+  $('b-tecidos').style.display=TECIDOS.length?'inline-block':'none'; $('b-tecidos').textContent=TECIDOS.length?('Tecidos: '+TECIDOS.map(t=>t.tecido).join(', ')):'';
+  $('id-banner').style.display='flex';
+  const sbi = ID.tipo==='SBI';
+  $('pintura-cor-sbi-wrap').style.display = sbi ? 'block' : 'none';
+  atualizarProdutoPintura();
+  $('pintura-desc').textContent = sbi ? 'Revestimento final do SBI.' : 'Revestimento final.';
+  aplicarModulos();
+  goTab(MODULOS_POR_TIPO[ID.tipo][0]);
+  toast('Identificação salva','success');
+}
+function aplicarModulos(){
+  const permitidos = new Set(MODULOS_POR_TIPO[ID.tipo]||[]); permitidos.add('id');
+  if(!ID.nucleo) permitidos.delete('nucleo');   // Núcleo só aparece se afetado
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('hidden', !permitidos.has(t.dataset.tab)));
+}
+
+/* ══ CÁLCULOS ══ */
+function calcEstrutural(){
+  const r = CFG.resinas[v('estrutural-sel')] || CFG.resinas['ch910-1'];
+  const resina=num(v('estrutural-resina'));
+  if(resina<=0){ toast('Informe a quantidade de resina (g)','error'); return; }
+  const endur=resina*r.ratio;
+  renderResult('res-estrutural','Estrutural — '+r.name,[
+    ['Resina',resina,'g'],['Endurecedor',endur,'g'],['Mistura total',resina+endur,'g',true]
+  ], {tipo:'Reparo Estrutural', matBase:r.name, matEndur:r.endurName, base:resina, endur, adicional:0, total:resina+endur});
+}
+function calcNucleo(){
+  const resina=num(v('nucleo-resina'));
+  if(resina<=0){ toast('Informe a quantidade de resina (g)','error'); return; }
+  const endur=resina*CFG.nucleoRatio;
+  const aerosil=(resina+endur)*CFG.aerosilPct/100;
+  renderResult('res-nucleo','Núcleo (CH910 + Aerosil)',[
+    ['Resina',resina,'g'],['Endurecedor',endur,'g'],['Aerosil',aerosil,'g'],['Mistura total',resina+endur+aerosil,'g',true]
+  ], {tipo:'Núcleo (resina)', matBase:'SikaBiresin CH910', matEndur:'SikaBiresin CH910 Hardener', matAdic:'Aerosil',
+      base:resina, endur, adicional:aerosil, total:resina+endur+aerosil});
+}
+function calcAdesivo(){
+  const base=num(v('adesivo-base'));
+  if(base<=0){ toast('Informe a quantidade de base (g)','error'); return; }
+  const endur=base*CFG.adesivoRatio;
+  renderResult('res-adesivo','Adesivo G3',[
+    ['Base',base,'g'],['Endurecedor',endur,'g'],['Mistura total',base+endur,'g',true]
+  ], {tipo:'Adesivo G3', matBase:'Adesivo de colagem G3', matEndur:'Endurecedor G3', base, endur, adicional:0, total:base+endur});
+}
+function calcFiller(){
+  const base=num(v('filler-base'));
+  if(base<=0){ toast('Informe a quantidade de base (g)','error'); return; }
+  const endur=base*CFG.fillerRatio;
+  renderResult('res-filler','Filler (Alexit Profile Filler 3)',[
+    ['Base',base,'g'],['Endurecedor',endur,'g'],['Mistura total',base+endur,'g',true]
+  ], {tipo:'Filler', matBase:'Alexit Profile Filler 3', matEndur:'Endurecedor Filler 3', base, endur, adicional:0, total:base+endur});
+}
+function atualizarProdutoPintura(){
+  const sbi = ID.tipo==='SBI';
+  if(!sbi){ $('pintura-produto').textContent='Alexit Topcoat 12'; return; }
+  const cor = v('pintura-cor-sbi');
+  $('pintura-produto').textContent = cor==='RAL' ? 'TOP COAT 12 RAL 3020 RED' : 'TOP COAT 12 RED 3020';
+}
+function calcPintura(){
+  const base=num(v('pintura-base'));
+  if(base<=0){ toast('Informe a quantidade de base (g)','error'); return; }
+  const endur=base*CFG.pinturaRatio;
+  const thinner = $('pintura-thinner').checked ? (base+endur)*CFG.thinnerPct/100 : 0;   // 15% da mistura
+  const total=base+endur+thinner;
+  const sbi = ID.tipo==='SBI';
+  const corSBI = sbi ? v('pintura-cor-sbi') : null;
+  const produto = sbi ? (corSBI==='RAL' ? 'TOP COAT 12 RAL 3020 RED' : 'TOP COAT 12 RED 3020') : 'Alexit Topcoat 12';
+  renderResult('res-pintura', sbi?'Top Coat SBI':'Top Coat 12 (Alexit)',[
+    ['Base',base,'g'],['Endurecedor',endur,'g'],
+    ...(thinner>0?[['Thinner',thinner,'g']]:[]),['Mistura total',total,'g',true]
+  ], {tipo: sbi?'Pintura SBI':'Top Coat 12', matBase:produto, matEndur:'HARDENER12 - ALEXIT - Mankiewicz', matAdic:'Thinner Mankiewicz',
+      base, endur, adicional:thinner, total});
+}
+
+function renderResult(elId,titulo,itens,consumo){
+  const cells=itens.map(([k,val,un,isTotal])=>`
+    <div class="rItem${isTotal?' total':''}"><span class="k">${k}</span>
+    <div class="val">${typeof val==='number'?fmt(val):val}<span class="u">${un||''}</span></div></div>`).join('');
+  let saveBtn='';
+  if(consumo){ const arg=encodeURIComponent(JSON.stringify(consumo));
+    saveBtn=`<button class="btn btn-accent" style="margin-top:14px" onclick="salvar('${arg}')"><i class="fas fa-save"></i> Salvar e sincronizar</button>`; }
+  const el=$(elId);
+  el.innerHTML=`<div class="result-head"><i class="fas fa-circle-check"></i> ${titulo}</div><div class="result-grid">${cells}</div>${saveBtn}`;
+  el.classList.add('show');
+}
+
+/* ══ HISTÓRICO + SINCRONIZAÇÃO ══ */
+function salvar(arg){
+  /* Não envia nada com a Identificação pela metade */
+  if(!ID.projeto || !ID.wtg || !ID.blade || !ID.tecnico || !ID.data){
+    toast('Complete a Identificação antes de salvar','error'); goTab('id'); return; }
+  const c=JSON.parse(decodeURIComponent(arg));
+  const registro={
+    id:Date.now(), cliente:CFG.cliente, projeto:ID.projeto, wtg:ID.wtg, blade:ID.blade,
+    tecnico:ID.tecnico||'', dataPesagem:ID.data||'', tipoReparo:ID.tipo,
+    nucleo:ID.nucleo, matNucleo:ID.matNucleo||'', pesoNucleoKg:(num(ID.pesoNucleoG)||0)/1000,
+    tecidos:(ID.tecidos||[]).map(t=>({tecido:t.tecido, qtdKg:(num(t.qtd)||0)/1000})),
+    incluirNucleoTecido:!nucleoTecidoRegistrado,
+    tipo:c.tipo, matBase:c.matBase||'', matEndur:c.matEndur||'', matAdic:c.matAdic||'',
+    base:(c.base||0)/1000, endurecedor:(c.endur||0)/1000, adicional:(c.adicional||0)/1000, total:(c.total||0)/1000,
+    data:new Date().toLocaleString('pt-BR')
+  };
+  nucleoTecidoRegistrado=true;
+  HIST.unshift(registro); if(HIST.length>30) HIST=HIST.slice(0,30);
+  localStorage.setItem('ge_history',JSON.stringify(HIST));
+  SYNC.push(registro); localStorage.setItem('ge_sync_queue',JSON.stringify(SYNC));
+  toast('Cálculo salvo!','success'); updateSyncBadge(); tentarSincronizar();
+}
+function linhasDoRegistro(r){
+  const out=[]; const add=(cat,mat,kg)=>{ if(kg>0&&mat) out.push({categoria:cat,material:mat,quantidade_kg:Number(kg.toFixed(3))}); };
+  add(r.tipo, r.matBase, r.base);
+  add(r.tipo+' — endurecedor', r.matEndur, r.endurecedor);
+  if(r.adicional>0) add(r.tipo+' — adicional', r.matAdic, r.adicional);
+  if(r.incluirNucleoTecido){
+    if(r.nucleo) add('Núcleo', r.matNucleo||'Núcleo', r.pesoNucleoKg);
+    (r.tecidos||[]).forEach(t=>add('Tecido', t.tecido, t.qtdKg));
+  }
+  return out;
+}
+async function tentarSincronizar(){
+  if(!navigator.onLine||!SYNC.length||!API){ updateSyncBadge(); return; }
+  try{
+    const linhas=SYNC.flatMap(r=>linhasDoRegistro(r).map(m=>({
+      id:r.id, data:r.data, cliente:r.cliente, projeto:r.projeto, wtg:r.wtg, blade:r.blade,
+      tecnico:r.tecnico, dataPesagem:r.dataPesagem, tipoReparo:r.tipoReparo,
+      categoria:m.categoria, material:m.material, quantidade_kg:m.quantidade_kg })));
+    await fetch(API+'/sheets',{method:'POST',body:JSON.stringify(linhas),headers:{'Content-Type':'text/plain;charset=utf-8'}});
+    SYNC=[]; localStorage.setItem('ge_sync_queue',JSON.stringify(SYNC));
+    toast('Enviado para a planilha!','success');
+  }catch(e){ console.log('Offline — envio pendente.'); }
+  updateSyncBadge();
+}
+function updateSyncBadge(){ const b=$('sync-badge'); if(!b) return; const n=SYNC.length;
+  if(n>0){ b.textContent=`⏳ ${n} pendente${n>1?'s':''}`; b.className='sync-badge pending'; }
+  else{ b.textContent='✓ sincronizado'; b.className='sync-badge ok'; } }
+
+function carregarHist(){
+  const list=$('hist-list');
+  if(!HIST.length){ list.innerHTML='<p style="text-align:center;color:var(--muted);padding:16px">Nenhum cálculo salvo</p>'; return; }
+  list.innerHTML=HIST.map(it=>`
+    <div class="hitem">
+      <div class="hitem-top"><span class="hitem-type">${it.tipo}</span><span class="hitem-date">${it.data}</span></div>
+      <div class="hitem-det"><strong>${it.projeto||'—'}</strong> · WTG ${it.wtg||'—'} · Pá ${it.blade||'—'} · Reparo ${it.tipoReparo||''}
+        <br>Base: ${fmt(it.base)} kg · Endur.: ${fmt(it.endurecedor)} kg${it.adicional>0?` · Adic.: ${fmt(it.adicional)} kg`:''}
+        · <strong style="color:var(--petrol)">Total: ${fmt(it.total)} kg</strong>
+        ${it.nucleo?`<br><span style="font-size:.78rem;color:var(--amber)"><i class="fas fa-cube"></i> ${it.matNucleo||'Núcleo'}${it.pesoNucleoKg?' — '+fmt(it.pesoNucleoKg)+' kg':''}</span>`:''}
+        ${it.tecidos&&it.tecidos.length?`<br><span style="font-size:.78rem;color:var(--accent)"><i class="fas fa-scroll"></i> ${it.tecidos.map(t=>t.tecido+(t.qtdKg?' '+fmt(t.qtdKg)+'kg':'')).join(', ')}</span>`:''}
+        ${it.tecnico?`<br><span style="font-size:.78rem;color:var(--muted)"><i class="fas fa-user"></i> ${it.tecnico}</span>`:''}
+      </div>
+      <div class="hitem-actions"><button class="hi-del" onclick="excluir(${it.id})"><i class="fas fa-trash"></i> Excluir</button></div>
+    </div>`).join('');
+}
+function excluir(id){ if(!confirm('Excluir este cálculo?')) return;
+  HIST=HIST.filter(h=>h.id!==id); localStorage.setItem('ge_history',JSON.stringify(HIST)); carregarHist(); toast('Excluído','success'); }
+function limparHist(){ if(!confirm('Apagar todo o histórico?')) return;
+  HIST=[]; localStorage.removeItem('ge_history'); carregarHist(); toast('Histórico apagado','success'); }
+function exportarCSV(){
+  if(!HIST.length){ toast('Sem dados para exportar','error'); return; }
+  const cab='Cliente;Projeto;WTG;Pá;Técnico;Data;TipoReparo;Núcleo;MatNúcleo;PesoNúcleo(kg);Tecidos;Tipo;Base(kg);BaseMat;Endurecedor(kg);Adicional(kg);Total(kg);DataHora\n';
+  const linhas=HIST.map(i=>{ const tec=(i.tecidos||[]).map(t=>t.tecido+' ('+fmt(t.qtdKg)+'kg)').join(' | ');
+    return `"${i.cliente}";"${i.projeto}";"${i.wtg}";"${i.blade}";"${i.tecnico||''}";"${i.dataPesagem||''}";"${i.tipoReparo||''}";"${i.nucleo?'Sim':'Não'}";"${i.matNucleo||''}";"${fmt(i.pesoNucleoKg||0)}";"${tec}";"${i.tipo}";"${fmt(i.base)}";"${i.matBase||''}";"${fmt(i.endurecedor)}";"${fmt(i.adicional)}";"${fmt(i.total)}";"${i.data}"`; }).join('\n');
+  const blob=new Blob(['﻿'+cab+linhas],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`ge_vernova_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+  toast('Download iniciado','success');
+}
+
+/* ══ PARQUES ══ */
+const PARQUES_KEY='ge_parques_cache';
+function popularParques(nomes){ const dl=$('lista-parques'); if(!dl||!Array.isArray(nomes)) return;
+  /* Monta via DOM, não via innerHTML: nome de parque vem da planilha e não
+     pode virar HTML executável dentro do app. */
+  dl.textContent='';
+  nomes.slice(0,3000).forEach(function(n){ const o=document.createElement('option'); o.value=String(n); dl.appendChild(o); }); }
+function carregarParquesCache(){ try{ const c=JSON.parse(localStorage.getItem(PARQUES_KEY)||'[]'); if(c.length) popularParques(c); }catch(e){} }
+async function sincronizarParques(){
+  if(!navigator.onLine||!API) return;
+  try{ const r=await fetch(API+'/parques'); const d=await r.json();
+    if(d&&Array.isArray(d.parques)){ popularParques(d.parques); localStorage.setItem(PARQUES_KEY,JSON.stringify(d.parques)); } }
+  catch(e){ console.log('Parques: sem sincronização',e); }
+}
+</script>
+<script>
+/* PWA — registra o service worker (uso offline) */
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('../sw.js').catch(function(){});});}
+</script>
+</body>
+</html>
