@@ -139,8 +139,16 @@ function doPost(e) {
     var lock = LockService.getScriptLock();
     var travou = false;
     try { travou = lock.tryLock(30000); } catch (eL) { travou = false; }
+    /* sem a trava o código antigo seguia assim mesmo: dois envios simultâneos do
+       mesmo técnico podiam apagar as linhas um do outro no meio da gravação */
+    if (!travou) {
+      return resposta({
+        ok: false, retentar: true,
+        erro: 'Outro envio deste mesmo RDO ainda está em andamento. Tente de novo em 1 minuto.'
+      });
+    }
 
-    var subst, linkPdf, pdfBlob;
+    var subst, linkPdf, pdfBlob, gravou;
     try {
       /* 1) apaga o RDO anterior do mesmo técnico na mesma data */
       subst = apagarRdoAnterior(props, matLogin, dados.data_exp);
@@ -157,9 +165,9 @@ function doPost(e) {
       }
 
       /* 4) grava as linhas novas */
-      gravarSheets(dados, id, linkPdf, props, matLogin);
+      gravou = gravarSheets(dados, id, linkPdf, props, matLogin);
     } finally {
-      if (travou) { try { lock.releaseLock(); } catch (eR) {} }
+      try { lock.releaseLock(); } catch (eR) {}
     }
 
     /* cópia por e-mail: falhar aqui NÃO invalida o RDO (já está no Dropbox e no Sheets) */
@@ -167,6 +175,7 @@ function doPost(e) {
 
     return resposta({
       ok: true, id: id, link: linkPdf,
+      gravou: gravou,
       substituiu: subst.apagou > 0, apagadas: subst.apagou,
       emailOk: email.ok, emailErro: email.erro, emailPara: email.para
     });
@@ -1176,8 +1185,20 @@ function gravarSheets(dados, id, linkPdf, props, matLogin) {
 
   var equipe = normEquipe(dados.tecnicos);
 
+  /* Abas resolvidas ANTES de escrever qualquer coisa: se a aba Atividades
+     tivesse sumido/sido renomeada, o código antigo gravava Relatorios e
+     Funcionarios e só então estourava em atv.appendRow — sobrava meio RDO. */
+  var rel = acharAbaFlex(ss, 'Relatorios');
+  if (!rel) throw new Error('A aba "Relatorios" não existe na planilha.');
+  var fun = acharAbaFlex(ss, 'Funcionarios') || criarAbaFuncionarios(ss);
+  var atv = acharAbaFlex(ss, 'Atividades');
+  if (!atv) {
+    atv = criarAbaAtividades(ss);
+    Logger.log('AVISO: aba "Atividades" nao existia e foi criada agora.');
+  }
+
   /* --- Relatorios: coluna Tecnicos virou Matriculas --- */
-  ss.getSheetByName('Relatorios').appendRow([
+  var linhaRel = [
     id,
     na(dados.registrado), na(dados.data_exp), na(dados.hora_ini), na(dados.hora_fim),
     na(dados.cliente), na(dados.parque), na(equipeMatriculas(equipe).join(', ')), na(dados.email),
@@ -1187,25 +1208,160 @@ function gravarSheets(dados, id, linkPdf, props, matLogin) {
     na(dados.tipo_reparo), (dados.finalizado === true || dados.finalizado === 'SIM') ? 'SIM' : 'NÃO',
     na(matLogin ? normMat(matLogin) : (equipe[0] ? equipe[0].mat : '')),
     na(linkPdf)
-  ]);
+  ];
 
-  /* --- Funcionarios: formato longo, 1 linha por técnico (igual Atividades) --- */
-  var fun = ss.getSheetByName('Funcionarios') || criarAbaFuncionarios(ss);
-  equipe.forEach(function (t) {
-    fun.appendRow([
+  /* --- Funcionarios: formato longo, 1 linha por técnico --- */
+  var linhasFun = equipe.map(function (t) {
+    return [
       id, na(dados.parque), na(dados.data_exp), na(dados.hora_ini), na(dados.hora_fim),
       na(t.nome), na(t.mat)
-    ]);
+    ];
   });
 
-  /* --- Atividades: sem mudança --- */
-  var atv = ss.getSheetByName('Atividades');
-  (dados.atividades || []).forEach(function (a, i) {
-    atv.appendRow([
+  /* --- Atividades --- */
+  var linhasAtv = (dados.atividades || []).map(function (a, i) {
+    return [
       id, na(dados.parque), na(dados.data_exp), na(dados.turbina), na(dados.blade),
       i + 1, na(a.ini), na(a.fim), na(a.tipo), na(a.obs)
-    ]);
+    ];
   });
+
+  /* Uma chamada por aba em vez de uma por linha: um RDO de 12 atividades saía
+     em 13 round-trips e era candidato a estourar o tempo no meio. */
+  var gravou = { rel: 0, fun: 0, atv: 0 };
+  try {
+    gravou.rel = escreverBloco(rel, [linhaRel]);
+    gravou.fun = escreverBloco(fun, linhasFun);
+    gravou.atv = escreverBloco(atv, linhasAtv);
+  } catch (e) {
+    /* nunca deixar meio RDO na planilha: desfaz o que já entrou */
+    try { apagarLinhasPorId(rel, [id]); } catch (e1) {}
+    try { apagarLinhasPorId(fun, [id]); } catch (e2) {}
+    try { apagarLinhasPorId(atv, [id]); } catch (e3) {}
+    throw new Error('Falha ao gravar na planilha: ' + e
+      + ' (nada ficou pela metade, mas o RDO NAO foi salvo)');
+  }
+  return gravou;
+}
+
+/**
+ * Acha a aba pelo nome. Tenta o nome exato e, se não achar, compara ignorando
+ * maiúsculas, acentos e espaços sobrando — uma aba renomeada para "ATIVIDADES"
+ * ou "Atividades " (com espaço no fim) faz getSheetByName devolver null e a
+ * gravação estourar. Devolve null se realmente não existir.
+ */
+function acharAbaFlex(ss, nome) {
+  var exata = ss.getSheetByName(nome);
+  if (exata) return exata;
+  var alvo = chaveAba(nome);
+  var achada = null;
+  ss.getSheets().forEach(function (sh) {
+    if (!achada && chaveAba(sh.getName()) === alvo) achada = sh;
+  });
+  if (achada) {
+    Logger.log('AVISO: aba "' + nome + '" foi encontrada como "' + achada.getName()
+      + '". Renomeie para "' + nome + '" exatamente.');
+  }
+  return achada;
+}
+
+function chaveAba(t) {
+  t = String(t == null ? '' : t).trim().toLowerCase();
+  try { t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (e) {}
+  return t.replace(/\s+/g, ' ');
+}
+
+/**
+ * Escreve várias linhas de uma vez, logo abaixo da última linha preenchida.
+ * Cresce a aba se faltar linha ou coluna — setValues estoura se o retângulo
+ * não couber, ao contrário de appendRow.
+ */
+function escreverBloco(sh, linhas) {
+  if (!sh || !linhas || !linhas.length) return 0;
+  var largura = linhas[0].length;
+  if (sh.getMaxColumns() < largura) {
+    sh.insertColumnsAfter(sh.getMaxColumns(), largura - sh.getMaxColumns());
+  }
+  var primeira = sh.getLastRow() + 1;
+  var precisa = primeira + linhas.length - 1;
+  if (sh.getMaxRows() < precisa) sh.insertRowsAfter(sh.getMaxRows(), precisa - sh.getMaxRows());
+  sh.getRange(primeira, 1, linhas.length, largura).setValues(linhas);
+  return linhas.length;
+}
+
+/** Cria a aba Atividades com o cabeçalho padrão (mesma lógica de Funcionarios). */
+function criarAbaAtividades(ss) {
+  var sh = ss.insertSheet('Atividades');
+  sh.appendRow(['Relatorio_ID', 'Parque', 'Data_exp', 'Turbina', 'Blade',
+                'Ordem', 'Hora_ini', 'Hora_fim', 'Atividade', 'Observacao']);
+  sh.setFrozenRows(1);
+  return sh;
+}
+
+/**
+ * Diagnóstico manual. Rode no editor do Apps Script e veja o log:
+ * mostra se as três abas existem, quantas linhas cada uma tem e se há
+ * relatório sem atividade (o sintoma que apareceu).
+ */
+function diagnosticoAbas() {
+  var ss = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('SHEET_ID'));
+
+  Logger.log('--- ABAS DA PLANILHA (entre colchetes, para ver espaco sobrando) ---');
+  ss.getSheets().forEach(function (sh) {
+    Logger.log('  [' + sh.getName() + ']  linhas=' + sh.getLastRow()
+      + '  colunas=' + sh.getMaxColumns() + (sh.isSheetHidden() ? '  (OCULTA)' : ''));
+  });
+
+  Logger.log('--- ABAS QUE O RDO PRECISA ---');
+  ['Relatorios', 'Funcionarios', 'Atividades'].forEach(function (n) {
+    var exata = ss.getSheetByName(n);
+    var flex = acharAbaFlex(ss, n);
+    if (exata) { Logger.log(n + ': OK (nome exato)'); return; }
+    if (flex) { Logger.log(n + ': *** NOME ERRADO -> esta como [' + flex.getName() + '] ***'); return; }
+    Logger.log(n + ': *** NAO EXISTE ***');
+  });
+
+  Logger.log('--- PROTECOES (podem bloquear a gravacao) ---');
+  ss.getSheets().forEach(function (sh) {
+    var ps = sh.getProtections(SpreadsheetApp.ProtectionType.SHEET)
+      .concat(sh.getProtections(SpreadsheetApp.ProtectionType.RANGE));
+    if (ps.length) Logger.log('  [' + sh.getName() + '] tem ' + ps.length + ' protecao(oes)');
+  });
+
+  Logger.log('--- TESTE DE ESCRITA REAL NA ABA ATIVIDADES ---');
+  var teste = acharAbaFlex(ss, 'Atividades');
+  if (!teste) {
+    Logger.log('  impossivel testar: aba nao encontrada');
+  } else {
+    try {
+      var linha = teste.getLastRow() + 1;
+      teste.getRange(linha, 1, 1, 10).setValues([['TESTE_DIAGNOSTICO', '', '', '', '', '', '', '', '', '']]);
+      SpreadsheetApp.flush();
+      teste.deleteRow(linha);
+      Logger.log('  escrita OK (linha de teste gravada e apagada)');
+    } catch (eT) {
+      Logger.log('  *** ESCRITA FALHOU: ' + eT + ' ***');
+    }
+  }
+
+  Logger.log('--- RELATORIOS SEM ATIVIDADES ---');
+  var rel = acharAbaFlex(ss, 'Relatorios');
+  var atv = acharAbaFlex(ss, 'Atividades');
+  if (!rel || !atv || rel.getLastRow() < 2) return;
+
+  var ids = {};
+  atv.getRange(1, 1, atv.getLastRow(), 1).getValues().forEach(function (r) { ids[String(r[0])] = true; });
+
+  var v = rel.getDataRange().getValues();
+  var iData = idxCabecalho(rel, 'Data_exp');
+  var orfaos = 0;
+  for (var r = 1; r < v.length; r++) {
+    if (!ids[String(v[r][0])]) {
+      orfaos++;
+      Logger.log('SEM ATIVIDADES -> id ' + v[r][0] + ' | data ' + (iData >= 0 ? v[r][iData] : '?'));
+    }
+  }
+  Logger.log('Relatorios sem nenhuma linha em Atividades: ' + orfaos);
 }
 
 /* ===================== UM RDO POR TÉCNICO POR DIA ===================== */
@@ -1269,8 +1425,8 @@ function apagarRdoAnterior(props, matLogin, dataExp) {
   linhas.sort(function (a, b) { return b - a; });
   linhas.forEach(function (n) { rel.deleteRow(n); });
 
-  apagarLinhasPorId(ss.getSheetByName('Atividades'), ids);
-  apagarLinhasPorId(ss.getSheetByName('Funcionarios'), ids);
+  apagarLinhasPorId(acharAbaFlex(ss, 'Atividades'), ids);
+  apagarLinhasPorId(acharAbaFlex(ss, 'Funcionarios'), ids);
 
   return { apagou: linhas.length, ids: ids, caminhoAntigo: caminho };
 }
