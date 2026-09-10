@@ -448,6 +448,112 @@ const LOCAIS = ["Interno","Cesto","Corda","Solo"];
 /* Stand by / Stand-by / STAND BY CLIENTE: exige observação */
 function ehStandBy(nome){ return normTxt(nome).indexOf('stand by')>=0; }
 /* Almoço/Janta, Almoco - Janta, Janta: atividade obrigatória no relatório */
+/* ---------- jornada mínima por cliente ----------
+   Minutos do INÍCIO ao FIM do expediente, com o Almoço/Janta DENTRO.
+   Índices: 1=segunda ... 5=sexta. Sábado (6) e domingo (0) não têm mínimo.
+   Se o RH disser que o intervalo fica FORA, some 60 em cada valor. */
+const MIN_JORNADA = {
+  'NORDEX':  { 1:600, 2:600, 3:600, 4:600, 5:540 },   /* 10h seg-qui, 9h sex */
+  'SIEMENS': { 1:600, 2:600, 3:600, 4:600, 5:540 },
+  'GE':      { 1:588, 2:588, 3:588, 4:588, 5:588 }    /* 9h48 seg-sex */
+};
+const DIA_SEMANA = ['domingo','segunda-feira','terça-feira','quarta-feira',
+                    'quinta-feira','sexta-feira','sábado'];
+
+/* Carnaval e Corpus Christi são ponto facultativo, não feriado nacional por lei.
+   Deixe false para exigir a jornada neles; true para liberar junto com os feriados. */
+const INCLUIR_FACULTATIVOS = false;
+
+/** Domingo de Páscoa (algoritmo de Meeus/Butcher). Devolve {mes,dia}. */
+function pascoa(ano){
+  const a=ano%19, b=Math.floor(ano/100), c=ano%100;
+  const d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25);
+  const g=Math.floor((b-f+1)/3), h=(19*a+b-d-g+15)%30;
+  const i=Math.floor(c/4), k=c%4, l=(32+2*e+2*i-h-k)%7;
+  const m=Math.floor((a+11*h+22*l)/451);
+  return { mes:Math.floor((h+l-7*m+114)/31), dia:((h+l-7*m+114)%31)+1 };
+}
+
+/** Soma dias a uma data e devolve 'AAAA-MM-DD'. */
+function somaDias(ano,mes,dia,n){
+  const dt=new Date(ano,mes-1,dia+n);
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')
+    +'-'+String(dt.getDate()).padStart(2,'0');
+}
+
+/** Feriados nacionais do ano -> { 'AAAA-MM-DD': 'nome' } */
+function feriadosNacionais(ano){
+  const f={};
+  const fixos=[['01-01','Confraternização Universal'],['04-21','Tiradentes'],
+    ['05-01','Dia do Trabalho'],['09-07','Independência'],
+    ['10-12','Nossa Senhora Aparecida'],['11-02','Finados'],
+    ['11-15','Proclamação da República'],['11-20','Consciência Negra'],
+    ['12-25','Natal']];
+  fixos.forEach(function(x){ f[ano+'-'+x[0]]=x[1]; });
+
+  const pa=pascoa(ano);
+  f[somaDias(ano,pa.mes,pa.dia,-2)]='Sexta-feira Santa';
+  if(INCLUIR_FACULTATIVOS){
+    f[somaDias(ano,pa.mes,pa.dia,-47)]='Carnaval';
+    f[somaDias(ano,pa.mes,pa.dia,60)]='Corpus Christi';
+  }
+  return f;
+}
+
+/** Devolve o nome do feriado nacional, ou '' se for dia comum. */
+function feriadoDe(iso){
+  const m=/^(\d{4})-\d{2}-\d{2}$/.exec(String(iso||'').trim());
+  if(!m) return '';
+  return feriadosNacionais(+m[1])[iso.trim()] || '';
+}
+
+/** 'HH:MM' -> minutos. Devolve null se não der para ler. */
+function minDoRelogio(t){
+  const m=/^(\d{1,2}):(\d{2})$/.exec(String(t||'').trim());
+  if(!m) return null;
+  const h=+m[1], mi=+m[2];
+  if(h>23||mi>59) return null;
+  return h*60+mi;
+}
+
+/** minutos -> '9h48' */
+function fmtDur(min){
+  const h=Math.floor(min/60), m=min%60;
+  return h+'h'+String(m).padStart(2,'0');
+}
+
+/** 'AAAA-MM-DD' -> dia da semana (0=dom). Monta local para não escorregar de fuso. */
+function diaDaSemana(iso){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||'').trim());
+  if(!m) return null;
+  return new Date(+m[1], +m[2]-1, +m[3]).getDay();
+}
+
+/**
+ * Devolve '' quando o expediente cumpre o mínimo, ou o texto do erro.
+ * Vira mensagem de bloqueio no envio.
+ */
+function checarJornadaMinima(d){
+  const regra=MIN_JORNADA[d.cliente];
+  if(!regra) return '';                       /* cliente sem regra: não bloqueia */
+  const dia=diaDaSemana(d.data_exp);
+  if(dia===null) return '';
+  const min=regra[dia];
+  if(!min) return '';                         /* sábado e domingo: livre */
+  if(feriadoDe(d.data_exp)) return '';        /* feriado nacional: vira hora extra */
+
+  const ini=minDoRelogio(d.hora_ini), fim=minDoRelogio(d.hora_fim);
+  if(ini===null||fim===null) return '';       /* campo vazio já é pego em outra regra */
+
+  let dur=fim-ini;
+  if(dur<=0) dur+=1440;                       /* expediente que vira o dia */
+  if(dur>=min) return '';
+
+  return 'Expediente de '+fmtDur(dur)+' ('+d.hora_ini+' às '+d.hora_fim+') é menor que o '
+    +'mínimo de '+fmtDur(min)+' para '+d.cliente+' na '+DIA_SEMANA[dia]
+    +'. Faltam '+fmtDur(min-dur)+' — corrija os horários das atividades.';
+}
+
 function ehAlmoco(nome){
   const t=normTxt(nome);
   return t.indexOf('almoco')>=0 || t.indexOf('janta')>=0;
@@ -1822,6 +1928,8 @@ btnEnviar.onclick=async ()=>{
     if(d.hora_fim && ultima.fim && d.hora_fim!==ultima.fim)
       erros.push('A hora fim do expediente deve ser igual à hora fim da última atividade');
   }
+  const jornada=checarJornadaMinima(d);
+  if(jornada) erros.push(jornada);
   if(d.proxima.length===0){
     erros.push('Próxima atividade');
   }else if(!proximaValida(d.proxima[0])){
