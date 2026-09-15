@@ -268,7 +268,7 @@
   <form id="form">
 
     <!-- IDENTIFICAÇÃO -->
-    <section class="card">
+    <section class="card" id="secIdent">
       <h2>Identificação</h2>
       <div class="field">
         <label>Registrado em (automático)</label>
@@ -317,7 +317,7 @@
     </section>
 
     <!-- EQUIPE -->
-    <section class="card">
+    <section class="card" id="secEquipe">
       <h2>Equipe</h2>
       <div id="mmStatus" class="hint">Carregando lista de técnicos…</div>
       <div id="tecnicos"></div>
@@ -330,7 +330,7 @@
     </section>
 
     <!-- LOCAL / MÁQUINA -->
-    <section class="card">
+    <section class="card" id="secLocal">
       <h2>Local e máquina</h2>
       <div class="field">
         <label class="req">Local de atividade</label>
@@ -371,7 +371,7 @@
     </section>
 
     <!-- ATIVIDADE -->
-    <section class="card">
+    <section class="card" id="secAtiv">
       <h2>Atividade realizada <span style="color:var(--erro);">*</span></h2>
       <div class="field">
         <label class="req" for="tipo_reparo">Tipo de reparo</label>
@@ -882,43 +882,70 @@ function chaveUltimo(){ return 'u_'+((SESSAO&&SESSAO.mat)||'sem-mat'); }
    travado. Serve para padronizar a escrita de turbina/blade/tipo de reparo:
    o texto e o MESMO do dia anterior, nao redigitado. */
 
-const GRUPO_FIXO   = ['cliente','parque'];
-const GRUPO_REPARO = ['turbina','blade','tipo_reparo'];
+/* Um grupo por card. Cada card ganha o proprio botao de editar, no titulo.
+   avisar:true = pede confirmacao quando o reparo nao foi finalizado. */
+const TRAVAS = {
+  ident:  { sel:'#secIdent',  titulo:'Identificação',       campos:['cliente','parque','parque_num'], avisar:false },
+  equipe: { sel:'#secEquipe', titulo:'Equipe',              campos:['email'], equipe:true, avisar:false },
+  local:  { sel:'#secLocal',  titulo:'Local e máquina',     campos:['turbina','blade'], chips:['local'], avisar:true },
+  ativ:   { sel:'#secAtiv',   titulo:'Atividade realizada', campos:['tipo_reparo'], avisar:true }
+};
 
 async function salvarUltimoRdo(d){
   try{
     await idbPut('rascunhos',{ ultimo:{
-      cliente:d.cliente||'', parque:d.parque||'',
+      cliente:d.cliente||'', parque:d.parque||'', parque_num:d.parque_num||'',
       tecnicos:(d.tecnicos||[]).map(t=>({nome:t.nome||'',mat:t.mat||''})),
+      email:d.email||'', local:d.local||'',
       turbina:d.turbina||'', blade:d.blade||'', tipo_reparo:d.tipo_reparo||'',
       finalizado:!!d.finalizado
     }, salvo:Date.now() }, chaveUltimo());
   }catch(_){}
 }
 
-function travar(ids,trava){
-  ids.forEach(id=>{
+/** Liga/desliga os campos de um grupo. */
+function travarGrupo(k,trava){
+  const cfg=TRAVAS[k];
+  if(!cfg) return;
+  (cfg.campos||[]).forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.disabled=!!trava;
   });
+  (cfg.chips||[]).forEach(id=>{
+    document.querySelectorAll('#'+id+' input,#'+id+' button')
+      .forEach(el=>{ el.disabled=!!trava; });
+    const box=document.getElementById(id);
+    if(box) box.style.opacity=trava?'.6':'';
+  });
+  if(cfg.equipe){
+    document.querySelectorAll('#tecnicos input,#tecnicos select')
+      .forEach(el=>{ el.disabled=!!trava; });
+    const b=document.getElementById('addTecnico');
+    if(b) b.style.display=trava?'none':'';
+  }
 }
 
-function travarEquipe(trava){
-  document.querySelectorAll('#tecnicos input,#tecnicos select')
-    .forEach(el=>{ el.disabled=!!trava; });
-  const b=document.getElementById('addTecnico');
-  if(b) b.style.display=trava?'none':'';
-}
-
-function criarBotaoEditar(id,texto,acao){
-  if(document.getElementById(id)) return;
+/** Botao pequeno ao lado do titulo do card. */
+function botaoNoTitulo(k,u){
+  const cfg=TRAVAS[k];
+  const h=document.querySelector(cfg.sel+' h2');
+  if(!h || document.getElementById('edit_'+k)) return;
   const b=document.createElement('button');
-  b.type='button'; b.id=id; b.className='btn btn-add';
-  b.style.cssText='display:block;margin:12px auto 22px;font-size:13px;'
-    +'padding:8px 16px;width:auto;max-width:90%';
-  b.textContent=texto;
-  b.onclick=acao;
-  return b;
+  b.type='button'; b.id='edit_'+k; b.className='btn btn-add';
+  b.style.cssText='margin-left:10px;font-size:11px;padding:3px 10px;'
+    +'vertical-align:middle;line-height:1.4;';
+  b.textContent='Editar';
+  b.onclick=()=>{
+    if(cfg.avisar && !u.finalizado){
+      const ok=confirm('ATENÇÃO\n\nO último RDO deste reparo NÃO foi marcado como '
+        +'finalizado.\n\nTurbina '+(u.turbina||'—')+' / blade '+(u.blade||'—')
+        +' / '+(u.tipo_reparo||'—')+'\n\nTem certeza da troca dos campos?');
+      if(!ok) return;
+    }
+    travarGrupo(k,false);
+    b.remove();
+  };
+  h.appendChild(b);
 }
 
 /** Repoe os campos do ultimo RDO e trava. Devolve true se aplicou. */
@@ -933,6 +960,10 @@ async function aplicarUltimoRdo(){
   cli.dispatchEvent(new Event('change'));          /* popula a lista de parques */
   const pq=document.getElementById('parque');
   if(u.parque){ pq.value=u.parque; pq.dispatchEvent(new Event('change')); }
+  if(u.parque_num) document.getElementById('parque_num').value=u.parque_num;
+  if(u.email) document.getElementById('email').value=u.email;
+
+  if(u.local) marcarChip('local',u.local);
 
   document.getElementById('turbina').value=u.turbina||'';
   document.getElementById('blade').value=u.blade||'';
@@ -956,77 +987,12 @@ async function aplicarUltimoRdo(){
   });
   if(document.querySelectorAll('.tecnico-row').length<2){ addTecnico(); addTecnico(); }
 
-  travar(GRUPO_FIXO,true);
-  travar(GRUPO_REPARO,true);
-  travarEquipe(true);
-
-  const bA=criarBotaoEditar('btnEditFixo','Editar cliente, parque e equipe',()=>{
-    travar(GRUPO_FIXO,false); travarEquipe(false); bA.remove();
-  });
-  if(bA) document.getElementById('parque').closest('.row').after(bA);
-
-  const bB=criarBotaoEditar('btnEditReparo','Editar turbina, blade e tipo de reparo',()=>{
-    if(!u.finalizado){
-      const ok=confirm('ATENÇÃO\n\nO último RDO deste reparo NÃO foi marcado como '
-        +'finalizado.\n\nTurbina '+(u.turbina||'—')+' / blade '+(u.blade||'—')
-        +' / '+(u.tipo_reparo||'—')+'\n\nTem certeza da troca dos campos?');
-      if(!ok) return;
-    }
-    travar(GRUPO_REPARO,false); bB.remove();
-  });
-  if(bB) document.getElementById('tipo_reparo').closest('.field').after(bB);
+  Object.keys(TRAVAS).forEach(k=>{ travarGrupo(k,true); botaoNoTitulo(k,u); });
 
   barraRascunho('Campos repetidos do último RDO'
     +(u.finalizado?' (reparo finalizado — pode trocar de reparo).'
                   :' — reparo em andamento.'));
   return true;
-}
-
-function barraRascunho(txt){
-  const el=document.getElementById('barraRascunho');
-  if(!el) return;
-  if(!txt){ el.className='barra-rascunho'; el.innerHTML=''; return; }
-  el.className='barra-rascunho ver';
-  el.innerHTML='<span class="br-txt">'+txt+'</span>'
-    +'<button type="button" id="btnDescartar">Descartar rascunho</button>';
-  document.getElementById('btnDescartar').onclick=async ()=>{
-    if(!confirm('Apagar o rascunho e limpar o formulário?')) return;
-    await limparRascunho();
-    location.reload();
-  };
-}
-
-function agendarRascunho(){
-  if(rascunhoCarregando) return;
-  clearTimeout(rascunhoTimer);
-  rascunhoTimer=setTimeout(salvarRascunho,1200);
-}
-
-function temConteudo(d){
-  return !!(d.data_exp||d.cliente||d.turbina||d.blade||d.tipo_reparo
-    ||(d.resumo&&d.resumo.length)||(d.proxima&&d.proxima.length)
-    ||(d.atividades&&d.atividades.length)||(d.tecnicos&&d.tecnicos.length>1));
-}
-
-async function salvarRascunho(){
-  if(!SESSAO) return;
-  try{
-    const d=coletar();
-    if(!temConteudo(d)) return;      /* formulário ainda vazio: não vira rascunho */
-    /* fotos e assinatura NAO vao para o rascunho: se o app for fechado,
-       o tecnico refaz as duas coisas antes de enviar */
-    d.imagens=[];
-    d.assinatura='';
-    await idbPut('rascunhos',{ dados:d, salvo:Date.now() },chaveRascunho());
-    const h=new Date();
-    const p=n=>String(n).padStart(2,'0');
-    barraRascunho('Rascunho salvo às '+p(h.getHours())+':'+p(h.getMinutes()));
-  }catch(_){ /* sem IndexedDB: segue sem rascunho */ }
-}
-
-async function limparRascunho(){
-  try{ await idbDel('rascunhos',chaveRascunho()); }catch(_){}
-  barraRascunho('');
 }
 
 /* ---------- sessão / login ---------- */
