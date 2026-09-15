@@ -914,7 +914,8 @@ function criarBotaoEditar(id,texto,acao){
   if(document.getElementById(id)) return;
   const b=document.createElement('button');
   b.type='button'; b.id=id; b.className='btn btn-add';
-  b.style.cssText='margin-top:6px;font-size:13px;padding:4px 10px';
+  b.style.cssText='display:block;margin:12px auto 22px;font-size:13px;'
+    +'padding:8px 16px;width:auto;max-width:90%';
   b.textContent=texto;
   b.onclick=acao;
   return b;
@@ -968,8 +969,7 @@ async function aplicarUltimoRdo(){
     if(!u.finalizado){
       const ok=confirm('ATENÇÃO\n\nO último RDO deste reparo NÃO foi marcado como '
         +'finalizado.\n\nTurbina '+(u.turbina||'—')+' / blade '+(u.blade||'—')
-        +' / '+(u.tipo_reparo||'—')+'\n\nMudar estes campos agora quebra o '
-        +'acompanhamento do reparo na aba Análise. Tem certeza?');
+        +' / '+(u.tipo_reparo||'—')+'\n\nTem certeza da troca dos campos?');
       if(!ok) return;
     }
     travar(GRUPO_REPARO,false); bB.remove();
