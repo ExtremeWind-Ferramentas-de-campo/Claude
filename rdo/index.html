@@ -875,6 +875,55 @@ window.addEventListener('offline',atualizarBarra);
 let rascunhoTimer=null, rascunhoCarregando=false;
 
 function chaveRascunho(){ return 'r_'+((SESSAO&&SESSAO.mat)||'sem-mat'); }
+
+function barraRascunho(txt){
+  const el=document.getElementById('barraRascunho');
+  if(!el) return;
+  if(!txt){ el.className='barra-rascunho'; el.innerHTML=''; return; }
+  el.className='barra-rascunho ver';
+  el.innerHTML='<span class="br-txt">'+txt+'</span>'
+    +'<button type="button" id="btnDescartar">Descartar rascunho</button>';
+  document.getElementById('btnDescartar').onclick=async ()=>{
+    if(!confirm('Apagar o rascunho e limpar o formulário?')) return;
+    await limparRascunho();
+    location.reload();
+  };
+}
+
+function agendarRascunho(){
+  if(rascunhoCarregando) return;
+  clearTimeout(rascunhoTimer);
+  rascunhoTimer=setTimeout(salvarRascunho,1200);
+}
+
+function temConteudo(d){
+  return !!(d.data_exp||d.cliente||d.turbina||d.blade||d.tipo_reparo
+    ||(d.resumo&&d.resumo.length)||(d.proxima&&d.proxima.length)
+    ||(d.atividades&&d.atividades.length)||(d.tecnicos&&d.tecnicos.length>1)
+    );
+}
+
+async function salvarRascunho(){
+  if(!SESSAO) return;
+  try{
+    const d=coletar();
+    if(!temConteudo(d)) return;      /* formulário ainda vazio: não vira rascunho */
+    /* fotos e assinatura NAO vao para o rascunho: se o app for fechado,
+       o tecnico refaz as duas coisas antes de enviar */
+    d.imagens=[];
+    d.assinatura='';
+    await idbPut('rascunhos',{ dados:d, salvo:Date.now() },chaveRascunho());
+    const h=new Date();
+    const p=n=>String(n).padStart(2,'0');
+    barraRascunho('Rascunho salvo às '+p(h.getHours())+':'+p(h.getMinutes()));
+  }catch(_){ /* sem IndexedDB: segue sem rascunho */ }
+}
+
+async function limparRascunho(){
+  try{ await idbDel('rascunhos',chaveRascunho()); }catch(_){}
+  barraRascunho('');
+}
+
 function chaveUltimo(){ return 'u_'+((SESSAO&&SESSAO.mat)||'sem-mat'); }
 
 /* ============ PRE-PREENCHIMENTO DO ULTIMO RDO ============
