@@ -651,7 +651,10 @@ let rascunhoJaCarregado=false;
 async function talvezCarregarRascunho(){
   if(rascunhoJaCarregado||!IN.ok||!SESSAO) return;
   rascunhoJaCarregado=true;
-  try{ await carregarRascunho(); }catch(_){}
+  try{
+    const temRascunho=await carregarRascunho();
+    if(!temRascunho) await aplicarUltimoRdo();
+  }catch(_){}
 }
 function inputsDoCache(){
   try{
@@ -872,6 +875,112 @@ window.addEventListener('offline',atualizarBarra);
 let rascunhoTimer=null, rascunhoCarregando=false;
 
 function chaveRascunho(){ return 'r_'+((SESSAO&&SESSAO.mat)||'sem-mat'); }
+function chaveUltimo(){ return 'u_'+((SESSAO&&SESSAO.mat)||'sem-mat'); }
+
+/* ============ PRE-PREENCHIMENTO DO ULTIMO RDO ============
+   Guarda o que nao muda de um dia para o outro e repoe no dia seguinte,
+   travado. Serve para padronizar a escrita de turbina/blade/tipo de reparo:
+   o texto e o MESMO do dia anterior, nao redigitado. */
+
+const GRUPO_FIXO   = ['cliente','parque'];
+const GRUPO_REPARO = ['turbina','blade','tipo_reparo'];
+
+async function salvarUltimoRdo(d){
+  try{
+    await idbPut('rascunhos',{ ultimo:{
+      cliente:d.cliente||'', parque:d.parque||'',
+      tecnicos:(d.tecnicos||[]).map(t=>({nome:t.nome||'',mat:t.mat||''})),
+      turbina:d.turbina||'', blade:d.blade||'', tipo_reparo:d.tipo_reparo||'',
+      finalizado:!!d.finalizado
+    }, salvo:Date.now() }, chaveUltimo());
+  }catch(_){}
+}
+
+function travar(ids,trava){
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.disabled=!!trava;
+  });
+}
+
+function travarEquipe(trava){
+  document.querySelectorAll('#tecnicos input,#tecnicos select')
+    .forEach(el=>{ el.disabled=!!trava; });
+  const b=document.getElementById('addTecnico');
+  if(b) b.style.display=trava?'none':'';
+}
+
+function criarBotaoEditar(id,texto,acao){
+  if(document.getElementById(id)) return;
+  const b=document.createElement('button');
+  b.type='button'; b.id=id; b.className='btn btn-add';
+  b.style.cssText='margin-top:6px;font-size:13px;padding:4px 10px';
+  b.textContent=texto;
+  b.onclick=acao;
+  return b;
+}
+
+/** Repoe os campos do ultimo RDO e trava. Devolve true se aplicou. */
+async function aplicarUltimoRdo(){
+  let reg=null;
+  try{ reg=await idbGet('rascunhos',chaveUltimo()); }catch(_){ return false; }
+  const u=reg&&reg.ultimo;
+  if(!u||!u.cliente) return false;
+
+  const cli=document.getElementById('cliente');
+  cli.value=u.cliente;
+  cli.dispatchEvent(new Event('change'));          /* popula a lista de parques */
+  const pq=document.getElementById('parque');
+  if(u.parque){ pq.value=u.parque; pq.dispatchEvent(new Event('change')); }
+
+  document.getElementById('turbina').value=u.turbina||'';
+  document.getElementById('blade').value=u.blade||'';
+  if(u.tipo_reparo){
+    const tr=document.getElementById('tipo_reparo');
+    tr.value=u.tipo_reparo;
+    tr.dataset.anterior=u.tipo_reparo;
+    recarregarOpcoesAtividade();
+  }
+
+  const extras=(u.tecnicos||[]).slice(1);
+  [...document.querySelectorAll('.tecnico-row')].slice(1).forEach(r=>r.remove());
+  extras.forEach(t=>{
+    addTecnico();
+    const linhas=[...document.querySelectorAll('.tecnico-row')];
+    const linha=linhas[linhas.length-1];
+    const inp=linha.querySelector('.tecnico');
+    inp.value=t.nome||'';
+    linha.querySelector('.matricula').value=t.mat||'';
+    if(t.mat){ inp.dataset.ok='1'; inp.classList.add('tec-ok'); }
+  });
+  if(document.querySelectorAll('.tecnico-row').length<2){ addTecnico(); addTecnico(); }
+
+  travar(GRUPO_FIXO,true);
+  travar(GRUPO_REPARO,true);
+  travarEquipe(true);
+
+  const bA=criarBotaoEditar('btnEditFixo','Editar cliente, parque e equipe',()=>{
+    travar(GRUPO_FIXO,false); travarEquipe(false); bA.remove();
+  });
+  if(bA) document.getElementById('parque').closest('.row').after(bA);
+
+  const bB=criarBotaoEditar('btnEditReparo','Editar turbina, blade e tipo de reparo',()=>{
+    if(!u.finalizado){
+      const ok=confirm('ATENÇÃO\n\nO último RDO deste reparo NÃO foi marcado como '
+        +'finalizado.\n\nTurbina '+(u.turbina||'—')+' / blade '+(u.blade||'—')
+        +' / '+(u.tipo_reparo||'—')+'\n\nMudar estes campos agora quebra o '
+        +'acompanhamento do reparo na aba Análise. Tem certeza?');
+      if(!ok) return;
+    }
+    travar(GRUPO_REPARO,false); bB.remove();
+  });
+  if(bB) document.getElementById('tipo_reparo').closest('.field').after(bB);
+
+  barraRascunho('Campos repetidos do último RDO'
+    +(u.finalizado?' (reparo finalizado — pode trocar de reparo).'
+                  :' — reparo em andamento.'));
+  return true;
+}
 
 function barraRascunho(txt){
   const el=document.getElementById('barraRascunho');
@@ -2047,6 +2156,7 @@ btnEnviar.onclick=async ()=>{
     }
     /* CONFIRMADO: so agora o rascunho pode sumir */
     const aviso=conferirGravacao(payload,r);
+    await salvarUltimoRdo(d);
     await limparRascunho();
     await atualizarBarra();
     if(aviso){

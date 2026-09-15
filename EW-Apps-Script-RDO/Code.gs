@@ -87,7 +87,7 @@ var MM_COL_MAT_PADRAO = 'A';
 var MM_COL_CPF_PADRAO = 'H';
 
 /* Validade do login (horas) e limite de tentativas por matrícula */
-var SESSAO_HORAS = 48;
+var SESSAO_HORAS = 720;   /* 30 dias: o tecnico nao perde o pre-preenchimento a cada 2 dias */
 var LOGIN_MAX_TENTATIVAS = 8;
 var LOGIN_JANELA_SEG = 600;
 
@@ -1445,6 +1445,92 @@ function apagarLinhasPorId(sh, ids) {
   linhas.sort(function (a, b) { return b - a; });
   linhas.forEach(function (n) { sh.deleteRow(n); });
   return linhas.length;
+}
+
+/**
+ * Diagnóstico: procura RDO do MESMO dia/parque/turbina/blade enviados por
+ * matrículas DIFERENTES. É o cenário que duplica as atividades sem ninguém
+ * ter enviado duas vezes: dois técnicos da mesma equipe mandaram cada um o seu.
+ * apagarRdoAnterior não pega isso, porque a chave dele é matrícula + data.
+ */
+function acharRdoDaMesmaEquipe(diasAtras) {
+  var ss = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('SHEET_ID'));
+  var rel = acharAbaFlex(ss, 'Relatorios');
+  if (!rel || rel.getLastRow() < 2) { Logger.log('Relatorios vazia'); return; }
+
+  var iMat = idxCabecalho(rel, 'Matricula_login');
+  var iData = idxCabecalho(rel, 'Data_exp');
+  var iParq = idxCabecalho(rel, 'Parque');
+  var iTurb = idxCabecalho(rel, 'Turbina');
+  var iBlade = idxCabecalho(rel, 'Blade');
+  if (iMat < 0 || iData < 0) { Logger.log('cabecalhos ausentes'); return; }
+
+  var corte = '';
+  if (diasAtras) {
+    var dt = new Date(); dt.setDate(dt.getDate() - diasAtras);
+    corte = Utilities.formatDate(dt, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+
+  var v = rel.getDataRange().getValues();
+  var grupos = {};
+  for (var r = 1; r < v.length; r++) {
+    var data = normData(v[r][iData]);
+    if (corte && data < corte) continue;
+    var k = [data, v[r][iParq], v[r][iTurb], v[r][iBlade]].join(' | ');
+    if (!grupos[k]) grupos[k] = [];
+    grupos[k].push({ id: v[r][0], mat: normMat(v[r][iMat]), linha: r + 1 });
+  }
+
+  var achou = 0;
+  Object.keys(grupos).sort().forEach(function (k) {
+    var g = grupos[k];
+    if (g.length < 2) return;
+    achou++;
+    Logger.log('>>> ' + k);
+    g.forEach(function (x) {
+      Logger.log('      id ' + x.id + '  matricula ' + x.mat + '  (linha ' + x.linha + ')');
+    });
+  });
+  Logger.log(achou ? ('\nGrupos com mais de um RDO: ' + achou)
+                   : 'Nenhum caso encontrado no periodo.');
+}
+
+/**
+ * Limpeza: apaga de Atividades e Funcionarios as linhas cujo Relatorio_ID
+ * nao existe mais em Relatorios. Sao as linhas orfas deixadas pela gravacao
+ * concorrente da versao antiga. Rode com (true) para apagar de verdade;
+ * sem argumento so lista o que seria apagado.
+ */
+function limparOrfaos(apagarDeVerdade) {
+  var ss = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('SHEET_ID'));
+  var rel = acharAbaFlex(ss, 'Relatorios');
+  if (!rel || rel.getLastRow() < 2) { Logger.log('Relatorios vazia'); return; }
+
+  var vivos = {};
+  rel.getRange(2, 1, rel.getLastRow() - 1, 1).getValues()
+     .forEach(function (r) { vivos[String(r[0])] = true; });
+
+  ['Atividades', 'Funcionarios'].forEach(function (nome) {
+    var sh = acharAbaFlex(ss, nome);
+    if (!sh || sh.getLastRow() < 2) return;
+    var v = sh.getRange(1, 1, sh.getLastRow(), 1).getValues();
+    var linhas = [], ids = {};
+    for (var r = 1; r < v.length; r++) {
+      var id = String(v[r][0]);
+      if (!id || vivos[id]) continue;
+      linhas.push(r + 1);
+      ids[id] = (ids[id] || 0) + 1;
+    }
+    Logger.log(nome + ': ' + linhas.length + ' linha(s) orfa(s) em '
+      + Object.keys(ids).length + ' id(s)');
+    Object.keys(ids).forEach(function (i) { Logger.log('    ' + i + '  (' + ids[i] + ' linhas)'); });
+    if (apagarDeVerdade && linhas.length) {
+      linhas.sort(function (a, b) { return b - a; });
+      linhas.forEach(function (n) { sh.deleteRow(n); });
+      Logger.log('    -> APAGADAS');
+    }
+  });
+  if (!apagarDeVerdade) Logger.log('\nModo lista. Rode limparOrfaos(true) para apagar.');
 }
 
 /** Diagnóstico: mostra RDO duplicados (mesma matrícula + data) já existentes. */
