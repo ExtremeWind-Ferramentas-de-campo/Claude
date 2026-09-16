@@ -1,17 +1,11 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<script src="../guard.js"></script>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#2b7fd0">
-<title>Meus Dados | Extreme Wind</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="manifest" href="../manifest.json">
-<link rel="apple-touch-icon" href="../icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EHS — Extreme Wind</title>
+<link rel="icon" href="../icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   :root{
@@ -72,65 +66,25 @@
 </head>
 <body>
 
-<div class="topo">
-  <a class="nav-back-link" href="../index.html" title="Voltar"><i class="fas fa-arrow-left"></i></a>
-  <h1>Meus Dados</h1>
-  <span class="espaco" aria-hidden="true"></span>
-</div>
+<header class="topo">
+  <a class="nav-back-link" href="../index.html"><i class="fas fa-arrow-left"></i> Voltar</a>
+</header>
 
-<main>
-  <div class="sessao" id="sessaoNome"></div>
+<section class="picker">
+  <h2>EHS</h2>
+  <div class="apps">
+    <a class="app-card" href="report-diario/index.html" style="--c:#c2410c">
+      <span class="ico"><i class="fas fa-clipboard-check"></i></span>
+      <span class="txt">
+        <span class="app-title">Report Diário de EHS</span>
+        <span class="app-desc">DDS, EPIs, bloqueio, APR e inspeções do dia</span>
+      </span>
+      <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
+    </a>
+  </div>
+</section>
 
-  <section class="picker">
-    <h2>O que você quer consultar?</h2>
-    <div class="apps">
-      <a class="app-card" href="pe-de-meia.html" style="--c:#0e7c7b">
-        <span class="ico"><i class="fas fa-piggy-bank"></i></span>
-        <span class="txt">
-          <span class="app-title">Pé de meia</span>
-          <span class="app-desc">Valores guardados na sua conta</span>
-        </span>
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
-      </a>
-      <a class="app-card" href="cursos.html" style="--c:#6a4bb8">
-        <span class="ico"><i class="fas fa-graduation-cap"></i></span>
-        <span class="txt">
-          <span class="app-title">Cursos</span>
-          <span class="app-desc">Descontos de cursos e saldo devedor</span>
-        </span>
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
-      </a>
-      <a class="app-card" href="dividas.html" style="--c:#c26a12">
-        <span class="ico"><i class="fas fa-file-invoice-dollar"></i></span>
-        <span class="txt">
-          <span class="app-title">Dívidas</span>
-          <span class="app-desc">Valores em aberto no seu nome</span>
-        </span>
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
-      </a>
-    </div>
-  </section>
-</main>
-
-<footer>Extreme Wind Blade Services &copy; <span id="year"></span> · Uso interno</footer>
-
-<script>
-'use strict';
-document.getElementById('year').textContent = new Date().getFullYear();
-
-/* tema — mesma chave do menu, pra não piscar branco quem usa escuro */
-(function(){
-  var t = localStorage.getItem('ew_theme');
-  if(t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
-})();
-
-(function(){
-  try{
-    var s = JSON.parse(localStorage.getItem('ew_sessao') || 'null');
-    if(s) document.getElementById('sessaoNome').textContent = s.nome + ' · mat. ' + s.mat;
-  }catch(_){}
-})();
-</script>
+<div class="espaco"></div>
 <script src="../cenario.js" defer></script>
 </body>
 </html>
