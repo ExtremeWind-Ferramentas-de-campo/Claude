@@ -121,6 +121,7 @@ function doPost(e) {
 
     /* --- Meus Dados: Meus Equipamentos (valida o token lá dentro) --- */
     if (dados.acao === 'meusEquipamentos') return resposta(meusEquipamentos(dados));
+    if (dados.acao === 'relatorioDevolucao') return resposta(relatorioDevolucao(dados));
 
     /* --- checklist semanal da equipe: valida o token lá dentro --- */
     if (dados.acao === 'checklistStatus') return resposta(checklistStatus(dados));
@@ -208,6 +209,13 @@ function doGet(e) {
     try { rc = consultaPessoal({ token: p.token, tipo: p.tipo }); }
     catch (e3) { rc = { ok: false, erro: String(e3) }; }
     return saida(rc, p.callback);
+  }
+
+  if (p.acao === 'relatorioDevolucao') {
+    var rd;
+    try { rd = relatorioDevolucao({ token: p.token, id: p.id }); }
+    catch (e6) { rd = { ok: false, erro: String(e6) }; }
+    return saida(rd, p.callback);
   }
 
   if (p.acao === 'meusEquipamentos') {
@@ -2524,6 +2532,7 @@ function testarChecklistEquipe() {
 
 
 
+
 /* =====================================================================
  * MEUS DADOS — MEUS EQUIPAMENTOS
  * ---------------------------------------------------------------------
@@ -2550,6 +2559,9 @@ function testarChecklistEquipe() {
  *   Equipamentos.xlsx" (01 - ALMOXARIFADO/12 - Slides), aba Inventário:
  *   descrição, valor, responsável, projeto/parque, desconto (SIM/NÃO), mês;
  *   ocorrência = nota da célula; relatório = hiperlink da linha (se houver).
+ * Botão Relatório devolução: PDFs da pasta 08 - DEVOLUÇÕES/Relatorio_de_devolucao_padronizado,
+ *   ligados pela matrícula do nome do arquivo (e o nome tem que bater com a mini master).
+ *   O técnico recebe um link temporário (4 h) só dos PDFs dele.
  * Não sai: Disponível/Descarte e matrícula 0 (EM SEPARAÇÃO, ADM etc.).
  *
  * Propriedades do Script (todas opcionais):
@@ -2557,6 +2569,7 @@ function testarChecklistEquipe() {
  *   EQUIP_ABA                   padrão "BASE DE DADOS"
  *   EQUIP_EXTRAVIO_ARQUIVO      caminho ou id da lista de extravio (padrão: o id abaixo)
  *   EQUIP_EXTRAVIO_ABA          padrão "Inventário"
+ *   EQUIP_DEVOLUCAO_PASTA       pasta dos PDFs de devolução (padrão: o id abaixo)
  *   EQUIP_EMAIL_DIVERGENCIAS    e-mail que recebe a lista de divergências
  *                               sempre que a planilha muda (vazio = não envia)
  *
@@ -2574,7 +2587,7 @@ var EQ_STATUS_FORA = { 'DISPONIVEL': 1, 'DESCARTE': 1 };
 /* Extraviado/Quarentena da BASE não entram na tabela: a aba Extraviados e
    Avariados vem da LISTA DE EXTRAVIO E DESCONTOS (abaixo). */
 var EQ_STATUS_EXTRAVIO = { 'EXTRAVIADO': 1, 'QUARENTENA': 1 };
-var EQ_PFX = 'EQ3_';               /* troca de formato do cache = prefixo novo */
+var EQ_PFX = 'EQ4_';               /* troca de formato do cache = prefixo novo */
 
 /* ---- LISTA DE EXTRAVIO E DESCONTOS Equipamentos.xlsx (pasta 12 - Slides) ---- */
 var EQ_EXT_ARQUIVO_PADRAO = 'id:zJii0PvESPAAAAAAAAjUiw';
@@ -2592,6 +2605,11 @@ var EQ_EXT_COLUNAS = {
 };
 var EQ_EXT_OBRIGATORIAS = ['descricao', 'resp', 'descontado'];
 var EQ_EXT_NAO_PESSOA = { 'EQUIPE': 1, 'TOTAL': 1 };
+
+/* ---- Relatórios de devolução (PDF): 08 - DEVOLUÇÕES/Relatorio_de_devolucao_padronizado ----
+   Nome do arquivo: "Relatório Devolução - <matrícula> - <nome> - <parque>[ (2)].pdf" */
+var EQ_DEV_PASTA_PADRAO = 'id:zJii0PvESPAAAAAAAAnYzA';
+var EQ_DEV_NOME = /^Relat[oó]rio Devolu[cç][aã]o - (\d+) - (.+?) - (.+?)(?: \((\d+)\))?\.pdf$/i;
 
 /* cabeçalhos procurados na linha de cabeçalho (comparação sem acento/caixa).
    A 1ª ocorrência vence — as colunas MIRROR têm nome diferente. */
@@ -2636,8 +2654,7 @@ function meusEquipamentos(dados) {
 
   var meta = {};
   try { meta = JSON.parse(cache.get(EQ_PFX + gen + '_META') || '{}'); } catch (e) {}
-  var reg = { itens: [], extravios: [] };
-  try { reg = JSON.parse(cache.get(EQ_PFX + gen + '_M' + s.mat) || '{"itens":[],"extravios":[]}'); } catch (e2) {}
+  var reg = eqRegistroDaMat(cache, gen, s.mat);
 
   return {
     ok: true, tipo: 'equipamentos',
@@ -2645,10 +2662,41 @@ function meusEquipamentos(dados) {
     encontrado: (reg.itens || []).length + (reg.extravios || []).length > 0,
     itens: reg.itens || [],
     extravios: reg.extravios || [],
+    /* só id + parque: o link do PDF é gerado na hora, para quem é dono dele */
+    devolucoes: (reg.devolucoes || []).map(function (d) { return { id: d.id, parque: d.parque, n: d.n }; }),
     atualizadoEm: meta.atualizadoEm || '',
     extravioAtualizadoEm: meta.extravioAtualizadoEm || '',
     lidoEm: meta.lidoEm || ''
   };
+}
+
+function eqRegistroDaMat(cache, gen, mat) {
+  var reg = null;
+  try { reg = JSON.parse(cache.get(EQ_PFX + gen + '_M' + mat) || 'null'); } catch (e) {}
+  return reg || { itens: [], extravios: [], devolucoes: [] };
+}
+
+/**
+ * Botão "Relatório devolução": devolve um link temporário do Dropbox (vale 4 h)
+ * para o PDF, e só se o PDF estiver na lista da matrícula da sessão.
+ */
+function relatorioDevolucao(dados) {
+  var s = cpTecnicoDaSessao(dados);
+  if (s.erro) return s.erro;
+  var id = String(dados.id || '');
+  if (!/^id:[A-Za-z0-9_-]+$/.test(id)) return { ok: false, erro: 'Relatório inválido.' };
+
+  var cache = CacheService.getScriptCache();
+  var gen = cache.get(EQ_PFX + 'GEN');
+  if (!gen) return { ok: false, erro: 'Atualize a tela e tente de novo.' };
+  var reg = eqRegistroDaMat(cache, gen, s.mat);
+  var achou = (reg.devolucoes || []).some(function (d) { return d.id === id; });
+  if (!achou) return { ok: false, erro: 'Este relatório não está no seu nome.' };
+
+  var props = PropertiesService.getScriptProperties();
+  var r = eqDbxCall('https://api.dropboxapi.com/2/files/get_temporary_link', getDropboxToken(props), props, { path: id });
+  var j = JSON.parse(r.getContentText());
+  return { ok: true, url: j.link, nome: j.metadata && j.metadata.name };
 }
 
 /* ---------- gatilho de tempo ---------- */
@@ -2686,7 +2734,12 @@ function eqSincronizar(forcar) {
     var meta = eqDbxMetadata(token, arqBase, props);
     var metaExt = null, erroExt = '';
     try { metaExt = eqDbxMetadata(token, arqExt, props); } catch (eM) { erroExt = String(eM); }
-    var rev = meta.rev + '|' + (metaExt ? metaExt.rev : 'sem-lista');
+    var arqDev = props.getProperty('EQUIP_DEVOLUCAO_PASTA') || EQ_DEV_PASTA_PADRAO;
+    var pdfs = [], erroDev = '';
+    try { pdfs = eqDbxListarPasta(token, arqDev, props); } catch (eD) { erroDev = String(eD); }
+    var assinaturaDev = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5,
+      pdfs.map(function (f) { return f.id + ':' + f.rev + ':' + f.name; }).sort().join('|'))).slice(0, 12);
+    var rev = meta.rev + '|' + (metaExt ? metaExt.rev : 'sem-lista') + '|' + assinaturaDev;
 
     var genAtual = cache.get(EQ_PFX + 'GEN');
     if (!forcar && genAtual && cache.get(EQ_PFX + 'REV') === rev) {
@@ -2712,6 +2765,8 @@ function eqSincronizar(forcar) {
       } catch (eX) { erroExt = String(eX); }
     }
     if (erroExt) Logger.log('Lista de extravio: ' + erroExt);
+    if (erroDev) Logger.log('Pasta de relatórios de devolução: ' + erroDev);
+    var dev = eqMontarDevolucoes(pdfs, mini);
 
     /* geração nova = chaves novas; as antigas expiram sozinhas. Assim um
        técnico que devolveu tudo não continua vendo a lista velha. */
@@ -2719,10 +2774,12 @@ function eqSincronizar(forcar) {
     var lote = {}, mats = {};
     Object.keys(idx.porMat).forEach(function (m) { mats[m] = 1; });
     Object.keys(ext.porMat).forEach(function (m) { mats[m] = 1; });
+    Object.keys(dev.porMat).forEach(function (m) { mats[m] = 1; });
     Object.keys(mats).forEach(function (m) {
       lote[EQ_PFX + gen + '_M' + m] = JSON.stringify({
         itens: idx.porMat[m] ? idx.porMat[m].itens : [],
-        extravios: ext.porMat[m] || []
+        extravios: ext.porMat[m] || [],
+        devolucoes: dev.porMat[m] || []
       });
     });
     lote[EQ_PFX + gen + '_META'] = JSON.stringify({
@@ -2731,7 +2788,7 @@ function eqSincronizar(forcar) {
       lidoEm: eqFmtDataHora(new Date().toISOString()),
       rev: rev
     });
-    var todasDiv = idx.divergencias.concat(ext.divergencias);
+    var todasDiv = idx.divergencias.concat(ext.divergencias, dev.divergencias);
     lote[EQ_PFX + gen + '_DIV'] = JSON.stringify(todasDiv.slice(0, 400));
     eqPutAll(cache, lote);
     cache.putAll(eqObj(EQ_PFX + 'GEN', gen, EQ_PFX + 'REV', rev), EQ_CACHE_SEG);
@@ -2744,7 +2801,10 @@ function eqSincronizar(forcar) {
       listaExtravio: lidoExt
         ? { linhasLidas: lidoExt.linhas.length, cabecalhoNaLinha: lidoExt.linhaCabecalho, colunas: lidoExt.colunas,
             tecnicos: Object.keys(ext.porMat).length, registrosNoApp: ext.total, divergencias: ext.divergencias.length }
-        : { erro: erroExt || 'não lida' }
+        : { erro: erroExt || 'não lida' },
+      relatoriosDevolucao: erroDev ? { erro: erroDev }
+        : { arquivosNaPasta: pdfs.length, tecnicos: Object.keys(dev.porMat).length,
+            ligados: dev.total, divergencias: dev.divergencias.length }
     };
     eqAvisarDivergencias(props, todasDiv, genAtual);
     return resumo;
@@ -2826,6 +2886,49 @@ function eqDbxMetadata(token, arquivo, props) {
 
 function eqDbxBaixar(token, arquivo, props) {
   return eqDbxCall('https://content.dropboxapi.com/2/files/download', token, props, { path: arquivo }, true).getBlob();
+}
+
+function eqDbxListarPasta(token, pasta, props) {
+  var out = [];
+  var r = JSON.parse(eqDbxCall('https://api.dropboxapi.com/2/files/list_folder', token, props,
+    { path: pasta, recursive: false, limit: 2000 }).getContentText());
+  for (var voltas = 0; voltas < 20; voltas++) {
+    (r.entries || []).forEach(function (e) { if (e['.tag'] === 'file') out.push(e); });
+    if (!r.has_more) break;
+    r = JSON.parse(eqDbxCall('https://api.dropboxapi.com/2/files/list_folder/continue', token, props,
+      { cursor: r.cursor }).getContentText());
+  }
+  return out;
+}
+
+/* PDFs da pasta de devolução -> por matrícula, conferindo o nome do arquivo com a mini master */
+function eqMontarDevolucoes(arquivos, miniMaster) {
+  var nomePorMat = {};
+  miniMaster.forEach(function (t) { nomePorMat[normMat(t.mat)] = t.nome; });
+  var porMat = {}, div = [], total = 0;
+
+  arquivos.forEach(function (f) {
+    var nome = String(f.name || '').normalize('NFC');
+    if (!/\.pdf$/i.test(nome)) return;
+    var m = EQ_DEV_NOME.exec(nome);
+    function falha(motivo, mat) {
+      div.push({ origem: 'RELATÓRIO DEVOLUÇÃO', linha: '', id: '', descricao: nome,
+                 responsavel: m ? m[2] : '', matricula: mat || '', motivo: motivo });
+    }
+    if (!m) { falha('nome fora do padrão "Relatório Devolução - matrícula - nome - parque.pdf"'); return; }
+    var mat = normMat(m[1]);
+    if (!nomePorMat[mat]) { falha('matrícula não existe na mini master', mat); return; }
+    if (!eqNomeBate(m[2], nomePorMat[mat])) {
+      falha('nome não bate com a matrícula (cadastro: ' + nomePorMat[mat] + ')', mat); return;
+    }
+    (porMat[mat] = porMat[mat] || []).push({ id: f.id, parque: m[3].trim(), n: m[4] ? Number(m[4]) : 1 });
+    total++;
+  });
+
+  Object.keys(porMat).forEach(function (k) {
+    porMat[k].sort(function (a, b) { return a.parque.localeCompare(b.parque) || a.n - b.n; });
+  });
+  return { porMat: porMat, divergencias: div, total: total };
 }
 
 /* ---------- leitura do .xlsm (é um zip de XMLs) ---------- */

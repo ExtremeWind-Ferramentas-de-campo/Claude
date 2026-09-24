@@ -107,6 +107,19 @@
   .tec-qt{text-align:right;font-size:1.6rem;font-weight:800;color:var(--cor-forte);line-height:1;font-variant-numeric:tabular-nums}
   .tec-qt span{display:block;font-size:.7rem;font-weight:700;color:var(--muted);margin-top:3px}
 
+  .dev{margin-bottom:14px}
+  .dev-btn{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;
+    border:1px solid var(--cor);background:var(--card);color:var(--cor-forte);border-radius:12px;
+    font-family:inherit;font-weight:800;font-size:.88rem;cursor:pointer}
+  .dev-btn:disabled{opacity:.6;cursor:default}
+  .dev-lista{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .dev-lista[hidden]{display:none}
+  .dev-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid var(--card-line);
+    background:var(--card);color:var(--ink);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:.85rem;font-weight:700;cursor:pointer}
+  .dev-item i{color:#b3261e}
+  .dev-item span{margin-left:auto;color:var(--muted);font-size:.75rem;font-weight:700}
+  .dev-msg{margin-top:6px;font-size:.78rem;font-weight:600;color:var(--muted);text-align:center}
+  .dev-msg a{color:var(--cor-forte);font-weight:800}
   .tabs{display:flex;gap:4px;border-bottom:1px solid var(--card-line);margin-bottom:12px}
   .tab-btn{flex:1;background:none;border:none;border-bottom:3px solid transparent;cursor:pointer;
     font-family:inherit;font-size:.86rem;font-weight:800;color:var(--muted);padding:10px 6px 9px;
@@ -236,6 +249,22 @@ function pedirJsonp(token){
   });
 }
 
+/* JSONP genérico (plano B quando o POST falha) */
+function pedirJsonpAcao(acao, token, extra){
+  return new Promise(resolve=>{
+    const cb = '__eqCb' + Date.now() + Math.floor(Math.random()*1000);
+    let pronto = false;
+    window[cb] = j => { pronto = true; resolve(j); try{ delete window[cb]; }catch(_){ window[cb]=null; } };
+    let qs = 'acao=' + acao + '&token=' + encodeURIComponent(token) + '&callback=' + cb;
+    Object.keys(extra||{}).forEach(k => { qs += '&' + k + '=' + encodeURIComponent(extra[k]); });
+    const sc = document.createElement('script');
+    sc.src = ENDPOINT + (ENDPOINT.indexOf('?')>=0?'&':'?') + qs;
+    sc.onerror = ()=>{ if(!pronto) resolve(null); };
+    document.head.appendChild(sc);
+    setTimeout(()=>{ if(!pronto) resolve(null); }, 45000);
+  });
+}
+
 function esc(t){
   return String(t==null?'':t).replace(/[&<>"']/g, c =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -290,6 +319,46 @@ function painelExtravio(lista){
   }).join('') + '</div>';
 }
 
+/* ---------- botão Relatório devolução ---------- */
+function painelDevolucao(lista){
+  if(!lista.length) return '';
+  const itens = lista.map(d =>
+      '<button type="button" class="dev-item" data-dev="' + esc(d.id) + '"><i class="fas fa-file-pdf"></i>'
+    + esc(d.parque) + (d.n > 1 ? '<span>' + d.n + '\u00ba relat\u00f3rio</span>' : '') + '</button>').join('');
+  return '<div class="dev">'
+    + '<button type="button" class="dev-btn" id="devBtn"' + (lista.length === 1 ? ' data-dev="' + esc(lista[0].id) + '"' : '') + '>'
+    + '<i class="fas fa-file-pdf"></i> Relat\u00f3rio devolu\u00e7\u00e3o' + (lista.length > 1 ? ' (' + lista.length + ')' : '') + '</button>'
+    + (lista.length > 1 ? '<div class="dev-lista" id="devLista" hidden>' + itens + '</div>' : '')
+    + '<div class="dev-msg" id="devMsg" aria-live="polite"></div></div>';
+}
+
+async function abrirDevolucao(id, botao){
+  const ss = sessao();
+  if(!ss){ paraOLogin(); return; }
+  const msg = document.getElementById('devMsg');
+  /* abre a aba já no clique (senão o celular bloqueia a janela) e aponta para o PDF depois */
+  let janela = null;
+  try{ janela = window.open('', '_blank'); }catch(_){ janela = null; }
+  if(janela){ try{ janela.document.write('<p style="font-family:sans-serif;padding:24px">Abrindo o relat\u00f3rio\u2026</p>'); }catch(_){} }
+  botao.disabled = true; msg.textContent = 'Abrindo\u2026';
+
+  let r = null;
+  try{
+    const res = await fetch(ENDPOINT, { method:'POST', body: JSON.stringify({acao:'relatorioDevolucao', token: ss.token, id: id}) });
+    r = await res.json();
+  }catch(_){ r = null; }
+  if(!r) r = await pedirJsonpAcao('relatorioDevolucao', ss.token, { id: id });
+  botao.disabled = false;
+
+  if(!r || !r.ok || !r.url){
+    if(janela) try{ janela.close(); }catch(_){}
+    msg.textContent = (r && r.erro) || 'N\u00e3o foi poss\u00edvel abrir o relat\u00f3rio agora.';
+    return;
+  }
+  if(janela && !janela.closed){ janela.location.href = r.url; msg.textContent = ''; }
+  else { msg.innerHTML = '<a href="' + esc(r.url) + '" target="_blank" rel="noopener">Toque aqui para abrir o PDF</a>'; }
+}
+
 function mostrar(r){
   const itens = r.itens || [], ext = r.extravios || [];
   const unidades = itens.reduce((a, e) => a + (e.qtd||1), 0);
@@ -297,6 +366,7 @@ function mostrar(r){
       '<div class="tec"><div class="tec-av">' + esc(iniciais(r.nome)) + '</div>'
     + '<div class="tec-info"><div class="tec-nome">' + esc(r.nome) + '</div><div class="tec-mat">Matr\u00edcula ' + esc(r.mat) + '</div></div>'
     + '<div class="tec-qt">' + unidades + '<span>' + (unidades===1?'unidade':'unidades') + '</span></div></div>'
+    + painelDevolucao(r.devolucoes || [])
     + '<div class="tabs" role="tablist">'
     +   '<button type="button" class="tab-btn ativo" data-aba="eq" role="tab" aria-selected="true">Meus Equipamentos</button>'
     +   '<button type="button" class="tab-btn" data-aba="ext" role="tab" aria-selected="false">Extraviados e Avariados'
@@ -319,6 +389,12 @@ elConteudo.addEventListener('click', e => {
     document.getElementById('abaExt').hidden = aba !== 'ext';
   }
   if(e.target.closest('#pdfBtn')) baixarPdf();
+  const dv = e.target.closest('[data-dev]');
+  if(dv){ abrirDevolucao(dv.getAttribute('data-dev'), dv); return; }
+  if(e.target.closest('#devBtn')){
+    const l = document.getElementById('devLista');
+    if(l) l.hidden = !l.hidden;
+  }
 });
 
 /* ---------- PDF (mesmo layout do modelo do almoxarifado) ---------- */
