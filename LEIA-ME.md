@@ -1,617 +1,630 @@
-# Extreme Wind — Ferramentas de Campo
+# Portal Administrativo — Extreme Wind
 
-Site único no GitHub Pages: uma tela de entrada, um menu, quatro apps.
-
-## O que mudou nesta versão
-
-- **O login saiu do RDO e virou a porta do site.** Quem abre qualquer página cai na tela de entrada. Depois de entrar, o menu aparece e os quatro apps abrem sem digitar nada de novo.
-- **Os quatro apps agora exigem login** — antes, calculadoras, checklist e fotocard abriam para qualquer um com o endereço.
-- **Um service worker só.** Eram três (raiz, `fotocard/`, RDO), e cada um apagava o cache dos outros na ativação. Era o motivo de o app "perder o offline" sozinho.
-- Cada app ganhou sua pasta.
-
-## Estrutura
+## O que tem na pasta
 
 ```
-/
-├── index.html                    tela de entrada + hub + menu das ferramentas
-├── guard.js                      porteiro de sessão
-├── prazos.js                     sinal de prazo semanal nos cartões
-├── sw.js                         service worker (offline)
-├── manifest.json                 instalação como app
-├── logo-ew.png, logo-oem*.png    logos (compartilhados)
-├── icon-192.png, icon-512.png    ícones
-├── .nojekyll
-│
-├── meus-dados/                   hub pessoal (vem ANTES das ferramentas)
-│   ├── index.html                submenu Meus Dados
-│   ├── pe-de-meia.html           consulta dos valores guardados
-│   ├── cursos.html               descontos de cursos (gerado)
-│   └── dividas.html              valores em aberto (gerado)
-│
-├── rdo/index.html                Relatório Diário de Operação
-├── fotocard/                     Fotocard / Timestamp
-│   ├── index.html
-│   ├── sw.js                     stub que desinstala o SW antigo
-│   ├── manifest.json, icon-*.png, README.md
-├── calculadora/
-│   ├── index.html                seletor de cliente (era calculadora.html)
-│   ├── calculadora-nordex.html
-│   ├── calculadora-ge.html
-│   └── calculadora-siemens.html
-├── Checklist Almoxarifado/
-│   ├── menu.html                 submenu: Almoxarifado/Segurança e Frotas (é o que o menu abre)
-│   ├── almoxarifado-seguranca.html   Materiais + 5 checklists de inspeção (forms.app)
-│   └── index.html                Checklist de Materiais
-├── Checklist Frotas/
-│   ├── index.html                seletor dos 3 checklists de frota
-│   ├── gerador-eletrico.html     gerado pelo construtor
-│   ├── plataforma.html           gerado pelo construtor
-│   ├── veiculo.html              gerado pelo construtor
-│   ├── _costurar.js              guard.js + seta voltar + marcação de prazo
-│   └── modelos/                  construtor-formulario_2.html + os 3 .json
-│
-├── EW-Apps-Script-RDO/Code.gs    backend do RDO (colar no Apps Script)
-├── EW-Sheets-Script/Code.gs      backend das calculadoras/checklist
-├── ew-dropbox-proxy/worker.js    Cloudflare Worker
-└── SEGURANCA.md                  revisão de segurança de 06/08/2026
+portal/
+├── index.html                          tela de login + menu
+├── assets/base.css, base.js            estilo e funções comuns dos módulos
+├── logo-ew.png / icon-192.png          marca
+├── config/
+│   ├── config.js                       MODO_DEMO, API_URL e campos do perfil
+│   └── modulos.js                      ← as opções do menu ficam aqui
+├── modulos/
+│   ├── solicitacao-materiais.html      quadro do almoxarifado
+│   └── _MODELO.html                    modelo em branco para módulos novos
+└── apps-script/
+    ├── Codigo.gs                       login, senha, perfil
+    ├── Materiais.gs                    dados do quadro de materiais
+    └── SupervisaoCampo.gs              projetos e leitura do RDO
 ```
 
-## As duas telas depois do login
+---
 
-Entrando, o técnico cai no **hub**, com duas opções:
+## Cadastrar quem vai usar o portal
 
-| Opção | Vai para |
+Recarregue a planilha depois de colar o `Codigo.gs`: aparece um menu **Portal**
+na barra de cima.
+
+- **Portal > Cadastrar pessoa** — pede tudo num campo só, separado por ponto e
+  vírgula. Ao terminar, mostra a senha do primeiro acesso.
+- **Portal > Resetar senha de alguém** — devolve a senha para o CPF.
+- **Portal > Ver usuários cadastrados** — lista quem existe e quem ainda não
+  trocou a senha.
+
+O cadastro pede só **matrícula, CPF e email**. Nome, setor e cargo a própria
+pessoa preenche no primeiro acesso — o portal abre "Meus dados" sozinho e não
+deixa passar sem completar. Depois de preenchidos, esses campos travam: só o
+setor administrativo altera. Assim ninguém troca o próprio setor depois.
+
+**A senha do primeiro acesso é sempre o CPF, só os números**, sem ponto e sem
+traço. No primeiro login o sistema obriga a criar uma senha pessoal.
+
+As senhas do modo demonstração do site (`Torre2026`, por exemplo) só existiam no
+navegador. No servidor elas não valem.
+
+---
+
+## Supervisão de Campo
+
+Duas telas dentro do módulo:
+
+**Projetos em Andamento** — parque, cliente, tipo de reparo, início, situação,
+supervisor responsável, turbinas com suas blades e a lista de técnicos. Cria e edita: **ADMIN e
+SUPERVISOR**. DIRETORIA e USUARIO apenas visualizam — e a recusa é feita no
+Apps Script, não só escondendo o botão.
+
+Os cards são pintados pela **cor do cliente**, a mesma do Status RDO
+(`corDoCliente`, em `assets/base.js`). A legenda aparece quando há mais de um
+cliente na tela.
+
+### Nenhum campo é obrigatório
+
+Nada no formulário de projeto barra o salvamento. A versão anterior exigia que
+todo técnico viesse da lista da MINI MASTER, para trazer a matrícula junto.
+Quando a MINI MASTER não carrega, nenhuma sugestão aparece, a matrícula fica
+sempre vazia e o projeto vira **impossível de salvar** — o supervisor digita o
+nome certo e continua levando alerta, sem pista do motivo.
+
+Card pela metade é problema menor que card que não nasce. Os avisos continuam
+existindo: ao salvar, um recado lista o que ficou pendente (sem parque, técnico
+sem matrícula, concluído sem data de fim) e o card pode ser completado depois.
+
+Se as sugestões de técnico não aparecerem, o problema está na MINI MASTER, não
+no formulário — rode `verConfiguracao()` e veja quantos técnicos ele lê.
+
+### Filtros da tela de projetos
+
+Cliente, supervisor, situação e período. Cliente e supervisor são montados a
+partir dos projetos que existem — filtro que oferece opção sem resultado só
+frustra.
+
+O **período** usa **sobreposição**, não a data de um campo só: o projeto entra
+se o intervalo dele tocar o intervalo pedido. Isso responde às três perguntas de
+uma vez — começou depois de X, terminou antes de Y, esteve ativo entre X e Y.
+Projeto em andamento conta como aberto até hoje; projeto sem nenhuma data some
+quando há filtro de período.
+
+### Supervisor do projeto
+
+**Um supervisor por projeto** — o campo designa o responsável, não monta equipe.
+A lista vem das **contas com perfil SUPERVISOR** na aba `USUARIOS`, com status
+diferente de `INATIVO`. Escolher na lista preenche a matrícula ao lado; nome
+digitado sem escolher é recusado, porque sem a matrícula o filtro por supervisor
+não encontraria o projeto depois.
+
+**Status RDO** — só leitura da planilha do RDO. Mostra, para a data escolhida,
+quais projetos em andamento já têm relatório e quais faltam. Filtra por
+`Data_exp`, cliente e parque. Clicar no card abre o `Link_PDF`.
+
+Sábado e domingo aparecem como **"não obrigatório"**: o relatório pode existir,
+mas a falta não é cobrada.
+
+### O casamento é pelo nome do parque
+
+A cobrança compara o parque do projeto com a coluna `Parque` do RDO, usando a
+célula inteira.
+
+**O parque é digitado pelo supervisor, em texto livre.** O projeto nasce antes
+do primeiro RDO, então não dá para escolher de uma lista tirada do RDO: no dia
+do cadastro aquele parque ainda não existe lá.
+
+O preço disso é que a grafia passa a depender de quem digita. "SANTO AGOSTINHO
+1", "Santo Agostinho 01" e "STO AGOSTINHO 1" são três parques diferentes para o
+Status RDO — o projeto vai constar como **sem relatório para sempre**. Escreva
+exatamente como aparece na coluna `Parque` do RDO. Para ver a grafia real, use
+**Portal > Conferir colunas do RDO**.
+
+**Parque e equipe andam juntos, de propósito.** O número no fim
+("SANTO AGOSTINHO 1") é a equipe, mas o casamento usa a célula inteira como um
+rótulo só. Separar exigia adivinhar onde termina o nome do parque, e o resultado
+saía inconsistente: "OITIS 1" ficava inteiro enquanto "SÃO FERNANDO 1" era
+dividido. Mantendo junto, os dois lados usam exatamente o mesmo texto e cada
+dupla parque+equipe vira uma linha própria na cobrança.
+
+Por isso **não existe mais campo "número da equipe"** no cadastro: ele já estava
+dentro do nome do parque, e ter os dois só criava chance de divergir.
+
+### Tipo de reparo e data de finalização
+
+O **tipo de reparo** vem da planilha **Banco de inputs**, aba `ATV POR HR`. Só
+entram na lista as linhas em que a coluna `Atividade obrigatória` está como
+`Não` — atividade obrigatória é rotina de todo dia, não é o reparo que define o
+projeto. O campo filtra enquanto se digita, mas continua aceitando texto livre:
+se a planilha estiver fora do ar, o cadastro não trava.
+
+As colunas são achadas pelo cabeçalho, ignorando maiúsculas e acentos. Se o
+cabeçalho mudar, acrescente o nome novo em `COLUNAS_INPUTS`, no
+`SupervisaoCampo.gs`.
+
+A situação **Concluído** exige a **data de finalização**, e a data não pode ser
+anterior ao início. Enquanto o projeto está em andamento o campo fica escondido
+e a data é apagada — assim não sobra data de fim em projeto que ainda roda.
+
+### Turbinas e blades
+
+Cada turbina carrega as **próprias 3 blades**, e não uma lista solta: com duas
+turbinas no mesmo projeto, blade fora do bloco deixaria de dizer a qual turbina
+pertence. As 3 caixas são opcionais — preencha só as que interessam. Bloco de
+turbina aberto e deixado sem nome some sozinho ao salvar.
+
+O check **"Projeto sem turbina"** distingue "não tem turbina" de "ninguém
+preencheu" na aba SUPERVISORES — vale marcar, mas não é obrigatório:
+sem ele, "ninguém preencheu" e "não tem turbina" ficariam indistinguíveis na
+aba SUPERVISORES. Marcar o check esconde os blocos mas **não apaga** o que já
+foi digitado — desmarcar traz de volta.
+
+**Sem turbina não quer dizer sem blade.** Serviço em solo é blade já desmontada,
+então marcar o check abre uma lista de blades soltas, com quantas linhas forem
+precisas. Não são 3 caixas fixas como no bloco de turbina, onde as 3 são as pás
+daquela máquina — aqui pode ser uma blade só, ou várias de turbinas diferentes
+que chegaram juntas. A lista é opcional: projeto sem turbina e sem blade salva.
+
+### Status RD EHS
+
+Mesma mecânica do Status RDO, em **outra planilha**: filtros de data, cliente e
+parque, cobrança dos projetos em andamento e card com link para o PDF. O
+casamento também é pelo nome do parque, então vale tudo que está escrito acima
+sobre grafia.
+
+O EHS **não tem** avanço de reparo, turbina nem blade — copiar esses campos do
+RDO só encheria o card de etiqueta vazia. No lugar do avanço, a cobrança mostra
+o supervisor do projeto.
+
+O código fica em `apps-script/StatusEHS.gs`, separado: nada do RDO precisa ser
+mexido. Colunas essenciais são `data`, `parque` e `link` — `cliente` e a
+matrícula de quem enviou podem faltar sem derrubar a tela. Apelidos em
+`COLUNAS_EHS`. Diagnóstico em **Portal > Conferir colunas do EHS**.
+
+| Propriedade | O que é |
 |---|---|
-| Ferramentas de Campo | `index.html#ferramentas` — os quatro apps de sempre |
-| Meus Dados | `meus-dados/index.html` |
+| `ID_EHS` | link ou ID da planilha do reporte diário de EHS |
+| `ABA_EHS` | nome da aba (padrão: `REPORT DIÁRIO DE EHS - EXTREME WIND`) |
 
-O hub e o menu de ferramentas moram no **mesmo `index.html`**, trocados pelo
-`#hash`. Foi feito assim para não mexer no caminho relativo de nenhum app: se o
-menu tivesse virado uma pasta, `rdo/index.html` e companhia teriam que virar
-`../rdo/index.html` em todo lugar.
+### Espelho na aba SUPERVISORES
 
-Por causa disso, a seta "voltar" dos apps aponta para `../index.html#ferramentas`,
-e não para `../index.html` — senão o técnico voltaria para o hub e teria que dar
-dois toques toda vez. Já as saídas por **logout ou sessão expirada** continuam
-indo para `../index.html` puro, que é onde mora a tela de entrada.
+Os projetos **em andamento** são copiados para a aba `SUPERVISORES` da planilha
+**Banco de inputs**, **uma linha por projeto**: `SUPERVISOR`, `CLIENTE`,
+`PARQUE`, `TIPO DE REPARO`, `MATRICULA` (todas as matrículas dos técnicos numa
+célula só, separadas por vírgula), `TURBINA` e `BLADE`.
 
-## Meus Dados — Pé de meia, Cursos e Dívidas
+`TURBINA` traz os nomes separados por vírgula, ou o texto `Sem turbina` quando o
+projeto está marcado assim.
 
-Três consultas, três abas da **mesma planilha**, mesma mecânica:
+`BLADE` traz `nome da turbina: blade, blade, blade`, com ` | ` entre turbinas — o
+prefixo aparece sempre, mesmo com uma turbina só, para a coluna não ter dois
+formatos. Em projeto **sem turbina** a coluna traz as blades soltas em lista
+crua, sem prefixo: não há turbina para nomear, e `TURBINA` já diz `Sem turbina`.
 
-| Tela | Aba | Busca por | Linhas por pessoa |
-|---|---|---|---|
-| Pé de meia | `Pé de meia` | CPF | 1 |
-| Cursos | `Cursos` | matrícula | N (um curso cada) |
-| Dívidas | `Dívidas` | matrícula | N (uma dívida cada) |
+`TURBINA` e `BLADE` são **opcionais**: se esses cabeçalhos não existirem na aba,
+o espelho grava as outras cinco colunas normalmente em vez de falhar inteiro.
 
-Não achou a pessoa → mensagem própria de cada tela ("Não há valor guardado na
-sua conta", "Não há desconto relacionado ao pagamento de cursos", "Não há
-dívidas registradas na sua conta"). A data da coluna H aparece nos dois casos,
-achando ou não.
+Acontece sozinho **a cada gravação de projeto** no portal. Também dá para forçar
+em **Portal > Atualizar aba SUPERVISORES**.
 
-**Nem o CPF nem a matrícula viajam pelo navegador.** A sessão do site guarda só
-token, nome e matrícula. Quem faz a ligação é o backend: o token é assinado e
-carrega a matrícula; daí sai o CPF (mini master, coluna H) para o Pé de meia, ou
-a própria matrícula para Cursos e Dívidas. Sem sessão válida ninguém consulta
-nada, e o CPF nunca volta para a tela.
+**É espelho, não base.** A aba é reescrita da linha 2 para baixo a cada
+gravação: o que for digitado ali à mão não volta para o portal e se perde na
+próxima gravação. A linha 1 (cabeçalho) nunca é tocada. Projeto concluído sai da
+aba — só andamento aparece.
 
-### Uma consulta só no backend
+Se o espelho falhar (planilha fora do ar, sem permissão de edição, aba
+renomeada), **o projeto é salvo mesmo assim**: a base do portal é a `PROJ_CARDS`,
+não essa aba. A falha fica no `LOG` com a ação `ESPELHO_SUP`, e a próxima
+gravação bem-sucedida corrige tudo, porque reescreve inteiro.
 
-Tudo passa por `consultaPessoal({token, tipo})`, e o catálogo das três abas mora
-em **`CP_CONSULTAS`**, no `Code.gs`. Para acrescentar uma quarta aba amanhã
-basta uma entrada lá e um HTML novo — o resto do backend não muda.
+As colunas são achadas pelo cabeçalho, ignorando maiúsculas e acentos. Se o
+cabeçalho mudar, acrescente o nome novo em `COLUNAS_SUP_INPUTS`.
 
-A ação antiga `peDeMeia` continua existindo como atalho para
-`consultaPessoal({tipo:'peDeMeia'})`. É por isso que o `pe-de-meia.html` não
-precisou ser trocado junto: quem já tem a versão antiga no celular continua
-funcionando enquanto o service worker não atualiza.
+### Endereço das planilhas
 
-### O que precisa estar configurado
+Os IDs do RDO e da MINI MASTER ficam nas **Propriedades do Script**, não no
+código. O código vai para o GitHub; as propriedades não.
 
-1. **Colar o `EW-Apps-Script-RDO/Code.gs` novo** no projeto do Apps Script do RDO.
-2. **Publicar como NOVA VERSÃO da implantação existente** (Implantar → Gerenciar
-   implantações → lápis → Versão: Nova versão). Criar uma implantação nova geraria
-   outro endereço e o login pararia de funcionar.
-3. **Dar acesso de leitura** da planilha à conta que publicou o Apps Script.
-   Sem isso a consulta devolve erro de permissão.
-4. Rodar **`testarConsultas()`** no editor e ler o log: ele percorre as três abas
-   e mostra linha do cabeçalho, colunas achadas, colunas NÃO achadas, data e
-   quantas pessoas entraram na tabela. É o teste que diz se a leitura acertou o
-   layout — e o único jeito de saber que a aba `Dívidas` foi encontrada.
+**No editor do Apps Script:** ícone de engrenagem (Configurações do projeto,
+na barra da esquerda) > Propriedades do script > Adicionar propriedade.
 
-Propriedades do Script opcionais: `PEDEMEIA_SHEET_ID`, `PEDEMEIA_ABA`,
-`CURSOS_ABA`, `DIVIDAS_ABA`. Os padrões já apontam para os nomes atuais.
+| Propriedade | Valor |
+|---|---|
+| `ID_RDO` | link ou ID da planilha do banco de dados do RDO |
+| `ABA_RDO` | nome da aba dos relatórios (ex.: `Relatorios`) |
+| `ID_MINIMASTER` | link ou ID da planilha MINI MASTER |
+| `ABA_MINIMASTER` | nome da aba dos técnicos (deixe vazio para a primeira aba) |
+| `ID_INPUTS` | link ou ID da planilha **Banco de inputs** |
+| `ABA_INPUTS` | nome da aba dos tipos de reparo (padrão: `ATV POR HR`) |
 
-### Como as abas e as colunas são achadas
+Pode colar o link inteiro do navegador — o ID é extraído sozinho.
 
-**A aba** é achada pelo nome ignorando acento e caixa (`cpAcharAba`), com nome
-exato tendo prioridade. `Dívidas`, `DÍvidas` e `dividas` chegam todas na mesma
-aba — o nome real da aba estava escrito de dois jeitos diferentes na origem, e
-não vale a pena a tela quebrar por causa disso.
+Quem prefere não mexer nas propriedades pode usar **Portal > Configurar
+planilhas**, no menu da planilha, que faz o mesmo por perguntas.
 
-**O cabeçalho** não é por posição fixa, porque planilha de administração muda de
-lugar. O backend varre as 40 primeiras linhas procurando a linha que tenha a
-coluna-chave (`CPF` ou `MAT`) e pelo menos dois dos títulos de valor. A
-comparação passa por `pdmNorm()`, que tira acento, sobe para maiúscula e troca
-pontuação por espaço — é o que faz `PÉ-DE-MEIA DA SEMANA` casar com
-`PE DE MEIA DA SEMANA`.
+Depois, rode **`verConfiguracao()`** pelo botão Executar: mostra o que está
+gravado, se consegue ler as três planilhas, quantos técnicos e quantos tipos de
+reparo achou, e como parque e equipe estão sendo separados. O resultado sai em Registro de execução.
 
-**O casamento é em dois passes** (`cpCasarCabecalho`): primeiro igualdade exata,
-depois "contém" só para o que sobrou, pulando coluna já usada. Isso não é
-preciosismo: `VALOR` é pedaço de `VALOR PAGO`. Com um pass só de substring, uma
-planilha que trouxesse `VALOR PAGO` antes de `VALOR` grudaria o campo Valor na
-coluna errada — e o técnico veria número trocado sem nenhum erro na tela.
+### "Cannot call SpreadsheetApp.getUi() from this context"
 
-**A data** vem de outro caminho: procura na **coluna H**
-(`PDM_COL_DATA_PADRAO`) a célula que começa com "Valor atualizado em", e pega a
-de baixo (olha até 3 linhas abaixo se estiver vazia). Não achando na H, varre as
-outras colunas.
+Esse erro aparece quando a função é executada com o editor aberto fora da
+planilha. As funções de instalação não dependem mais de tela: quando não há
+interface, a mensagem sai em **Registro de execução** e a função termina normal.
 
-### As telas de Cursos e Dívidas são geradas
+Se o menu **Portal** não aparecer na planilha, abra a planilha pelo Google
+Sheets e recarregue (F5) — o menu só é criado no momento em que ela abre.
 
-`cursos.html` e `dividas.html` saem do mesmo template — só mudam rótulo, ícone,
-cor e a mensagem de "não tem nada". **Não edite os dois à mão**: a primeira
-correção feita só num deles já faz os dois divergirem. O gerador é o
-`meus-dados/_gerar-telas.py` que veio junto; mexa nele e rode de novo.
+### Card do relatório
 
-O `pe-de-meia.html` ficou de fora do gerador de propósito: ele mostra 1 linha,
-não uma lista, e forçar os dois formatos no mesmo template deixaria o template
-mais complicado que os dois arquivos separados.
+Mostra: parque (a célula `Parque` inteira, com o número), cliente, `Data_exp`,
+`Turbina`, `Blade`, `Tipo_reparo` e `Avanco_reparo` com barra. "Finalizado"
+aparece quando `Reparo_finalizado` começa com SIM.
 
-### Decisões que valem revisar
+A borda e a barra seguem a **cor do cliente**. SIEMENS, GE, NORDEX, VESTAS,
+WOBBEN/ENERCON, GOLDWIND e WEG têm cor fixa em `CORES_CLIENTE`, no topo do
+script de `status-rdo.html`. Cliente novo recebe uma cor estável da paleta
+sozinho — o mesmo nome cai sempre na mesma cor. Para fixar, acrescente a linha
+lá.
 
-- **Sem cache dos valores no aparelho.** Offline a tela diz que precisa de
-  internet, em vez de mostrar número velho. Valor de dinheiro desatualizado
-  gera mais confusão do que valor nenhum. O cache do lado do servidor é de
-  5 minutos (`PDM_CACHE_SEG`).
-- **O plano B por JSONP manda o token na URL.** É o mesmo caminho que o login já
-  usa, e existe porque em alguns aparelhos o navegador não deixa ler a resposta
-  do POST. Para cortar: apague os blocos `p.acao === 'peDeMeia'` e
-  `p.acao === 'consultaPessoal'` do `doGet` e a `pedirJsonp()` dos HTML.
-- **Total só aparece com mais de um item.** Com um curso só, repetir o mesmo
-  número embaixo não informa nada. Está em `consultaPessoal`, no `if
-  (regs.length > 1)`.
-- **Saldo devedor zerado sai em verde com ✓.** É a informação que o técnico
-  procura primeiro. Classe `.quitado` nos HTML gerados.
-- **O campo destacado** de cada tela é o `destaque` do `CP_CONSULTAS`: hoje
-  `total` no Pé de meia e `saldo` nas outras duas.
+### Colunas da planilha do RDO
 
-## Como o login funciona
+Descobertas pelo cabeçalho, comparando com `COLUNAS_RDO` no topo de
+`SupervisaoCampo.gs`. Use **Portal > Conferir colunas do RDO** para ver o que
+foi reconhecido, o cabeçalho real e o que falta.
 
-1. `index.html` pede matrícula e CPF e manda para o Apps Script do RDO.
-2. Deu certo: grava `ew_sessao` no `localStorage` (token, nome, matrícula, validade de 48 h).
-3. `guard.js` roda no `<head>` de cada app. Sem sessão válida, a página nem monta — volta para o menu.
-4. O RDO manda o `token` junto em cada envio, e o Apps Script confere.
+A coluna `Parque` traz nome e equipe juntos ("SANTO AGOSTINHO 1"), e é usada
+inteira como chave.
 
-O `guard.js` deriva o endereço da raiz pelo próprio `src`, então funciona tanto em `usuario.github.io` quanto em `usuario.github.io/Repositorio/`.
+Colunas usadas hoje: `Data_exp`, `Parque`, `Cliente`, `Link_PDF`,
+`Tipo_reparo`, `Turbina`, `Blade`, `Avanco_reparo`, `Reparo_finalizado` e
+`Matricula_login` — esta última vira o nome de quem enviou, cruzando com a
+MINI MASTER.
 
-## Publicar
+### Técnicos
 
-1. Suba o conteúdo desta pasta para a raiz do repositório.
-2. Settings → Pages → Branch `main`, pasta `/ (root)`.
-3. Abra num celular e teste a entrada.
+Os nomes vêm da planilha **MINI MASTER**: coluna A é a matrícula, coluna B é o
+nome. No projeto, o supervisor digita o nome, a lista filtra e ele escolhe — a
+matrícula vem junto e não é digitada. Assim não nasce técnico com matrícula
+trocada. Nome sem escolha na lista não salva.
 
-## Publicou versão nova e o técnico continua vendo a antiga?
+A lista fica em cache por 10 minutos: técnico novo na MINI MASTER aparece nesse
+prazo.
 
-O service worker busca pela rede primeiro, então a versão nova chega sozinha na primeira abertura com internet. Para forçar, suba o número em `sw.js`:
+### Sessão
 
-```js
-const CACHE = 'ew-site-v25';   // v26, v27...
+Dura **12 horas** e se renova a cada uso. Fica gravada na aba `SESSOES`, com o
+token em hash — quem abrir a planilha não consegue se passar por ninguém.
+
+Antes ficava só no `CacheService`, e era isso que derrubava a sessão pouco depois
+de entrar: o Google descarta entradas de cache quando quer, e **toda nova
+implantação do App da Web limpa tudo**. O cache continua na frente como atalho,
+mas quem manda é a aba.
+
+"Sair" apaga a linha da aba, então o token deixa de valer na hora.
+
+Rode `limparExpirados()` de vez em quando para remover as sessões vencidas.
+
+### Perfis
+
+- **ADMIN** — setor administrativo. Cadastra pessoas, usa os módulos e
+  **cria e edita** os projetos em andamento.
+- **SUPERVISOR** — cria e edita os projetos em andamento, e é quem aparece na
+  lista do campo "Supervisor do projeto".
+- **DIRETORIA** — acompanha tudo, sem alterar projetos.
+- **USUARIO** — enxerga os mesmos módulos que os outros (Solicitação de
+  Materiais, Status RDO e Projetos em Andamento). A diferença é que **não cria
+  nem edita** projeto: só visualiza os cards.
+
+O perfil **não separa telas**, separa o que se pode alterar. Todos os quatro
+perfis abrem os três módulos.
+
+Quem edita projeto está em `PERFIS_EDITAM_PROJETO`, em **dois** lugares:
+`assets/base.js` (monta a tela) e `apps-script/SupervisaoCampo.gs` (decide de
+verdade). Mudar só o primeiro não muda permissão nenhuma.
+
+Quem enxerga cada módulo é definido por `perfis` em `config/modulos.js`.
+Perfil de uma pessoa já cadastrada se troca direto na coluna `perfil` da aba
+`USUARIOS`.
+
+---
+
+## Visual
+
+O portal usa a mesma linguagem dos apps de campo: cena de fundo com os
+aerogeradores girando, painéis de vidro e botão de tema claro/escuro no canto
+superior direito.
+
+O tema é gravado em `localStorage` na chave `ew_theme` — a **mesma** dos outros
+apps. Quem escolhe escuro num deles abre o outro já no escuro. Sem escolha
+salva, segue o tema do aparelho.
+
+Os ícones vêm do Font Awesome 6 pelo CDN. Sem internet, os cards continuam
+funcionando; só os pictogramas somem.
+
+---
+
+## Acrescentar uma opção no menu
+
+1. Coloque o `.html` dentro de `modulos/`.
+   Se for começar do zero, copie `modulos/_MODELO.html` — ele já vem com a
+   barra e as cores do portal.
+2. Abra `config/modulos.js` e copie o bloco de exemplo que está comentado no fim.
+3. Ajuste `cod`, `nome`, `desc`, `url`, `perfis`, `icone` e `cor`. Salve.
+
+Para o ícone, procure em fontawesome.com/icons e copie a classe
+(ex.: `fas fa-boxes-stacked`). A `cor` pinta a borda de cima do card, o ícone e
+o "Abrir".
+
+Não precisa mexer no `index.html`. Se o card não aparecer, é quase sempre
+vírgula faltando ou vírgula sobrando entre os blocos `{ }`.
+
+---
+
+## Ligar o backend
+
+Passo a passo completo está comentado no topo de `apps-script/Codigo.gs`.
+Resumo:
+
+1. Planilha nova → Extensões > Apps Script → cola o `Codigo.gs`
+2. Roda `configurarPlanilha()`
+3. Roda `definirPepper()` — **uma vez só**. Se apagar essa propriedade depois,
+   nenhuma senha funciona mais.
+4. Cola `Materiais.gs` como um segundo script e roda `configurarMateriais()`
+5. Cadastra as pessoas: recarregue a planilha e use o menu **Portal >
+   Cadastrar pessoa**
+6. Implantar > App da Web → *Executar como: eu* / *Acesso: qualquer pessoa* →
+   copia a URL `/exec`
+7. Em `config/config.js`: `MODO_DEMO = false` e cola a URL em `API_URL`
+
+Enquanto `MODO_DEMO` estiver `true`, isto é um protótipo. Não use com dados reais.
+
+---
+
+## Testar antes de publicar
+
+Abrir o `index.html` com dois cliques (`file://`) faz o navegador bloquear os
+arquivos de `config/`. Rode um servidor local, dentro da pasta `portal`:
+
+```
+python -m http.server 8000
 ```
 
-Se `CORE` ganhar um arquivo que não existe, a instalação inteira do service worker falha e ninguém fica com offline. Ao renomear ou mover arquivo, ajuste a lista.
+E abra `http://localhost:8000`.
 
-## Trocar o endereço do Apps Script do RDO
+Usuários de teste (modo demo):
 
-Aparece em dois lugares, e os dois precisam ser iguais:
+| Matrícula | Senha         | O que acontece                          |
+|-----------|---------------|-----------------------------------------|
+| 10432     | 52398471023   | primeiro acesso, cadastro incompleto    |
+| 10087     | Torre2026     | entra como ADMIN, cadastro completo     |
 
-- `index.html` — constante `ENDPOINT`, no bloco de login
-- `rdo/index.html` — constante `ENDPOINT`
+---
 
-## Detalhes que vale saber
+## Publicar no GitHub Pages
 
-- **Sem internet só entra quem já entrou antes.** A conferência de matrícula e CPF é feita pelo servidor. Dentro das 48 h da sessão tudo funciona offline; passado o prazo, o técnico precisa de sinal uma vez.
-- **A fila offline do RDO não se perde no logout.** Ela mora no IndexedDB, separada da sessão. Mas só volta a subir depois de entrar de novo.
-- **`fotocard/sw.js` virou um stub de desinstalação.** Os celulares que já usaram o Fotocard têm o service worker antigo instalado naquela pasta; é de lá que o navegador busca a atualização. Ele se desinstala e apaga o cache próprio. Dá para apagar o arquivo daqui a alguns meses, quando todo mundo já tiver aberto o app uma vez com internet.
-- **`html2canvas.min.js` ficou de fora** (198 KB). O Fotocard só o citava num comentário — o card é desenhado no Canvas 2D nativo desde a v38.
-- **`fotocard - Atalho.lnk` ficou de fora.** É atalho do Windows, não serve no site.
-- **O `guard.js` não é segurança, é conveniência.** Qualquer pessoa grava uma sessão falsa pelo console e abre as telas. O que protege os dados é o backend conferir o token — o Apps Script do RDO faz isso, com bloqueio de 10 minutos após tentativas demais.
+**Antes de subir, faça estes três:**
 
-## Os quatro checklists de inspeção (forms.app)
+1. `config/config.js` → `MODO_DEMO = false` e `API_URL` com a URL `/exec` real
+2. **`config/demo.js` já não está nesta pasta** — ele tinha matrícula, CPF e senha
+   de exemplo. Para testar sem backend de novo, recrie o arquivo e descomente a
+   tag `<script>` dele no `index.html`
+3. Confira que o `.nojekyll` foi junto (o Git não mostra arquivos que começam com
+   ponto por padrão)
 
-Ficam em `Checklist Almoxarifado/almoxarifado-seguranca.html` e são só atalhos: abrem em nova
-aba os formulários hospedados no forms.app. Não guardam nada no aparelho e não
-funcionam offline — o técnico precisa de sinal para preencher e enviar, e as
-respostas caem no painel do forms.app, não no Sheets nem no Dropbox da EW.
+Depois: Settings > Pages, aponte para a branch e a pasta. Os caminhos são todos
+relativos, então funciona tanto na raiz quanto em `/portal/`.
 
-| Botão | Endereço |
-|---|---|
-| Acesso por Cordas | `https://099hu7e7.forms.app/checklistquipamentosindividuais-1` |
-| Equipamentos Individuais | `https://099hu7e7.forms.app/checklistquipamentosindividuais` |
-| Ferramentas Gerais | `https://checklist.forms.app/formulario-de-ferramentas` |
-| Kit LOTO | `https://checklist.forms.app/formulario-de-ferramentas-1` |
-
-O checklist de **Plataforma saiu desta lista em 27/08/2026**: ele virou página
-do próprio site, em `Checklist Frotas/plataforma.html`. Deixar os dois no ar
-geraria duas versões da mesma conferência, cada uma mandando a resposta para um
-lugar diferente.
-
-Para trocar um endereço, mexa só no `href` do cartão correspondente.
-
-## Prazo semanal dos checklists
-
-`prazos.js` (raiz) pinta o cartão do checklist de vermelho conforme o prazo se
-aproxima. A janela abre toda **sexta**:
-
-| Checklist | Id | Prazo | Baixa |
-|---|---|---|---|
-| Materiais | `materiais` | segunda | automática (ao enfileirar o envio) |
-| Acesso por Cordas | `cordas` | segunda | manual |
-| Equipamentos Individuais | `epi` | segunda | manual |
-| Ferramentas Gerais | `ferramentas` | segunda | manual |
-| Kit LOTO | `loto` | segunda | manual |
-| Veículos (Frotas) | `veiculo` | terça | automática (ao gerar o PDF) |
-
-Prazo de segunda → cartão volta ao normal na terça. Prazo de terça → volta na
-quarta.
-
-**Baixa manual**: os quatro de inspeção moram no forms.app, que não tem como
-avisar o site que foram preenchidos. Nesses, o técnico toca na etiqueta
-vermelha e confirma. A etiqueta tem ✓ e alvo de toque de 30 px, e o toque não
-abre o formulário (`preventDefault` — o cartão é um link).
-
-O tom fecha a cada dia — âmbar na sexta, vermelho forte no dia do vencimento,
-com a etiqueta piscando. Passado o prazo o cartão volta ao normal, tenha sido
-feito ou não, e fica assim até a sexta seguinte.
-
-**Feito** baixa o alerta na hora e vale até o fim do ciclo, por checklist —
-dar baixa no Kit LOTO não apaga o alerta dos outros quatro.
-
-Onde aparece: os **seis cartões** de checklist, mais três cartões-resumo que
-juntam vários — **Checklist** no menu principal, e **Almoxarifado — Segurança**
-e **Frotas** no submenu. O resumo mostra o mais urgente e quantos ainda faltam
-("4 pendentes · Vence amanhã").
-
-Para pôr num cartão, basta `data-ew-prazo`. Aceita um id (`veiculo`), um grupo
-(`almoxarifado`, `frotas`) ou vários separados por vírgula. Os grupos ficam em
-`GRUPOS`, no `prazos.js` — checklist novo entra ali e todos os cartões-resumo
-passam a contar com ele, sem mexer em HTML nenhum.
-
-**É sinal visual, não é controle.** O "feito" mora no `localStorage`, que é por
-aparelho e por navegador: o telefone do técnico não sabe que o do colega já
-fez. Quem tem a verdade é a planilha. Isto serve para lembrar quem está com o
-aparelho na mão.
-
-Para mudar prazo ou escala de cor, mexa em `PRAZOS` e `cor()` no `prazos.js` —
-os dois valem para o site inteiro.
-
-## Checklist Frotas
-
-Três checklists que **não** dependem do forms.app: rodam no próprio site, geram
-o PDF no aparelho e funcionam offline depois da primeira abertura.
-
-| Checklist | Arquivo | Origem |
-|---|---|---|
-| Gerador elétrico | `Checklist Frotas/gerador-eletrico.html` | `https://checklist.forms.app/check-list-gerador-eletrico` |
-| Plataforma | `Checklist Frotas/plataforma.html` | `https://checklist.forms.app/formulario-plataforma-` |
-| Veículo (semanal) | `Checklist Frotas/veiculo.html` | `https://checklist.forms.app/formulario-de-inspecao-do-veiculo` |
-
-Os três HTML são **gerados**, não escritos à mão. Quem manda é o modelo JSON em
-`Checklist Frotas/modelos/`. Para mudar uma pergunta:
-
-1. Abra `Checklist Frotas/modelos/construtor-formulario_2.html`.
-2. **Abrir modelo** → escolha o `.json` do checklist.
-3. Edite, **Gerar formulário**, **Baixar arquivo** e substitua o HTML na pasta.
-4. Baixe também o modelo atualizado (**Salvar modelo**) por cima do `.json`.
-
-O passo 4 não é opcional: se o `.json` ficar velho, a próxima edição parte de
-uma versão anterior e desfaz o que você acabou de fazer.
-
-Depois de substituir qualquer um dos três HTML, rode `node _costurar.js` na
-pasta.
-
-**Duas costuras** são aplicadas ao que sai do construtor, e é o `_costurar.js`
-que faz isso: o `<script src="../guard.js">` (senão o link direto pula o login)
-e a seta "voltar" no cabeçalho (no PWA não existe barra de navegador). Sem a
-seta, quem entra num checklist fica preso e o menu parece não funcionar.
-
-### O que mudou em relação ao forms.app
-
-- **Matriz de seleção** virou uma pergunta de escolha única por linha — o
-  construtor não tem tabela de rádios. As opções (Conforme / Não conforme / N/A)
-  são as mesmas, e o PDF sai linha a linha.
-- **Vídeo** virou registro fotográfico sequencial. O PDF é montado no aparelho
-  pelo jsPDF e não embute vídeo.
-- **Nome completo** (Parque / Veículo) virou dois campos de texto, com os
-  mesmos rótulos que o forms.app usava.
-- **Página de boas-vindas e quebras de página** não existem: o formulário é uma
-  rolagem só. Os textos de instrução foram para o campo de ajuda logo abaixo.
-- A matriz eletromecânica do gerador tem **"Quanto ao marcador de combustível?"
-  repetido** — o erro está no formulário original. Ficou como
-  `... ? (2)` para dar para distinguir no PDF. Vale corrigir na fonte.
-
-Texto de pergunta ficou igual ao original, erros de digitação inclusive
-(`PLATAFOMRA`, `RESGISTRO`) — é o que o técnico reconhece. Opção de resposta e
-texto de ajuda com erro foram corrigidos, porque saem impressos no PDF:
-`não alicado` → `não aplicado`, `RIGIÃO` → `REGIÃO`. O `LEIA-ME.md` da pasta
-`Checklist Frotas/` lista tudo item a item.
-
-### Para onde vai o PDF
-
-Hoje: só para os downloads do aparelho. O campo **Endereço do Apps Script** está
-vazio de propósito nos três modelos. Preenchendo esse campo no construtor (e
-regerando), o formulário passa a mandar o PDF para o Dropbox e a linha para a
-planilha, como o RDO faz. As pastas de destino já estão escritas nos modelos:
-`/EW - CHECKLIST FROTAS/<EQUIPAMENTO>/<MM-AAAA>/`.
-
-## Checklist de Materiais — revisão de 27/08/2026
-
-**Nordex e GE deixaram de dividir a mesma lista.** Eram `LISTA_NORDEX_GE`; hoje
-são `LISTA_NORDEX` (43 itens) e `LISTA_GE` (47). Mexer numa não mexe na outra.
-
-| Mudança | Nordex | GE | Siemens |
-|---|---|---|---|
-| TECIDO BIAX 750 | saiu | saiu | — |
-| BALSA CORE 50 | saiu | saiu | — |
-| BALSA CORE 32MM / 45MM | — | entraram | — |
-| ESPUMA 20MM | ficou | virou `ESPUMA DE PVC S/ GROOVING 20MM` | — |
-| RESINA LR-135 + ENDURECEDOR LH-135 | saíram | saíram | — |
-| ENDURECEDOR LH-637 | entrou | entrou | — |
-| TYVEK 60% | virou `TYVEK` | virou `TYVEK` | já era `TYVEK` |
-| LOCTITE | virou `LOCTITE-243` | virou `LOCTITE-243` | — |
-| COMBI | virou `COMBI 900` | virou `COMBI 900` | já era `COMBI 900` |
-| MACACÃO 100% | saiu | saiu | — |
-| Resina/endurecedor alternativos de balanceamento | — | entraram | já tinha |
-| CYTEC — SCOTER | — | — | saiu |
-| BASE MASSA — CRYSTIC X401 | — | — | virou `MASSA FILLER POLYESTER` |
-| MASSA GT60 | — | — | entrou |
-| ENDURECEDOR MASSA / GEL COAT — MEKP | — | — | saíram |
-| BASE ADESIVO — SIKAFORCE-818 L07 | — | — | virou `ADESIVO — SIKAFORCE 818-L07` |
-| ENDURECEDOR ADESIVO — SIKAFORCE-050 | — | — | saiu |
-
-Os preços novos vieram da lista mestra: LH-637 = 708 (R$ 286,38), BALSA 32MM =
-726 (R$ 346,00), BALSA CORE 45MM = 363 (R$ 550,20), ESPUMA S/ GROOVING = 202
-(R$ 232,50), MASSA FILLER POLIESTER = 733 (R$ 70,52), ADESIVO SIKAFORCE = 338
-(R$ 212,00), alternativos = 720/721.
-
-**Só a MASSA GT60 ficou sem preço** — não existe código com "GT60" na lista
-mestra. Ela conta normalmente no checklist e aparece no bloco "MATERIAIS SEM
-PREÇO" do relatório. Enquanto estiver lá, o total da Siemens está subestimado.
-
-**Duas traduções do `MAPA_MAT` foram REMOVIDAS, não redirecionadas**: o par
-Hexion LR-135/LH-135 e o SikaForce-050. Se a calculadora ainda lançar esses
-materiais, eles aparecem como "material não encontrado no checklist" — visível,
-em vez de somar em silêncio no material errado. Quando a engenharia disser qual
-é o substituto, aponte no `MAPA_MAT`.
-
-**Um bug foi corrigido de passagem**: `["LH637", "ENDURECEDOR LH 635"]` mandava
-todo consumo de LH-637 da calculadora para o LH-635, porque o LH-637 não existia
-no checklist. Agora existe e aponta para si.
-
-### Material fora da lista
-
-O parque recebe coisa que a lista mestra não prevê, e isso não era contado.
-Agora tem, no fim da lista, **"Há material em campo que não está na lista?"** —
-Sim abre linhas de Material + Quantidade + unidade. As linhas vão para a
-planilha como qualquer outro item; como não têm preço cadastrado, caem sozinhas
-no bloco "MATERIAIS SEM PREÇO", que é o lugar certo para alguém decidir se
-viram item de lista. Guardado por cliente E por modo (estoque/entrada), igual às
-quantidades. Linha pela metade (só nome ou só quantidade) trava o envio.
-
-**Quantidade zero não pede foto** — já era assim antes desta revisão
-(`Number(qtd) > 0` em `pendencias()`): item zerado não tem tambor no parque
-para fotografar.
-
-### Entrada de material está DESLIGADA
-
-Desativada a pedido da engenharia em 27/08/2026. A aba continua na tela,
-apagada e com o selo `off`, para o técnico saber que a função existe e está
-desativada — e não achar que sumiu do app.
-
-**Para religar: `const ENTRADA_ATIVA = true;` no `index.html` do checklist.**
-Só isso. O estado da aba, o bloqueio do clique e a coerção do modo salvo saem
-todos dessa flag — não há segundo lugar para lembrar.
-
-O código da entrada continua inteiro: o modo, as chaves separadas de
-armazenamento (`ew_checklist_ent_*` / `ew_checklist_fent_*` / `ew_checklist_xent_*`),
-a exigência de lote e validade, e o tratamento de linhas ENTRADA no Apps Script.
-Nada foi apagado.
-
-Quem tinha o aparelho salvo no modo entrada cai em "contagem de estoque" ao
-abrir, e o valor salvo é corrigido — em vez de ficar preso numa aba que não
-responde. O que já foi enviado como ENTRADA continua na planilha e continua
-sendo usado pelas análises.
-
-Enquanto estiver desligada, o consumo calculado pela análise semanal **não
-desconta reabastecimento**: um material que foi reposto no parque aparece como
-se tivesse sido consumido menos do que foi. Contagem de estoque não é afetada.
-
-## Checklist de Materiais — unidades, fotos e PDF
-
-**A unidade não é mais escolhida em campo.** Ela vem das planilhas de
-acompanhamento de materiais e está fixa no `index.html` do checklist, em
-`UNIDADE_NORDEX_GE` (aba "Contagem") e `UNIDADE_SIEMENS` (aba "PADRÃO"). O
-motivo é a conferência semanal: se o app mandar `un` onde a planilha espera
-`kg`, a comparação não fecha. Traduções aplicadas: `KG`→`kg`, `M²`→`m²`,
-`ML` (metro linear) e `M`→`m`, `UN`/`UND`→`un`, `LT`→`L`.
-
-Ao incluir material novo na lista, acrescente a unidade nesses dois mapas —
-sem entrada no mapa, o item cai no `un` padrão.
-
-Duas exceções deliberadas: **macacão 100%** e **fita crepe larga** estão na
-planilha como `KG` e classificados como QUÍMICOS. São consumíveis, e no app
-valem `un` — a engenharia decidiu assim em 26/08/2026. Na aba PADRÃO a "FITA
-CREPE" já é `UN`, o que confirma que o `KG` da aba Contagem é erro de digitação.
-Enquanto a planilha não for corrigida, a coluna Unidade da aba `Checklist_*`
-vai dizer `un` para esses dois e a planilha de acompanhamento vai dizer `KG`.
-Não quebra cálculo nenhum (a análise só usa a quantidade), mas é divergência
-visível — corrija a planilha quando der.
-
-Seis itens Siemens não existem em nenhuma das duas abas — massa, gel coat e
-adesivo (Crystic, MEKP, SikaForce) e a fita 3M WPT2. A unidade deles é
-suposição nossa e está marcada com comentário no arquivo.
-
-**Foto dos químicos.** Resina, endurecedor, pintura, adesivo, massa, gel coat,
-diluente e parafina ganharam campo de foto (é a mesma lista de `PERECIVEIS`,
-via `ehQuimico`). A foto é reduzida para 1000 px no maior lado e gravada como
-JPEG de qualidade 0,6 — dá uns 80 KB, o bastante para ler rótulo de lote. Ela
-mora em chave separada da contagem (`ew_checklist_fest_*` / `ew_checklist_fent_*`)
-para que estourar a cota do navegador gravando foto não leve a contagem embora.
-`Limpar QTDs` apaga as fotos do modo atual junto.
-
-Só é cobrada foto de químico **com quantidade** — item zerado não tem tambor no
-parque para fotografar.
-
-**Os botões só liberam com tudo preenchido.** `Enviar para a planilha` e
-`Compartilhar (PDF)` ficam travados até: cabeçalho completo, TODOS os itens com
-quantidade (zero conta — numa contagem "não tem nenhum" é resposta), todo
-químico com quantidade com foto, e — na entrada — lote e validade dos
-perecíveis. A tarja acima dos botões diz o que falta.
-
-**O zero vai para a planilha.** `coletados()` manda todo item que tem valor,
-inclusive `0` — é o que diz "conferi e não tem nenhum". Sem essa linha o
-material desaparecia da janela da análise semanal e `consumoPeloChecklist` não
-tinha base nem fim para fechar o consumo daquele material.
-
-O `Code.gs` não precisou de mudança: ele já gravava `Number(item.qtd) || 0`, o
-upsert por Semana+Parque+Material+Tipo não filtra valor, e `coletarLotes_()`
-ignora linha sem validade — então perecível zerado não gera alerta falso. O
-efeito prático é que cada envio agora grava a lista inteira (45 a 47 linhas por
-cliente/parque/semana) em vez de só os itens com sobra.
-
-Cuidado ao mexer em `pendenciasLote()`: lote e validade só são cobrados de
-perecível com quantidade **maior que zero**. Sem esse filtro, desde que o
-`coletados()` passou a trazer os zeros, o app passaria a exigir rótulo de
-material que nem foi recebido.
-
-**Compartilhar gera o PDF no próprio aparelho.** `gerarPDF()` escreve o PDF à
-mão, sem biblioteca: o app precisa funcionar offline e a política de segurança
-da página não deixa carregar script de fora. São páginas A4 com Helvetica
-(WinAnsiEncoding, que cobre o português) e as fotos embutidas como JPEG via
-filtro `DCTDecode` — sem recompressão. Depois vai para o `navigator.share` com
-o arquivo anexado, que é o que abre o WhatsApp. Onde o navegador não sabe
-compartilhar arquivo, o PDF é baixado para anexar à mão.
-
-`Exportar CSV` e `Imprimir / PDF` saíram.
-
-## Gasto em R$ (Apps Script)
-
-O preço unitário mora no `EW-Sheets-Script/Code.gs`, em `PRECO_NORDEX_GE` e
-`PRECO_SIEMENS`. Veio das duas planilhas de acompanhamento: aba
-"Comparativo W30 vs W31" (Nordex) e aba "PADRÃO" (Siemens). A tabela é por
-cliente porque as duas planilhas divergem — TECIDO BIAX 450 é R$ 41,48 na
-Nordex e R$ 44,20 na Siemens.
-
-A busca passa por `norm()`, então travessão, acento e caixa não atrapalham, e o
-material que vem da calculadora é traduzido por `traduzirMaterial()` antes —
-uma tabela serve às duas fontes.
-
-**Duas colunas novas nas abas `Checklist_*`:** `Valor unit (R$)` e
-`Valor total (R$)`. Elas guardam o valor da LINHA (QTD × preço): numa linha de
-ESTOQUE é quanto vale o que está parado no parque, numa de ENTRADA é quanto
-entrou. **Não é gasto.** Entraram no fim do cabeçalho, então nenhuma linha
-antiga saiu de lugar.
-
-**Gasto é consumo × preço**, e sai em duas abas novas:
-
-| Aba | Janela | O que traz |
-|---|---|---|
-| `Gasto Semanal (R$)` | 8 semanas | resumo por parque/semana, detalhe por material, materiais sem preço |
-| `Gasto Mensal (R$)` | mês corrente + 6 meses de histórico | fechamento mês a mês, por parque, por material |
-
-Consumo pelo checklist entre duas contagens é
-`estoque(anterior) + entradas no meio − estoque(atual)`, com as entradas
-filtradas por DATA (não por número de semana — na virada do ano a semana 1 é
-menor que a 52 e comparar número daria janela errada). Material com uma
-contagem só não gera gasto: sem duas medições não há como saber o que saiu.
-Consumo negativo aparece com aviso na coluna Obs — é contagem errada ou entrada
-não lançada.
-
-Consumo pela calculadora é a quantidade pesada na aba `Consumo_Reparos`. As duas
-fontes quase nunca dão igual, e a diferença é o que interessa: material que saiu
-do estoque e não apareceu em reparo nenhum.
-
-**Cobertura em 26/08/2026: 92 de 92 itens com preço** (47 Nordex/GE + 45
-Siemens). Mesmo assim, o bloco "MATERIAIS SEM PREÇO" das abas de gasto continua
-valendo: material novo que entrar na lista do checklist e não for cadastrado
-aqui cai nele, com o consumo certo e gasto zero — nunca escondido.
-
-A fonte é a **lista mestra** de materiais (TIPO / ID / QUÍMICOS E CONSUMÍVEIS /
-UM / CLASSE / DEMANDA / ESTOQUE ATUAL / ÚLTIMA COMPRA), e o valor usado é o da
-ÚLTIMA COMPRA. Cada linha das tabelas tem, no comentário ao lado, o ID e o nome
-de lá — é assim que se confere. Só o TYVEK segue com valor de lista antiga,
-porque não aparece na lista mestra.
-
-São **três** tabelas de preço: `PRECO_NORDEX_GE` (o que os dois dividem),
-`PRECO_SO_NORDEX` e `PRECO_SO_GE` (os exclusivos de cada um), mais
-`PRECO_SIEMENS`. O `precoIndice_()` junta comum + exclusivo por cliente.
-
-## Resumo Semanal — quanto tem em campo, em R$
-
-Aba nova (menu **⚙️ Automação EW → 📅 Resumo semanal**), janela de 8 semanas.
-Três blocos:
-
-1. **ESTOQUE EM PARQUE (R$)** — uma coluna por semana com o valor do material
-   parado no parque, mais `Δ vs semana anterior` e `Δ vs 1ª semana do mês`.
-   Linha TOTAL no fim. Célula vazia é "não houve contagem naquela semana" — e
-   fica vazia mesmo, porque somar como zero derrubaria o total do parque.
-2. **QTD DE MATERIAIS EM PARQUE** — quantos materiais distintos com estoque
-   acima de zero, semana a semana.
-3. **MATÉRIA PRIMA POR PARQUE**, um bloco por cliente, no formato do relatório
-   gerencial "Matéria Prima por HH", com TOTAL por cliente e TOTAL GERAL.
-
-As colunas **DEVOLUÇÃO MP, SOMA DE HH, Produtividade, FIM, TRIMESTRE e
-Custo EPI/HH saem em branco de propósito**: nada disso passa pelo checklist, e
-preencher com zero daria a impressão de que o dado existe e vale zero.
-
-O que é preenchido:
-
-| Coluna | De onde |
-|---|---|
-| PROJETOS | parque |
-| R$ MATÉRIA-PRIMA | soma das ENTRADAS lançadas na janela. **Depende de a equipe lançar entrada** — se não lançar, fica subestimada. É por isso que vem acompanhada do estoque e do consumo, que não dependem disso |
-| R$ MP PARQUE W_n | estoque em R$ na semana corrente |
-| CONSUMO R$ | mesma fonte do Gasto Semanal, para os dois não divergirem |
-| R$ EPI'S | soma dos itens marcados em `EPIS` (hoje só o TYVEK) |
-| OBS | avisa quando o parque tem material sem preço cadastrado |
-
-**Sete valores não vieram direto da lista mestra.** Todos estão marcados no
-arquivo; se algum estiver errado, o gasto daquele material sai errado:
-
-| Item | Valor | De onde |
-|---|---|---|
-| COMBI 900 | 44,20 | **a lista dá por metro, o app conta em kg** |
-| TOP COAT 12 RAL 7035 (GRAY) e RAL 3020 (RED) | 392,40 | a lista só tem o 348 (vermelho). Em 27/08/2026 a engenharia fixou o **cinza como referência** e mandou o vermelho seguir ele; como o único valor de nota é esse, os dois ficam iguais |
-| TYVEK (Nordex/GE) | 20,80 | lista Nordex antiga — a Siemens tem o mesmo produto a R$ 22,00 na tabela dela. **Vale unificar** quando alguém conferir a nota |
-| MASSA GT60 | — | **sem preço**, não existe na lista mestra |
-
-Os itens que antes estavam nesta tabela — BIAX 750, CRYSTIC X401, os dois MEKP e
-o SikaForce-050 — saíram das listas em 27/08/2026 e não têm mais preço cadastrado.
-
-O **SikaForce-050** não tem preço público: windsourcing e Castro Composites só
-mostram valor após login, e o único número aberto é € 56,55 pelo cartucho de
-195 ml do 818 L07 já misturado — preço de cartucho fica 2 a 3 vezes acima do
-barril por quilo, então não serve de base. Os R$ 300,00 estão ancorados no
-material comparável da própria lista da EW: o EPOXY ENDURECEDOR 137GF,
-endurecedor de adesivo estrutural de pá, a R$ 303,65/kg. **Trocar pelo valor
-real na primeira nota fiscal.**
-
-O **COMBI** é o outro ponto frágil: o preço é por metro e o checklist conta em
-kg, então aquele gasto só fecha quando as duas unidades baterem.
-
-**Os dois TOP COAT coloridos foram renomeados** no `checklist.html` em
-26/08/2026: era "TOP COAT 12 RAL 3020 RED" e "TOP COAT 12 RED 3020" (dois
-vermelhos, que era o erro), virou "TOP COAT 12 RAL 7035 (GRAY)" e
-"TOP COAT 12 RAL 3020 (RED)". Mexer nesse nome exige mexer em quatro lugares:
-`LISTA_NORDEX_GE`, `UNIDADE_NORDEX_GE` e `PERECIVEIS` no HTML, e `MAPA_MAT` mais
-a tabela de preço no `Code.gs`. No `MAPA_MAT` as entradas do colorido precisam
-vir ANTES do "TOP COAT 12" genérico: a busca é por substring e o genérico
-capturaria o colorido, creditando o consumo do vermelho ao cinza.
-
-O vermelho é **RAL 3020**, igual à lista mestra. O `MAPA_MAT` ainda aceita as
-grafias "RAL 7020" e "RED 3020" como origem, para registro antigo de calculadora
-não deixar de casar.
-
-Para acrescentar preço: mexa só nos números dos dois mapas. O nome tem de bater
-com a grafia do `checklist.html`.
+`apps-script/` pode subir ou não — não tem senha nem chave dentro (o PEPPER fica
+nas Propriedades do Script, não no código). Publicar só expõe a lógica do backend
+para quem quiser estudá-la.
+
+### O repositório vai ser público?
+
+O GitHub Pages gratuito só serve site de repositório público. Isso significa que
+qualquer pessoa lê o `index.html` e descobre a sua `API_URL`. Não é uma falha:
+quem valida senha é o Apps Script, e ele bloqueia a matrícula por 15 minutos
+depois de 5 tentativas erradas. Mas é bom você saber que o endereço do endpoint
+é público, e que quem quiser tentar entrar precisa de matrícula **e** senha.
+
+Se preferir que nem o endereço apareça, o caminho é repositório privado com
+Pages — o que exige plano pago do GitHub.
+
+---
+
+## Quadro de Solicitação de Materiais
+
+O quadro abre **na mesma aba** do portal e tem um botão "Portal" no canto
+superior direito para voltar — que devolve ao menu, não ao login: o portal
+retoma a sessão guardada ao recarregar. A sessão vale 8 horas; passado isso, ou
+se o token cair antes, a tela de login volta com o aviso. Não tem login próprio: usa a sessão aberta no
+portal. Se alguém abrir
+`modulos/solicitacao-materiais.html` direto, aparece uma tela pedindo para entrar
+pelo portal.
+
+Como os dados ficam:
+
+- **Cards** → aba `MAT_CARDS`, uma linha por solicitação
+- **Configuração do quadro** → aba `MAT_META` (nextSeq, colunas, revisão global)
+- **Anexos** → pasta no seu Drive, fora da planilha. O card guarda só a ficha do
+  arquivo. Uma célula do Sheets aceita 50 mil caracteres; um anexo de 3 MB em
+  base64 tem 4 milhões.
+
+O quadro consulta o servidor a cada 8 segundos. Se ninguém mexeu, a resposta é
+só o número da revisão — não lê a planilha inteira à toa.
+
+**Edição simultânea:** cada card tem sua própria revisão. Duas pessoas em cards
+diferentes nunca se atrapalham. Na mesma solicitação, quem salva primeiro passa;
+o segundo recebe um aviso, vê a versão que ficou e refaz a alteração. Nada é
+sobrescrito em silêncio.
+
+Enquanto alguém está com uma solicitação aberta, atualizações que chegam ficam
+esperando e entram quando a janela fecha — para o formulário não ser trocado
+debaixo de quem está digitando.
+
+### Fotos e PDFs
+
+- **Fotos aparecem no card**, sem precisar abrir. Se houver mais de uma, setas
+  passam de uma para a outra ali mesmo. Clicar na foto abre em tela cheia.
+- **PDF abre clicando no nome do arquivo**, dentro do próprio quadro, sem baixar.
+  No celular, se a página vier em branco, use "Abrir em nova aba" na barra de cima.
+- Dentro da solicitação, as fotos aparecem em grade e cada arquivo tem o botão
+  de baixar do lado.
+
+O que o card mostra é uma **miniatura** de 340 px gerada no navegador na hora do
+envio, guardada como arquivo separado no Drive. O original só é baixado quando
+alguém abre ou baixa de fato. Sem isso, um quadro com trinta fotos de 4 MB
+levaria mais de 100 MB a cada abertura.
+
+### Instalação do módulo
+
+No mesmo projeto do Apps Script, crie um segundo script (Arquivo > + > Script,
+nome `Materiais`) e cole `apps-script/Materiais.gs`. Depois rode
+`configurarMateriais()` uma vez. Ela cria as duas abas e a pasta de anexos.
+
+Reimplante o App da Web depois de colar (Implantar > Gerenciar implantações >
+editar > Nova versão), senão as ações novas não sobem.
+
+### Anexos e privacidade
+
+Os arquivos ficam **privados** no Drive, sem link público. Para baixar, o quadro
+chama o Apps Script com o token da sessão; ele confere o token, confere que o
+arquivo está mesmo na pasta de anexos e devolve o conteúdo. Quem não estiver
+logado no portal não abre anexo nem com o id na mão.
+
+Limite de 4 MB por arquivo — não é da planilha, é o tempo de execução do Apps
+Script, que começa a estourar acima disso.
+
+Rode `limparAnexosOrfaos()` de vez em quando: ela manda para a lixeira arquivos
+que nenhum card referencia mais.
+
+---
+
+## Manutenção da planilha
+
+Duas funções, nenhuma urgente. O ideal é criar um acionador mensal para cada
+(no editor do Apps Script: ícone do relógio > Adicionar acionador > Timer mensal).
+
+- **`limparExpirados()`** — no `Codigo.gs`. Apaga códigos de recuperação com mais
+  de 7 dias e faz a faxina da aba `LOG`.
+- **`limparAnexosOrfaos()`** — no `Materiais.gs`. Manda para a lixeira do Drive
+  arquivos que nenhum card usa mais.
+
+### Prazos do LOG
+
+São dois, definidos no topo do `Codigo.gs`:
+
+- `DIAS_LOG_SEGURANCA = 180` — login, troca de senha, reset, cadastro, erro.
+  Volume baixíssimo (umas 40 linhas por dia numa equipe de 20). É o que você
+  consulta se precisar entender um acesso indevido, e esse tipo de coisa
+  aparece semanas depois.
+- `DIAS_LOG_OPERACAO = 15` — anexos enviados e baixados. Volume alto, utilidade
+  curta.
+
+Salvar no quadro **não** gera linha de log: a própria aba `MAT_CARDS` já guarda
+`atualizado_por` e `atualizado_em` de cada solicitação. Só conflito e exclusão
+são registrados.
+
+---
+
+## Gantt de Campo (módulo novo)
+
+Arquivo: `modulos/gantt-campo.html`. Entra pelo card **Gantt de Campo** dentro de
+Supervisão de Campo. É **só leitura**: mostra os mesmos projetos de *Projetos em
+Andamento* em linha do tempo, uma coluna por semana.
+
+- Semana ISO, começando na segunda. O número bate com a planilha de campo:
+  14/09/2026 = W38. O mês de cada semana é o da quinta-feira dela, por isso a
+  semana de 28/09 aparece sob outubro.
+- A coluna da semana corrente fica marcada em vermelho.
+- Os nomes dos técnicos aparecem na primeira semana, na semana atual e sempre que
+  a formação muda. Quem sai fica **vermelho e riscado** na última semana dele.
+- Abrindo o arquivo direto do computador (`file://`), a tela roda em **modo
+  exemplo**, com dados fictícios, só para conferir o desenho. No portal, nunca.
+
+### Campos novos no projeto
+
+Os dois são gravados dentro do JSON da aba `PROJ_CARDS`. Nenhuma coluna nova.
+
+- **`equipes`** — histórico das formações. Uma lista, cada item valendo a partir
+  de uma data:
+
+      equipes: [
+        { desde:'2026-08-17', tecnicos:[ {nivel:'N1', nome:'...', matricula:'...'}, ... ] },
+        { desde:'2026-08-24', tecnicos:[ ... ] }
+      ]
+
+  O campo `tecnicos` **continua existindo** e guarda a formação vigente — é ele
+  que o espelho `SUPERVISORES` e o Status RDO leem. Projeto antigo, sem
+  `equipes`, abre com uma formação só e não precisa ser recadastrado.
+
+- **`fimPrevisto`** — previsão de término. Vale enquanto o projeto roda e é o que
+  estica a barra do Gantt. É separado de `fim`, que só existe quando o projeto é
+  concluído; assim a previsão sobrevive à conclusão e dá para comparar previsto
+  com realizado.
+
+### Gatilho diário — obrigatório
+
+Uma troca de equipe marcada para uma data futura só entra na aba `SUPERVISORES`
+quando alguma coisa reescreve o espelho. Sem gatilho, ele fica parado na última
+gravação de projeto.
+
+No editor do Apps Script: **Acionadores** > *Adicionar acionador* >
+função `atualizarAbaSupervisores`, origem *Baseado no tempo*, tipo *Contador de
+dias*, de madrugada.
+
+O `SupervisaoCampo.gs` já recalcula a equipe vigente na hora de escrever o
+espelho (função `equipeVigenteDoProjeto_`); o gatilho só faz isso acontecer todo
+dia.
+
+---
+
+## Carregamento — o que foi mexido e por quê
+
+Nada mudou no que a tela faz, nos botões nem nas funções. Só onde o tempo era
+gasto.
+
+### Backend
+
+- **Miniaturas dos anexos** (`Materiais.gs`). Era o item mais caro do portal:
+  duas idas ao Drive por miniatura (`getFileById` + percorrer `getParents()`),
+  sem cache nenhum. Agora cada miniatura fica 6 h no cache — miniatura não muda,
+  o arquivo é gerado uma vez no upload — e a conferência de pasta virou uma
+  comparação com os ids que os próprios cards declaram. Da segunda abertura em
+  diante o Drive não é consultado.
+
+- **Perfil do usuário** (`perfilDe_`). Era lido em toda requisição de projeto,
+  inclusive no polling que não traz dado nenhum, e cada leitura varria a aba
+  `USUARIOS` inteira. Agora tem 5 min de cache. O preço: quem for rebaixado na
+  planilha continua editando por até 5 minutos. Para derrubar na hora, rode
+  `limparCachePerfil('<matricula>')`.
+
+- **Cache fatiado** (`guardarGrande_` / `lerGrande_`, no `Codigo.gs`). O
+  `CacheService` aceita no máximo 100 KB por chave. RDO e EHS guardavam a
+  planilha inteira numa chave só, o que funciona enquanto a aba é pequena e
+  depois passa a falhar **em silêncio** — o `put` estoura, ninguém percebe, e a
+  planilha volta a ser lida duas vezes (`getValues` + `getDisplayValues`) a cada
+  requisição. Com 185 linhas ainda cabia; o limite chegaria por volta de 500.
+  Agora o texto é fatiado e o cache continua valendo quando a aba crescer.
+
+- **Listas de filtro** (`rdoFiltros` / `ehsFiltros`). Cliente e parque novos
+  entram devagar e não precisam da releitura de 2 minutos dos relatórios:
+  ganharam chave própria com 15 min de cache.
+
+### Frontend
+
+- **Status RDO e Status EHS** faziam duas idas ao servidor em série
+  (`preencherFiltros().then(buscar)`). Agora vão em paralelo: a tela espera a
+  mais lenta das duas, não a soma.
+
+- **Projetos em Andamento** disparava quatro idas ao abrir. As três listas
+  auxiliares (técnicos, supervisores, tipos de reparo) só servem dentro da
+  janela de edição e agora saem 1,2 s depois da primeira pintura, fora do
+  caminho crítico.
+
+- **Polling.** Materiais passou de 8 s para 20 s; Projetos deixa de consultar
+  com a aba escondida. Cada rodada é uma execução do Apps Script, e elas
+  entravam na fila na frente dos cliques de quem estava mexendo na tela.
+
+### O piso que continua existindo
+
+Toda chamada ao Apps Script publicado em `/exec` responde com um redirecionamento
+para `googleusercontent.com` — ou seja, são **duas viagens HTTP por chamada**,
+mais a partida da execução. Isso é do Apps Script e não tem como remover daqui.
+Por isso o ganho veio de **fazer menos chamadas**, não de deixar cada uma mais
+rápida.

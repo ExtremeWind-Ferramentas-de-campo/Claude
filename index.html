@@ -2,19 +2,24 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://script.google.com https://script.googleusercontent.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Extreme Wind — Apps de campo: Fotocard e Calculadora de Reparos">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Portal administrativo — Extreme Wind Blade Services">
 <meta name="theme-color" content="#2b7fd0">
-<title>Extreme Wind | Apps</title>
+<title>Extreme Wind | Portal Administrativo</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
+<!-- Ícone embutido: sem isso o navegador pede /favicon.ico sozinho e leva 404.
+     Embutido também não some se o arquivo não for junto na hora de publicar. -->
+<link rel="icon" type="image/png" href="data:image/png;base64,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">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAILUlEQVR42u1bbYxU5RV+zvtx73ywCEhBjBZDBCrQNhFSmzTtlpKaflD6h7uUYIvFujRSirgWFjWdHb+alTViME1AY6t1sZ1BQippk3YV1rY/SsQ0RhZLwNh2lfDtMrvzce9939MfM7PsLlsKsswKM8/Pyc685zznOee859y7QA011FBDDTXUMCrwUhJgqhExihgd9hMJAQD6baeBmN7ydz5wEEgIIGkrbYqovPdMSCZ56vs3OaTEyyzsTwEAc4/I0YhF5Qnw0gIAHwt7PgvpWgvxOSR2K0w7bauDgGP7CQA4LHyViQSB58TffnMC0mkzGgVRjFbxscbOgzUgpa/J62AeAKC+peJpoCqe/50ws+751JjDRzNz2ASA0oJ8fAbAH6ojBUDc1f0vsmxvANtSI6LbRkuJFSaghQCgLjp+CogECAwTQBLPmdu4JYbOlorXgcoSUF88L7BqHpzIGDAMrIUFffqfmUwMIK6KIpgv9PWCGQAYBDAbhNnT0SqpAYDjuNP6b6LWGqEjMR0f+/nR6ASjQoBQ6suDPxCCpBOvGgWEgfEHNUdm5Pp6naohYLghzCo3WzUEsB2m1bGlalLAJwajQgCJYfo9Ca4iBfA5znIYqqohQErpDq6IhFgkZquGAEH83tCeIGGqpwbksn1/KSsfggT7+ZzpPbMfANAJe/UrQDuRQXpg6/e6zvHSxMhXPQGuGy0QMwMgMEMKSddcf31w9adAZ4sBgFwm81cb5HtApKA0rLVv3Zzz++B5stIj8ei0QTWxtA9lgAgs5Ml9Uz40ODarKpaiJHauPikFHQWJYhO0/CckkxaTKm9PBWdvptL+jyNL29ZYy98EWwVmZoFYdM7t3UH6ocPFJ0SdFUsDqtg5nifqZ91Dfzuw9zlSkeUwPogEAAaTAFkDMC/2U+tegZeSSDeYqycF6hMS6bTZ++6bPxbKXY4wDwqDbVFJnha0TAT5d5kkbBA8iUWtdUjv50otRytz/54EgcYtOjh5/OskXSuZOwqvPLCsvBW5dtlT+zKB/3e4kanaz34r8GZvx3tbJfYhuJJTgOClRDGaSSuIoBc//m+rIjfabN8i81HwR0xCBJkJwTemA3uOZA4ZPeYGZf3nc79bdxeA0vsDwOVMh5EnIJEQ2AOBzmRYPmDMil/OLGSz3+UwTEKpiPULm8yOB9eWvzL+zrYbs1nzjmUaAzbvg2iDq9TrvS/ff6K/gHppgXSDBcCfTAISCYGu2VSO1uQ7NsbPhLTCsF3Mxn4BSkcQ5BmgEESWSGzVUuxUAuNyQdDEEF+ECQ2k0hAKCAsnlXY6hNTP9rXf+9qAeqLQmTQjRQSNtON1S9pm5ELzbQi7kqQ7E9YAxgeYAxBp6AhgQ4AEYEKQECVPqPhZkA9BBJBQUA5gLTjwO0g5z04cP3PXka2LsgOICEeXgAHtylm6aTpssJpNuALKjcP4gAlN8QhmKK1gGZLsZmvxJTiRW9nakhEMhME2Ih5rnfhCFHoZ3D8VCmiXSoQdFEJsHqfxq6Mv/ayvmBoNovhovZIEeCmJtGcB4ol3bpp+Jld23IkjLADMIYBSaJnhxiUH+cNsxd1mx/rdk5tejJ/54Pjtfi5zKzmR45Go+4/eF9e+AQDRpW1tYRg2FR0OQgCySAYDUklIDTbhQSnlM4Xf3r+5Xw17Wgzo4ucIuui/r0/IsvQcr3UtER61QscQ5AFwWLpdEphDSKUgFBjcrpVpzrU3d6Nxi8bWlcO0t0TpTpK0bkPrfGPtZtLubPjZohqIykQwpJJQDuD7rwtJjxZS63cPVeTIE5BICCSLLzGVDHyQlLtgGMcNAAE3TjDBf8BoDtLrtg02kGnQI7BJs7nf8HJuL0zEdDTyCCDug5BAWAjBECCIIiFsoSIKJmAIuVlpuzHX3txdspMvtEheGAElo6YsTMRORGOPADhr1CDHiaBdARMwpHqmTjlPnGpf0w3Pk0il7AVLdEAk3YYn5xsOHyLlfA1hoVxXqEgEG1CJ7HAI2QMCdikEEJAgIGnhPTbLgUixdGcjGCjLUsR1hGANiNGhHfV437amjy3L4dIt+r221aExP4HUMwYUWAKVyJdSQTogE/zaz+VWYVcyeyFn03klD4AefthGvNZ7Q2segxAxmLAoxeJqu+g4W4D5z4LoiUJqXcelFqbBavAk0ikLEE++Y2P8ZAE/BNvVpPQMmACwQaljEAEM6IhgG+wXAXn+zuYDqN+t0Dk/vDgCBsjH8VpfgBP5AeczDEaxukstIRWIDdhyh9C6tbDtvo7+YuZ10aW0pvOlIQCgcUvM/ajnLgu7CoyZkBpnuw8zhNYgkQVsY5Ba314kMT3sLZKGr8ZJO3n5Uzf15ILnDGMBjJ8HUQTaBUHABoWDJMQuNxL5fe9v1nReVsfPkxZo3KJlT+YrZMO7yYQL4caLbTgMDESxNJFAU7B9w9Ol9zFo6MqNhnGeseQXUx2Wr7FypiH0AalBfjZrIV4loXZMzI3ddWTXyuzAWf8yO/4/Bq2z+V23pG1GAXYhMX7E4FuYFMAG5EQBP/e8f0vfSnR18VA7adDGJtFC6BrrqjD/Dmk9jWz4IYjeEDr6ap0we4+/1HRokCQnnfuDlV6vwfME4PVPjDevfto90WNvy4Y8VxjzHWvtLMTGTTZ9p1rN9g3NQ6/QdM4PJhLkdkUXaEd+cN2E67oPbf7+mUHtqTiejvhUNtJTaNm5KateuLbv9Kn6nmzmAHb+/MBwafD/e3J9QpW7whUA6rf5Y886XkoWHb4a/pmB6QoLYA011FBDDTVUCv8FW5/+mjRyEBUAAAAASUVORK5CYII=">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="EW Apps">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
+
+  /* ===== tokens: mesmos do app de campo, para as duas telas parecerem
+     o mesmo sistema. A chave de tema também é a mesma (ew_theme), então
+     quem escolhe escuro num app abre o outro já no escuro. ===== */
   :root{
     --ink:#0e2033; --muted:#4f6273;
     --panel:rgba(255,255,255,.82); --panel-border:rgba(255,255,255,.65);
@@ -24,7 +29,12 @@
     --turbine:#f9fdff; --turbine-edge:#c7d8ea; --tower:#eef5fb;
     --sun:#ffd76a; --sun-glow:rgba(255,215,106,.55);
     --cloud:rgba(255,255,255,.9); --star:transparent;
+    --azul:#2b7fd0; --erro:#b02a1e; --ok:#15803d; --alerta:#c26a12;
+    /* Logo embutida: não depende de arquivo externo, então não existe o caso
+       de o PNG faltar e a tela cair no texto "EXTREME WIND". Proporção 2.273. */
+    --logo:url(data:image/png;base64,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);
     --ff:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Consolas,monospace;
     --shadow:0 18px 50px rgba(9,34,64,.18);
   }
   :root[data-theme="dark"]{
@@ -36,6 +46,7 @@
     --turbine:#a9bccf; --turbine-edge:#6d859c; --tower:#93a8bf;
     --sun:#dde8f6; --sun-glow:rgba(221,232,246,.28);
     --cloud:transparent; --star:#dfeaff;
+    --azul:#4d9ae8; --erro:#ff9b90; --ok:#6fd39b; --alerta:#e0a13f;
     --shadow:0 18px 50px rgba(0,0,0,.5);
   }
   @media (prefers-color-scheme:dark){
@@ -48,13 +59,18 @@
       --turbine:#a9bccf; --turbine-edge:#6d859c; --tower:#93a8bf;
       --sun:#dde8f6; --sun-glow:rgba(221,232,246,.28);
       --cloud:transparent; --star:#dfeaff;
+      --azul:#4d9ae8; --erro:#ff9b90; --ok:#6fd39b; --alerta:#e0a13f;
       --shadow:0 18px 50px rgba(0,0,0,.5);
     }
   }
-  html{overflow-x:hidden}
-  body{font-family:var(--ff);color:var(--ink);min-height:100vh;position:relative;overflow-x:hidden;
-    display:flex;flex-direction:column;-webkit-tap-highlight-color:transparent}
 
+  html{overflow-x:hidden}
+  body{font-family:var(--ff);color:var(--ink);min-height:100vh;position:relative;
+    overflow-x:hidden;display:flex;flex-direction:column;-webkit-tap-highlight-color:transparent}
+  [hidden]{display:none !important}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+  /* ===== cena de fundo ===== */
   .scene{position:fixed;inset:0;z-index:-1}
   .scene svg{width:100%;height:100%;display:block}
   .sky-1{stop-color:var(--sky-1)} .sky-2{stop-color:var(--sky-2)}
@@ -66,130 +82,180 @@
   .sun{fill:var(--sun)} .sun-glow{fill:var(--sun-glow)}
   .cloud{fill:var(--cloud)} .star{fill:var(--star)}
 
-  .theme-btn{position:fixed;top:14px;right:14px;z-index:20;width:42px;height:42px;border-radius:50%;
-    border:1px solid var(--panel-border);cursor:pointer;background:var(--panel);color:var(--ink);font-size:1.05rem;
-    box-shadow:var(--shadow);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  .theme-btn{position:fixed;top:14px;right:14px;z-index:70;width:42px;height:42px;border-radius:50%;
+    border:1px solid var(--panel-border);cursor:pointer;background:var(--panel);color:var(--ink);
+    font-size:1.05rem;box-shadow:var(--shadow);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
   .theme-btn:hover{filter:brightness(1.05)}
+  .theme-btn:focus-visible{outline:2px solid var(--azul);outline-offset:2px}
 
-  .landing{flex:1;width:100%;max-width:820px;margin:0 auto;padding:34px 18px 24px;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center}
+  /* ===== marca ===== */
   .brand-pill{background:#fff;border-radius:16px;padding:12px 20px;box-shadow:var(--shadow)}
-  .brand-pill img{height:46px;width:auto;display:block}
-  .brand-fallback{font-weight:800;letter-spacing:.5px;font-size:1.5rem;color:#004aad}
-  h1{font-size:clamp(1.5rem,4vw,2.2rem);font-weight:800;letter-spacing:-.5px;line-height:1.15;
-    text-shadow:0 1px 12px rgba(255,255,255,.35)}
-  :root[data-theme="dark"] h1{text-shadow:0 1px 14px rgba(0,0,0,.5)}
-  .subtitle{font-size:1rem;color:var(--muted);font-weight:600;margin-top:-8px}
+  .marca-img{display:block;background:var(--logo) center/contain no-repeat}
+  .brand-pill .marca-img{height:54px;width:123px}
 
+  /* ===== entrada ===== */
+  #portao{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-start;
+    justify-content:center;overflow:auto;padding:24px 16px}
+  .login-box{width:100%;max-width:420px;margin:auto;background:var(--panel);
+    border:1px solid var(--panel-border);border-radius:24px;padding:28px 24px;
+    box-shadow:var(--shadow);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  .login-marca{background:#fff;border-radius:14px;padding:10px 16px;display:inline-block;margin-bottom:16px}
+  .login-marca .marca-img{height:46px;width:105px}
+  .cx-topo{text-align:center}
+  .eyebrow{font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);margin:0}
+  .cartao__titulo{font-size:1.3rem;font-weight:800;margin:6px 0 4px;line-height:1.25}
+  .cartao__sub{font-size:.86rem;color:var(--muted);font-weight:600;margin:0 0 22px;line-height:1.45}
+
+  /* ===== campos ===== */
+  .campo{margin-bottom:14px}
+  .campo__rot{display:block;font-size:.78rem;font-weight:700;color:var(--muted);margin-bottom:6px}
+  .campo__caixa{position:relative;display:flex;align-items:center}
+  .campo input{width:100%;background:var(--card);color:var(--ink);border:1px solid var(--card-line);
+    border-radius:12px;padding:13px 12px;min-height:48px;font-family:inherit;font-size:1rem;font-weight:600}
+  .campo input.mono{font-family:var(--mono);letter-spacing:.5px}
+  .campo input::placeholder{color:var(--muted);opacity:.55;font-weight:500}
+  .campo input:focus{outline:2px solid var(--azul);outline-offset:1px;border-color:var(--azul)}
+  .campo input[readonly]{opacity:.65;cursor:not-allowed}
+  .campo--erro input{border-color:var(--erro)}
+  .campo__dica{display:block;margin-top:5px;font-size:.75rem;color:var(--muted);line-height:1.4}
+  .campo--erro .campo__dica{color:var(--erro);font-weight:700}
+  .olho{position:absolute;right:6px;border:0;background:none;padding:9px;color:var(--muted);
+    border-radius:8px;line-height:0;cursor:pointer}
+  .olho:hover{color:var(--ink)}
+  .olho:focus-visible{outline:2px solid var(--azul);outline-offset:1px}
+
+  /* ===== botões ===== */
+  .btn{width:100%;min-height:50px;margin-top:6px;border:none;border-radius:14px;cursor:pointer;
+    font-family:inherit;font-size:1rem;font-weight:800;color:#fff;background:var(--azul);
+    box-shadow:0 6px 18px rgba(43,127,208,.32)}
+  .btn:active{filter:brightness(.94)}
+  .btn:disabled{opacity:.55;cursor:default;box-shadow:none}
+  .btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .btn--vazado{background:none;color:var(--ink);border:1px solid var(--card-line);box-shadow:none}
+  .btn--linha{width:auto;min-height:0;margin:0;border:0;background:none;box-shadow:none;color:var(--azul);
+    font-size:.84rem;font-weight:700;text-decoration:underline;text-underline-offset:3px;padding:6px 0}
+  .btn--linha:hover{filter:brightness(1.15)}
+  .btn--linha:focus-visible{outline:2px solid var(--azul);outline-offset:2px;border-radius:4px}
+  .rodape-form{margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .rodape-form .eyebrow{font-size:.68rem}
+
+  /* ===== avisos ===== */
+  .aviso{display:none;font-size:.82rem;font-weight:600;border-radius:10px;padding:10px 12px;
+    margin-bottom:14px;line-height:1.45}
+  .aviso[data-tipo="erro"]{display:block;color:var(--erro);background:rgba(192,57,43,.10);border:1px solid rgba(192,57,43,.28)}
+  .aviso[data-tipo="ok"]{display:block;color:var(--ok);background:rgba(21,128,61,.10);border:1px solid rgba(21,128,61,.28)}
+  .aviso[data-tipo="info"]{display:block;color:var(--alerta);background:rgba(194,106,18,.10);border:1px solid rgba(194,106,18,.28)}
+
+  .email-demo{margin-top:18px;padding:14px;border:1px dashed var(--card-line);border-radius:12px;
+    background:var(--card);font-size:.8rem;color:var(--muted);text-align:center}
+  .email-demo__cod{font-family:var(--mono);font-size:1.5rem;font-weight:700;letter-spacing:.22em;
+    color:var(--ink);display:block;margin-top:8px}
+
+  /* ===== área logada ===== */
+  .landing{flex:1;width:100%;max-width:860px;margin:0 auto;padding:34px 18px 10px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center}
+  h1.tit{font-size:clamp(1.5rem,4vw,2.2rem);font-weight:800;letter-spacing:-.5px;line-height:1.15;
+    text-shadow:0 1px 12px rgba(255,255,255,.35)}
+  :root[data-theme="dark"] h1.tit{text-shadow:0 1px 14px rgba(0,0,0,.5)}
+  .subtitle{font-size:1rem;color:var(--muted);font-weight:600;margin-top:6px}
+  h1.tit{margin-bottom:0}
+
+  .sessao{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
+    font-size:.84rem;color:var(--muted);font-weight:600;position:relative}
+  .avatar{width:40px;height:40px;border-radius:50%;border:1px solid var(--panel-border);
+    background:var(--azul);color:#fff;font-weight:800;font-size:.85rem;letter-spacing:.03em;
+    display:grid;place-items:center;position:relative;cursor:pointer;font-family:inherit;
+    box-shadow:0 6px 16px rgba(43,127,208,.30)}
+  .avatar:hover{filter:brightness(1.08)}
+  .avatar:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .avatar__alerta{position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:50%;
+    background:var(--alerta);border:2px solid var(--card)}
+  .sessao__nome{color:var(--ink);font-weight:800}
+
+  .menu-conta{position:absolute;top:50px;right:0;width:236px;background:var(--card);
+    border:1px solid var(--card-line);border-radius:16px;box-shadow:var(--shadow);
+    padding:6px;z-index:40;text-align:left}
+  .menu-conta__cab{padding:10px;border-bottom:1px solid var(--card-line);margin-bottom:6px}
+  .menu-conta__nome{font-weight:800;color:var(--ink);font-size:.92rem}
+  .menu-conta__mat{font-size:.76rem;color:var(--muted);margin-top:2px}
+  .menu-conta__item{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    width:100%;text-align:left;padding:10px;border:0;background:none;color:var(--ink);
+    border-radius:10px;font-family:inherit;font-size:.88rem;font-weight:600;cursor:pointer}
+  .menu-conta__item:hover{background:rgba(43,127,208,.10)}
+  .menu-conta__item--sair{color:var(--erro)}
+  .selo{font-family:var(--mono);font-size:.62rem;font-weight:700;background:var(--alerta);
+    color:#fff;padding:2px 6px;border-radius:6px}
+
+  /* ===== cards do menu ===== */
   .picker{width:100%;background:var(--panel);border:1px solid var(--panel-border);border-radius:24px;
     padding:24px 20px 26px;box-shadow:var(--shadow);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
   .picker h2{font-size:1.1rem;font-weight:700;margin-bottom:20px}
-  /* duas telas depois do login: o hub e o menu das ferramentas */
-  #telaHub,#telaFerramentas{display:none}
-  body[data-tela="hub"] #telaHub{display:block}
-  body[data-tela="ferramentas"] #telaFerramentas{display:block}
-  .picker-topo{display:flex;align-items:center;gap:10px;margin-bottom:20px}
-  .picker-topo h2{margin:0;flex:1;text-align:center}
-  .btn-voltar{width:38px;height:38px;flex-shrink:0;border-radius:12px;cursor:pointer;
-    border:1px solid var(--card-line);background:var(--card);color:var(--ink);font-size:.95rem}
-  .btn-voltar:hover{filter:brightness(1.06)}
-  .picker-topo .espaco{width:38px;flex-shrink:0}
   .apps{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .apps--um{grid-template-columns:minmax(0,380px);justify-content:center}
   .app-card{background:var(--card);border:1px solid var(--card-line);border-top:5px solid var(--c);
-    border-radius:20px;padding:26px 18px 20px;text-decoration:none;color:var(--ink);
+    border-radius:20px;padding:26px 18px 20px;text-decoration:none;color:var(--ink);cursor:pointer;
     display:flex;flex-direction:column;align-items:center;gap:10px;min-height:200px;justify-content:center;
-    box-shadow:0 6px 18px rgba(9,34,64,.10);transition:transform .18s ease,box-shadow .18s ease}
+    box-shadow:0 6px 18px rgba(9,34,64,.10);transition:transform .18s ease,box-shadow .18s ease;
+    font-family:inherit;text-align:center}
   .app-card:hover,.app-card:focus-visible{transform:translateY(-6px);box-shadow:0 16px 34px rgba(9,34,64,.22);outline:none}
-  .app-card .ico{width:72px;height:72px;border-radius:20px;display:grid;place-items:center;color:#fff;font-size:1.9rem;
-    background:linear-gradient(135deg,var(--c),color-mix(in srgb,var(--c) 60%,#fff))}
-  .app-title{font-size:1.15rem;font-weight:800;line-height:1.2;margin-top:4px}
-  .app-desc{font-size:.86rem;color:var(--muted);line-height:1.35}
+  .app-card .ico{width:72px;height:72px;border-radius:20px;display:grid;place-items:center;color:#fff;
+    font-size:1.9rem;background:linear-gradient(135deg,var(--c),color-mix(in srgb,var(--c) 60%,#fff))}
+  .app-card .txt{display:flex;flex-direction:column;gap:4px;flex:1}
+  .app-title{display:block;font-size:1.15rem;font-weight:800;line-height:1.2}
+  .app-desc{display:block;font-size:.86rem;color:var(--muted);line-height:1.35}
   .app-card .go{margin-top:6px;font-size:.85rem;font-weight:700;color:var(--c);display:flex;align-items:center;gap:6px}
   .app-card .go i{transition:transform .18s ease}
   .app-card:hover .go i{transform:translateX(4px)}
+  .vazio{grid-column:1/-1;color:var(--muted);font-size:.9rem;padding:26px;
+    border:1px dashed var(--card-line);border-radius:16px}
 
-  footer{text-align:center;color:var(--muted);font-size:.8rem;padding:22px 16px 10px;
+  footer{text-align:center;color:var(--muted);font-size:.8rem;padding:22px 16px 12px;
     text-shadow:0 1px 8px rgba(255,255,255,.3)}
   :root[data-theme="dark"] footer{text-shadow:0 1px 10px rgba(0,0,0,.5)}
 
+  /* ===== meus dados ===== */
+  .veu{position:fixed;inset:0;z-index:80;background:rgba(6,20,36,.55);
+    display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 16px;
+    backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+  .gaveta{width:100%;max-width:480px;margin:auto;background:var(--panel);
+    border:1px solid var(--panel-border);border-radius:24px;padding:26px 24px 34px;
+    box-shadow:var(--shadow);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  .gaveta__cab{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:20px}
+  .gaveta__tit{font-size:1.25rem;font-weight:800;margin:4px 0 0}
+  .fechar{border:0;background:none;font-size:1.5rem;line-height:1;color:var(--muted);
+    padding:2px 8px;cursor:pointer;border-radius:8px;font-family:inherit}
+  .fechar:hover{color:var(--ink)}
+  .fechar:focus-visible{outline:2px solid var(--azul)}
+  .secao{font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);padding-bottom:7px;border-bottom:1px solid var(--card-line);margin:24px 0 14px}
+  .secao:first-of-type{margin-top:0}
+  .trava{font-size:.66rem;font-weight:700;color:var(--muted);text-transform:none;
+    letter-spacing:0;float:right;opacity:.8}
+  .pendente{font-size:.62rem;font-weight:800;color:#fff;background:var(--alerta);
+    text-transform:none;letter-spacing:0;border-radius:6px;padding:2px 6px;margin-left:8px}
+
   @media(max-width:640px){
     .apps{grid-template-columns:1fr;gap:12px}
-    .app-card{min-height:0;padding:22px 18px;flex-direction:row;text-align:left;align-items:center;gap:16px}
-    .app-card .ico{width:58px;height:58px;font-size:1.5rem;flex-shrink:0}
+    .app-card{min-height:0;padding:20px 18px;flex-direction:row;text-align:left;align-items:center;gap:16px}
+    .app-card .ico{width:56px;height:56px;font-size:1.45rem;flex-shrink:0}
     .app-card .txt{display:flex;flex-direction:column;gap:4px;flex:1}
     .app-card .go{margin-top:2px}
-    .landing{padding:18px 12px 16px;gap:14px}
-    .brand-pill img{height:38px}
+    .landing{padding:20px 12px 8px;gap:16px}
+    .brand-pill .marca-img{height:44px;width:100px}
+    .menu-conta{right:auto;left:0}
   }
-
-  /* ---------- tela de login ---------- */
-  body.deslogado .landing, body.deslogado footer{display:none}
-  #login{position:fixed;inset:0;z-index:60;display:none;align-items:flex-start;justify-content:center;
-    overflow:auto;padding:24px 16px}
-  body.deslogado #login{display:flex}
-  .login-box{width:100%;max-width:400px;margin:auto;background:var(--panel);
-    border:1px solid var(--panel-border);border-radius:24px;padding:28px 22px;text-align:center;
-    box-shadow:var(--shadow);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-  .login-marca{background:#fff;border-radius:14px;padding:10px 16px;display:inline-block;margin-bottom:16px}
-  .login-marca img{height:40px;width:auto;display:block}
-  .login-tit{font-size:1.15rem;font-weight:800;margin:0 0 4px;line-height:1.25}
-  .login-sub{font-size:.85rem;color:var(--muted);font-weight:600;margin:0 0 22px}
-  .login-campo{text-align:left;margin-bottom:14px}
-  .login-campo label{display:block;font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:6px}
-  .login-campo input{width:100%;background:var(--card);color:var(--ink);
-    border:1px solid var(--card-line);border-radius:12px;padding:13px 12px;min-height:48px;
-    font-family:inherit;font-size:1.05rem;font-weight:600;text-align:center;letter-spacing:.5px}
-  .login-campo input:focus{outline:2px solid #2b7fd0;outline-offset:1px;border-color:#2b7fd0}
-  .login-msg{display:none;font-size:.82rem;font-weight:600;text-align:left;border-radius:10px;
-    padding:10px 12px;margin-bottom:14px;color:#b02a1e;background:rgba(192,57,43,.10);
-    border:1px solid rgba(192,57,43,.28)}
-  .login-msg.ver{display:block}
-  .login-msg.ok{color:#15803d;background:rgba(21,128,61,.10);border-color:rgba(21,128,61,.28)}
-  .btn-entrar{width:100%;min-height:50px;margin-top:6px;border:none;border-radius:14px;cursor:pointer;
-    font-family:inherit;font-size:1rem;font-weight:800;color:#fff;background:#2b7fd0;
-    box-shadow:0 6px 18px rgba(43,127,208,.32)}
-  .btn-entrar:active{filter:brightness(.94)}
-  .btn-entrar:disabled{opacity:.6;cursor:default}
-  .login-rodape{font-size:.72rem;color:var(--muted);margin-top:18px;line-height:1.5}
-  /* barra de quem entrou, dentro do menu */
-  .sessao{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
-    font-size:.82rem;color:var(--muted);font-weight:600;margin-top:-6px}
-  .btn-sair{background:none;border:1px solid var(--panel-border);color:var(--muted);cursor:pointer;
-    font-family:inherit;font-size:.78rem;font-weight:700;border-radius:9px;padding:6px 12px}
-  .btn-sair:hover{filter:brightness(1.08)}
-  @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}
+  @media(prefers-reduced-motion:reduce){
+    *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+    .rotor animateTransform{display:none}
+  }
 </style>
-<script src="prazos.js" defer></script>
+<script src="config/config.js"></script>
+<script src="config/modulos.js"></script>
+<!-- Para voltar ao modo demonstração, recrie config/demo.js e descomente a linha:
+<script src="config/demo.js"></script> -->
 </head>
-<body class="deslogado">
-
-<div id="login">
-  <div class="login-box">
-    <span class="login-marca">
-      <img src="logo-ew.png" alt="Extreme Wind Blade Services"
-           onerror="this.parentNode.innerHTML='<span class=\'brand-fallback\'>EXTREME WIND</span>'">
-    </span>
-    <h1 class="login-tit">Ferramentas de Campo</h1>
-    <div class="login-sub">Extreme Wind Blade Services</div>
-
-    <div id="loginMsg" class="login-msg"></div>
-
-    <div class="login-campo">
-      <label for="log_mat">Número de matrícula</label>
-      <input type="text" id="log_mat" inputmode="numeric" autocomplete="off" placeholder="000000">
-    </div>
-    <div class="login-campo">
-      <label for="log_cpf">CPF</label>
-      <input type="text" id="log_cpf" inputmode="numeric" autocomplete="off"
-             placeholder="000.000.000-00" maxlength="14">
-    </div>
-
-    <button type="button" class="btn-entrar" id="btnEntrar">Entrar</button>
-
-    <div class="login-rodape">Use a matrícula e o CPF do seu cadastro.<br>
-      O acesso vale por 48 h neste aparelho.</div>
-  </div>
-</div>
+<body>
 
 <div class="scene" aria-hidden="true">
   <svg viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
@@ -218,278 +284,910 @@
   </svg>
 </div>
 
-<button class="theme-btn" id="theme-btn" title="Alternar tema"><i class="fas fa-moon"></i></button>
+<button class="theme-btn" id="theme-btn" type="button" title="Alternar tema" aria-label="Alternar tema claro e escuro"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button>
 
-<main class="landing">
-  <div class="brand-pill">
-    <img src="logo-ew.png" alt="Extreme Wind Blade Services"
-         onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<span class=\'brand-fallback\'>EXTREME WIND</span>')">
-  </div>
+<!-- ============================ ENTRADA ============================ -->
+<div id="portao">
+  <div class="login-box">
 
-  <div>
-    <h1 id="tituloTela">Início</h1>
-    <p class="subtitle">Extreme Wind Blade Services</p>
-  </div>
-
-  <div class="sessao">
-    <span id="sessaoNome"></span>
-    <button type="button" class="btn-sair" id="btnSair">Sair</button>
-  </div>
-
-  <section class="picker" id="telaHub">
-    <h2>O que você quer fazer?</h2>
-    <div class="apps">
-      <a class="app-card" href="#ferramentas" style="--c:#1f6feb">
-        <span class="ico"><i class="fas fa-toolbox"></i></span>
-        <span class="txt">
-          <span class="app-title">Ferramentas de Campo</span>
-          <span class="app-desc">RDO, Fotocard, Calculadora e Checklist</span>
+    <!-- ---------- LOGIN ---------- -->
+    <section id="tela-login">
+      <div class="cx-topo">
+        <span class="login-marca">
+          <span class="marca-img" role="img" aria-label="Extreme Wind Blade Services"></span>
         </span>
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
-      </a>
-      <a class="app-card" href="ehs/index.html" style="--c:#c2410c">
-        <span class="ico"><i class="fas fa-helmet-safety"></i></span>
-        <span class="txt">
-          <span class="app-title">EHS</span>
-          <span class="app-desc">Report diário de EHS</span>
-        </span>
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
-      </a>
-      <a class="app-card" href="meus-dados/index.html" style="--c:#0e7c7b">
-        <span class="ico"><i class="fas fa-user-shield"></i></span>
-        <span class="txt">
-          <span class="app-title">Meus Dados</span>
-          <span class="app-desc">Consultas pessoais do seu cadastro</span>
-        </span>
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
-      </a>
+        <p class="eyebrow">Portal administrativo</p>
+        <h2 class="cartao__titulo">Entrar</h2>
+        <p class="cartao__sub">Use sua matrícula e senha.</p>
+      </div>
+
+      <div class="aviso" id="aviso-login"></div>
+
+      <form id="form-login" novalidate>
+        <div class="campo" id="c-matricula">
+          <label class="campo__rot" for="i-matricula">Matrícula</label>
+          <div class="campo__caixa">
+            <input class="mono" id="i-matricula" inputmode="numeric" autocomplete="username"
+                   maxlength="8" placeholder="00000" required>
+          </div>
+          <span class="campo__dica" id="d-matricula"></span>
+        </div>
+
+        <div class="campo" id="c-senha">
+          <label class="campo__rot" for="i-senha">Senha</label>
+          <div class="campo__caixa">
+            <input id="i-senha" type="password" autocomplete="current-password" required>
+            <button class="olho" type="button" data-olho="i-senha" aria-label="Mostrar senha">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>
+            </button>
+          </div>
+          <span class="campo__dica" id="d-senha"></span>
+        </div>
+
+        <button class="btn" type="submit" id="b-entrar">Entrar</button>
+
+        <div class="rodape-form">
+          <button class="btn--linha" type="button" data-ir="tela-esqueci">Esqueci minha senha</button>
+          <span class="eyebrow">1º acesso: senha = CPF</span>
+        </div>
+      </form>
+    </section>
+
+    <!-- ---------- PRIMEIRO ACESSO ---------- -->
+    <section id="tela-primeiro" hidden>
+      <div class="cx-topo">
+        <p class="eyebrow">Primeiro acesso</p>
+        <h2 class="cartao__titulo">Defina sua senha</h2>
+        <p class="cartao__sub">Você entrou com o CPF. Escolha uma senha pessoal para continuar.</p>
+      </div>
+
+      <div class="aviso" id="aviso-primeiro"></div>
+
+      <form id="form-primeiro" novalidate>
+        <div class="campo" id="c-nova1">
+          <label class="campo__rot" for="i-nova1">Nova senha</label>
+          <div class="campo__caixa">
+            <input id="i-nova1" type="password" autocomplete="new-password" required>
+            <button class="olho" type="button" data-olho="i-nova1" aria-label="Mostrar senha">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>
+            </button>
+          </div>
+          <span class="campo__dica" id="d-nova1">Mínimo de 8 caracteres, com letra e número. Não pode ser o CPF.</span>
+        </div>
+
+        <div class="campo" id="c-nova2">
+          <label class="campo__rot" for="i-nova2">Repita a nova senha</label>
+          <div class="campo__caixa"><input id="i-nova2" type="password" autocomplete="new-password" required></div>
+          <span class="campo__dica" id="d-nova2"></span>
+        </div>
+
+        <button class="btn" type="submit">Salvar senha e entrar</button>
+        <div class="rodape-form">
+          <button class="btn--linha" type="button" data-ir="tela-login">Voltar</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ---------- ESQUECI A SENHA ---------- -->
+    <section id="tela-esqueci" hidden>
+      <div class="cx-topo">
+        <p class="eyebrow">Recuperação</p>
+        <h2 class="cartao__titulo">Trocar a senha</h2>
+        <p class="cartao__sub">Confirme seus dados e escolha a nova senha. Ela só passa a valer depois que você confirmar pelo email.</p>
+      </div>
+
+      <div class="aviso" id="aviso-esqueci"></div>
+
+      <form id="form-esqueci" novalidate>
+        <div class="campo" id="c-email">
+          <label class="campo__rot" for="i-email">Email cadastrado</label>
+          <div class="campo__caixa"><input id="i-email" type="email" autocomplete="email" placeholder="nome@extremewind.com.br" required></div>
+          <span class="campo__dica" id="d-email"></span>
+        </div>
+
+        <div class="campo" id="c-cpf">
+          <label class="campo__rot" for="i-cpf">CPF</label>
+          <div class="campo__caixa"><input class="mono" id="i-cpf" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" required></div>
+          <span class="campo__dica" id="d-cpf"></span>
+        </div>
+
+        <div class="campo" id="c-rec1">
+          <label class="campo__rot" for="i-rec1">Nova senha</label>
+          <div class="campo__caixa">
+            <input id="i-rec1" type="password" autocomplete="new-password" required>
+            <button class="olho" type="button" data-olho="i-rec1" aria-label="Mostrar senha">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>
+            </button>
+          </div>
+          <span class="campo__dica" id="d-rec1">Mínimo de 8 caracteres, com letra e número.</span>
+        </div>
+
+        <div class="campo" id="c-rec2">
+          <label class="campo__rot" for="i-rec2">Repita a nova senha</label>
+          <div class="campo__caixa"><input id="i-rec2" type="password" autocomplete="new-password" required></div>
+          <span class="campo__dica" id="d-rec2"></span>
+        </div>
+
+        <button class="btn" type="submit">Enviar confirmação por email</button>
+        <div class="rodape-form">
+          <button class="btn--linha" type="button" data-ir="tela-login">Voltar para o login</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ---------- CONFIRMAÇÃO POR EMAIL ---------- -->
+    <section id="tela-codigo" hidden>
+      <div class="cx-topo">
+        <p class="eyebrow">Recuperação</p>
+        <h2 class="cartao__titulo">Confirme pelo email</h2>
+        <p class="cartao__sub" id="txt-destino">Enviamos um código de 6 dígitos para o email cadastrado.</p>
+      </div>
+
+      <div class="aviso" id="aviso-codigo"></div>
+
+      <form id="form-codigo" novalidate>
+        <div class="campo" id="c-codigo">
+          <label class="campo__rot" for="i-codigo">Código de confirmação</label>
+          <div class="campo__caixa">
+            <input class="mono" id="i-codigo" inputmode="numeric" maxlength="6"
+                   placeholder="000000" style="letter-spacing:.34em;font-size:1.3rem;text-align:center" required>
+          </div>
+          <span class="campo__dica" id="d-codigo">O código expira em 30 minutos.</span>
+        </div>
+
+        <button class="btn" type="submit">Confirmar nova senha</button>
+        <div class="rodape-form">
+          <button class="btn--linha" type="button" data-ir="tela-login">Cancelar</button>
+        </div>
+      </form>
+
+      <div class="email-demo" id="email-demo" hidden>
+        <strong>Modo demonstração</strong> — em produção este código vai por email.
+        <span class="email-demo__cod" id="cod-demo"></span>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ============================ APLICAÇÃO ============================ -->
+<div id="app" hidden style="display:flex;flex-direction:column;flex:1">
+  <main class="landing">
+    <div class="brand-pill">
+      <span class="marca-img" role="img" aria-label="Extreme Wind Blade Services"></span>
     </div>
-  </section>
 
-  <section class="picker" id="telaFerramentas">
-    <div class="picker-topo">
-      <button type="button" class="btn-voltar" id="btnVoltarHub" title="Voltar" aria-label="Voltar">
-        <i class="fas fa-arrow-left"></i>
+    <div>
+      <h1 class="tit">Portal Administrativo</h1>
+      <p class="subtitle" id="saudacao"></p>
+    </div>
+
+    <div class="sessao">
+      <button class="avatar" id="b-avatar" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Conta">
+        <span id="avatar-iniciais"></span>
+        <span class="avatar__alerta" id="avatar-alerta" hidden></span>
       </button>
-      <h2>O que você quer usar?</h2>
-      <span class="espaco" aria-hidden="true"></span>
-    </div>
-    <div class="apps">
-      <a class="app-card" href="rdo/index.html" style="--c:#6a4bb8">
-        <span class="ico"><i class="fas fa-file-lines"></i></span>
-        <span class="txt">
-          <span class="app-title">RDO</span>
-          <span class="app-desc">Relatório Diário de Operação</span>
-        </span>
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
-      </a>
-      <a class="app-card" href="fotocard/index.html" style="--c:#1f6feb">
-        <span class="ico"><i class="fas fa-camera-retro"></i></span>
-        <span class="txt">
-          <span class="app-title">Fotocard / Timestamp</span>
-          <span class="app-desc">Registro fotográfico com data, hora e dados da pá</span>
-        </span>
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
-      </a>
-      <a class="app-card" href="calculadora/index.html" style="--c:#0e7c7b">
-        <span class="ico"><i class="fas fa-calculator"></i></span>
-        <span class="txt">
-          <span class="app-title">Calculadora de Reparos</span>
-          <span class="app-desc">Químicos e proporções por cliente (Nordex, GE, Siemens)</span>
-        </span>
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
-      </a>
-      <a class="app-card" href="Checklist%20Almoxarifado/menu.html" style="--c:#c26a12" data-ew-prazo="almoxarifado,frotas">
-        <span class="ico"><i class="fas fa-list-check"></i></span>
-        <span class="txt">
-          <span class="app-title">Checklist</span>
-          <span class="app-desc">Almoxarifado / Segurança e Frotas</span>
-        </span>
-        <span class="go">Abrir <i class="fas fa-arrow-right"></i></span>
-      </a>
-    </div>
-  </section>
-</main>
+      <span><span class="sessao__nome" id="bar-nome"></span> · <span id="bar-setor"></span></span>
 
-<footer>
-  <p>Extreme Wind Blade Services &copy; <span id="year"></span> · Uso interno</p>
-</footer>
+      <div class="menu-conta" id="menu-conta" role="menu" hidden>
+        <div class="menu-conta__cab">
+          <div class="menu-conta__nome" id="menu-nome"></div>
+          <div class="menu-conta__mat mono" id="menu-mat"></div>
+        </div>
+        <button class="menu-conta__item" role="menuitem" id="b-perfil">
+          <span><i class="fas fa-id-card" style="width:18px"></i> Meus dados</span>
+          <span class="selo" id="selo-pend" hidden>PENDENTE</span>
+        </button>
+        <button class="menu-conta__item" role="menuitem" id="b-trocar">
+          <span><i class="fas fa-key" style="width:18px"></i> Trocar senha</span>
+        </button>
+        <button class="menu-conta__item menu-conta__item--sair" role="menuitem" id="b-sair">
+          <span><i class="fas fa-arrow-right-from-bracket" style="width:18px"></i> Sair</span>
+        </button>
+      </div>
+    </div>
+
+    <section class="picker">
+      <h2>O que você quer fazer?</h2>
+      <div class="apps" id="grade-modulos"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Extreme Wind Blade Services &copy; <span id="ano"></span> · Uso interno</p>
+  </footer>
+</div>
+
+<!-- ---------- MEUS DADOS ---------- -->
+<div class="veu" id="veu-perfil" hidden>
+  <div class="gaveta" role="dialog" aria-modal="true" aria-labelledby="tit-perfil">
+    <div class="gaveta__cab">
+      <div>
+        <p class="eyebrow">Conta</p>
+        <h2 class="gaveta__tit" id="tit-perfil">Meus dados</h2>
+      </div>
+      <button class="fechar" id="b-fechar-perfil" type="button" aria-label="Fechar">&times;</button>
+    </div>
+
+    <div class="aviso" id="aviso-perfil"></div>
+
+    <form id="form-perfil" novalidate>
+      <div id="perfil-campos"></div>
+      <button class="btn" type="submit" style="margin-top:24px">Salvar alterações</button>
+      <button class="btn btn--vazado" type="button" id="b-cancelar-perfil" style="margin-top:8px">Cancelar</button>
+    </form>
+  </div>
+</div>
 
 <script>
-'use strict';
-document.getElementById('year').textContent = new Date().getFullYear();
-(function(){
-  var KEY='ew_theme';
-  function apply(t){
-    if(t==='dark'||t==='light'){ document.documentElement.setAttribute('data-theme',t); }
-    else { document.documentElement.removeAttribute('data-theme'); t=null; }
-    var dark = t==='dark' || (!t && window.matchMedia('(prefers-color-scheme:dark)').matches);
-    var b=document.getElementById('theme-btn'); if(b) b.innerHTML = dark?'<i class="fas fa-sun"></i>':'<i class="fas fa-moon"></i>';
+/* A configuração (MODO_DEMO, API_URL, CAMPOS_PERFIL) e a lista de módulos
+   ficam em config/config.js e config/modulos.js. Não edite nada aqui embaixo
+   para acrescentar uma opção no menu. */
+
+/* Os usuários de demonstração ficam em config/demo.js, que deve ser apagado
+   antes de publicar. Em produção (MODO_DEMO = false) nada aqui usa DEMO. */
+
+/* ============================================================================
+   3. CAMADA DE API — único ponto a trocar quando ligar no Apps Script
+   ============================================================================ */
+const API = {
+  async chamar(acao, dados){
+    const r = await fetch(API_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' }, // evita preflight CORS
+      redirect:'follow',
+      body: JSON.stringify({ acao, token: sessao, ...dados })
+    });
+    if(!r.ok) throw new Error('Falha de conexão');
+    return r.json();
+  },
+
+  /* -> { ok, motivo?, primeiroAcesso?, usuario?, token? } */
+  async login(matricula, senha){
+    if(!MODO_DEMO) return this.chamar('login', { matricula, senha });
+    await espera(420);
+    const u = DEMO.find(x => x.matricula === matricula);
+    if(!u)              return { ok:false, motivo:'CREDENCIAL' };
+    if(u.senha !== senha) return { ok:false, motivo:'CREDENCIAL' };
+    return { ok:true, primeiroAcesso:u.primeiroAcesso, usuario:limpar(u), token:'demo' };
+  },
+
+  /* -> { ok, motivo? } */
+  async definirSenha(matricula, senhaAtual, senhaNova){
+    if(!MODO_DEMO) return this.chamar('definirSenha', { matricula, senhaAtual, senhaNova });
+    await espera(420);
+    const u = DEMO.find(x => x.matricula === matricula);
+    if(!u || u.senha !== senhaAtual) return { ok:false, motivo:'CREDENCIAL' };
+    u.senha = senhaNova; u.primeiroAcesso = false;
+    return { ok:true, token:'demo', usuario:limpar(u) };
+  },
+
+  /* Registra a troca como PENDENTE e dispara o email. -> { ok, motivo?, emailMascarado? } */
+  async solicitarTroca(email, cpf, senhaNova){
+    if(!MODO_DEMO) return this.chamar('solicitarTroca', { email, cpf, senhaNova });
+    await espera(600);
+    const u = DEMO.find(x => x.email.toLowerCase() === email.toLowerCase() && x.cpf === cpf);
+    if(!u) return { ok:false, motivo:'NAO_CONFERE' };
+    pendente = { matricula:u.matricula, senhaNova, codigo:String(Math.floor(100000 + Math.random()*900000)) };
+    return { ok:true, emailMascarado:mascararEmail(u.email), codigoDemo:pendente.codigo };
+  },
+
+  /* -> { ok, motivo? } — só aqui a senha nova passa a valer */
+  async confirmarTroca(codigo){
+    if(!MODO_DEMO) return this.chamar('confirmarTroca', { codigo });
+    await espera(420);
+    if(!pendente || pendente.codigo !== codigo) return { ok:false, motivo:'CODIGO' };
+    const u = DEMO.find(x => x.matricula === pendente.matricula);
+    u.senha = pendente.senhaNova; u.primeiroAcesso = false;
+    pendente = null;
+    return { ok:true };
+  },
+
+  /* -> { ok, usuario } */
+  async salvarPerfil(matricula, alteracoes){
+    if(!MODO_DEMO) return this.chamar('salvarPerfil', { matricula, alteracoes });
+    await espera(500);
+    const u = DEMO.find(x => x.matricula === matricula);
+    Object.assign(u, alteracoes);
+    return { ok:true, usuario:limpar(u) };
   }
-  apply(localStorage.getItem(KEY));
-  document.getElementById('theme-btn').addEventListener('click',function(){
-    var cur=document.documentElement.getAttribute('data-theme');
-    var dark=cur==='dark'||(!cur&&window.matchMedia('(prefers-color-scheme:dark)').matches);
-    var next=dark?'light':'dark'; localStorage.setItem(KEY,next); apply(next);
-  });
-})();
-</script>
-<script>
-/* =========================== LOGIN ===========================
-   O login que ficava dentro do RDO passou pra ca. A sessao vai
-   pro localStorage ('ew_sessao'), que e compartilhado por todas as
-   paginas do mesmo site — os apps das subpastas so precisam ler.
-   ============================================================= */
-'use strict';
-(function(){
+};
 
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbxoOpV339g76UpYa7sO28C6lS99TAz7po2c0dNAk0i1X1HgsyKC_KXIuuBAS7qbBzLG/exec";
-const SESSAO_LS_KEY = 'ew_sessao';
+/* ============================================================================
+   4. ESTADO E UTILITÁRIOS
+   ============================================================================ */
+let usuario   = null;   // usuário autenticado
+let sessao    = null;   // token devolvido pelo Apps Script
+let pendente  = null;   // troca de senha aguardando confirmação (demo)
+let aguardandoPrimeiro = null; // { matricula, senhaAtual, cpf }
 
-const inpMat = document.getElementById('log_mat');
-const inpCpf = document.getElementById('log_cpf');
-const btnEntrar = document.getElementById('btnEntrar');
+/* Motivos que o backend devolve, traduzidos para a tela. */
+const SVG_OLHO     = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>';
+const SVG_OLHO_OFF = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 6.1A9.9 9.9 0 0 1 12 5.5c6.4 0 10 6.5 10 6.5a17 17 0 0 1-3.4 4.1M6.3 7.9A17 17 0 0 0 2 12s3.6 6.5 10 6.5a9.7 9.7 0 0 0 3.9-.8"/><path d="M3 3l18 18"/></svg>';
 
-function soDig(v){ return String(v==null?'':v).replace(/[^0-9]/g,''); }
+const MENSAGENS = {
+  CREDENCIAL:      'Matrícula ou senha incorreta. Confira e tente de novo.',
+  INATIVO:         'Esta matrícula está inativa. Procure o setor administrativo.',
+  BLOQUEADO:       'Acesso bloqueado por 15 minutos após tentativas incorretas.',
+  NAO_CONFERE:     'Email e CPF não conferem com nenhum cadastro. Procure o setor administrativo.',
+  SENHA_CURTA:     'A senha precisa ter no mínimo 8 caracteres.',
+  SENHA_FRACA:     'A senha precisa misturar letras e números.',
+  SENHA_IGUAL_CPF: 'A senha não pode ser o seu CPF.',
+  CODIGO:          'Código inválido. Confira o email e digite de novo.',
+  EXPIRADO:        'Código expirado. Peça um novo pela tela de recuperação.',
+  SESSAO:          'Sua sessão expirou. Entre novamente.',
+  NADA:            'Nada foi alterado.',
+  ERRO_INTERNO:    'O servidor não conseguiu processar. Tente em instantes.'
+};
+const traduzir = m => MENSAGENS[m] || 'Não foi possível concluir. Tente novamente.';
 
-function mascaraCpf(v){
-  const d = soDig(v).slice(0,11);
-  if(d.length<=3) return d;
-  if(d.length<=6) return d.slice(0,3)+'.'+d.slice(3);
-  if(d.length<=9) return d.slice(0,3)+'.'+d.slice(3,6)+'.'+d.slice(6);
-  return d.slice(0,3)+'.'+d.slice(3,6)+'.'+d.slice(6,9)+'-'+d.slice(9);
-}
-inpMat.addEventListener('input', ()=>{ inpMat.value = soDig(inpMat.value).slice(0,12); });
-inpCpf.addEventListener('input', ()=>{ inpCpf.value = mascaraCpf(inpCpf.value); });
+/* Os módulos em modulos/ não têm login próprio: leem a sessão daqui.
+   Mesma origem no GitHub Pages, então localStorage serve de canal.
+   O try/catch é para o portal continuar funcionando onde o armazenamento
+   está bloqueado (janela anônima restrita, pré-visualização em sandbox). */
+const CHAVE_SESSAO = 'ew_sessao';
+const SESSAO_HORAS = 12;   // igual ao backend
 
-function loginMsg(txt, ok){
-  const el = document.getElementById('loginMsg');
-  el.textContent = txt || '';
-  el.className = 'login-msg' + (txt?' ver':'') + (ok?' ok':'');
-}
-
-function lerSessao(){
+function gravarSessao(){
   try{
-    const raw = localStorage.getItem(SESSAO_LS_KEY);
-    if(!raw) return null;
-    const s = JSON.parse(raw);
-    if(!s || !s.token || !s.exp || s.exp <= Date.now()) return null;
+    localStorage.setItem(CHAVE_SESSAO, JSON.stringify({
+      token: sessao,
+      // os módulos leem estes três direto da raiz
+      nome: usuario.nome,
+      matricula: usuario.matricula,
+      perfil: usuario.perfil,
+      // o cadastro inteiro, para o portal voltar direto ao menu ao recarregar
+      usuario: usuario,
+      expira: Date.now() + SESSAO_HORAS * 3600 * 1000
+    }));
+  }catch(e){ /* módulos vão pedir login de novo; o portal segue normal */ }
+}
+
+function lerSessaoGuardada(){
+  try{
+    const s = JSON.parse(localStorage.getItem(CHAVE_SESSAO) || 'null');
+    if(!s || !s.token || !s.usuario) return null;
+    if(s.expira && Date.now() > s.expira) return null;   // passou das 8 horas
     return s;
-  }catch(_){ return null; }
+  }catch(e){ return null; }
+}
+function limparSessao(){
+  try{ localStorage.removeItem(CHAVE_SESSAO); }catch(e){}
 }
 
-/* ---- as duas telas de depois do login ----
-   Quem manda é o #hash, então o botão "voltar" do celular funciona sozinho e
-   os apps conseguem apontar direto pro menu de ferramentas com
-   ../index.html#ferramentas — senão o técnico voltaria pro hub e teria que
-   dar dois toques toda vez. */
-const TITULOS = {hub:'Início', ferramentas:'Ferramentas de Campo'};
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const espera = ms => new Promise(r => setTimeout(r, ms));
+const limpar = u => { const c = {...u}; delete c.senha; return c; };
+const soDigitos = t => t.replace(/\D/g,'');
 
-function telaAtual(){
-  return location.hash.replace('#','') === 'ferramentas' ? 'ferramentas' : 'hub';
-}
-function pintarTela(){
-  const t = telaAtual();
-  document.body.setAttribute('data-tela', t);
-  document.getElementById('tituloTela').textContent = TITULOS[t];
-  window.scrollTo(0,0);
-}
-window.addEventListener('hashchange', pintarTela);
-/* replaceState em vez de history.back(): quem chegou aqui pelo ../index.html#ferramentas
-   de dentro de um app voltaria PRO APP, não pro hub. E não empilha histórico. */
-document.getElementById('btnVoltarHub').addEventListener('click', ()=>{
-  try{ history.replaceState(null, '', location.pathname + location.search); }
-  catch(_){ location.hash = ''; }
-  pintarTela();
-});
-
-function abrirMenu(s){
-  document.body.classList.remove('deslogado');
-  document.getElementById('sessaoNome').textContent = s.nome + ' · mat. ' + s.mat;
-  pintarTela();
+function mascararEmail(e){
+  const [a,b] = e.split('@');
+  const vis = a.slice(0, Math.min(2, a.length));
+  return vis + '•'.repeat(Math.max(3, a.length - 2)) + '@' + b;
 }
 
-document.getElementById('btnSair').addEventListener('click', ()=>{
-  if(!confirm('Sair e voltar para a tela de entrada?')) return;
-  try{ localStorage.removeItem(SESSAO_LS_KEY); }catch(_){}
-  location.reload();
-});
-
-/* hash SHA-256 hex — para o CPF nao viajar aberto na URL do plano B */
-async function sha256Hex(txt){
-  if(!(window.crypto && crypto.subtle)) return null;
-  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
-  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+function formatarCPF(v){
+  const d = soDigitos(v).slice(0,11);
+  return d.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
 }
 
-/* plano B: se o POST cair no CORS, vai por JSONP */
-function loginJsonp(params){
-  return new Promise(resolve=>{
-    const cb = '__loginCb' + Date.now();
-    let pronto = false;
-    window[cb] = j => { pronto = true; resolve(j); try{ delete window[cb]; }catch(_){ window[cb]=null; } };
-    const qs = Object.keys(params).filter(k=>params[k]!=null)
-      .map(k=>encodeURIComponent(k)+'='+encodeURIComponent(params[k])).join('&');
-    const sc = document.createElement('script');
-    sc.src = ENDPOINT + (ENDPOINT.indexOf('?')>=0?'&':'?') + 'acao=login&' + qs + '&callback=' + cb;
-    sc.onerror = ()=>{ if(!pronto) resolve(null); };
-    document.head.appendChild(sc);
-    setTimeout(()=>{ if(!pronto) resolve(null); }, 20000);
-  });
+function formatarTelefone(v){
+  const d = soDigitos(v).slice(0,11);
+  if(d.length <= 10) return d.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{4})(\d)/,'$1-$2');
+  return d.replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2');
 }
 
-async function entrarClique(){
-  const mat = soDig(inpMat.value), cpf = soDig(inpCpf.value);
-  if(!mat){ loginMsg('Digite o número da matrícula.'); inpMat.focus(); return; }
-  if(cpf.length !== 11){ loginMsg('CPF incompleto — precisa ter 11 dígitos.'); inpCpf.focus(); return; }
-  if(!ENDPOINT){ loginMsg('ENDPOINT do Apps Script não configurado no arquivo.'); return; }
+function senhaValida(s, cpf){
+  if(s.length < 8)                    return 'Use no mínimo 8 caracteres.';
+  if(!/[A-Za-z]/.test(s) || !/\d/.test(s)) return 'Misture letras e números.';
+  if(cpf && soDigitos(s) === cpf)     return 'A senha não pode ser o seu CPF.';
+  return null;
+}
 
-  const label = btnEntrar.textContent;
-  btnEntrar.disabled = true; btnEntrar.textContent = 'Verificando…';
-  loginMsg('');
+function avisar(id, texto, tipo){
+  const el = $('#'+id);
+  if(!texto){ el.removeAttribute('data-tipo'); el.textContent=''; return; }
+  el.textContent = texto;
+  el.setAttribute('data-tipo', tipo || 'erro');
+}
 
-  let r = null;
+function erroCampo(idCampo, idDica, msg){
+  $('#'+idCampo).classList.toggle('campo--erro', !!msg);
+  if($('#'+idDica)) $('#'+idDica).textContent = msg || '';
+}
+
+function irPara(id){
+  ['tela-login','tela-primeiro','tela-esqueci','tela-codigo']
+    .forEach(t => $('#'+t).hidden = (t !== id));
+  const foco = $('#'+id).querySelector('input');
+  if(foco) setTimeout(() => foco.focus(), 40);
+}
+
+function ocupado(btn, ligado, textoOriginal){
+  btn.disabled = ligado;
+  btn.textContent = ligado ? 'Aguarde…' : textoOriginal;
+}
+
+/* Mostrar / esconder senha */
+$$('[data-olho]').forEach(b => b.addEventListener('click', () => {
+  const alvo = $('#'+b.dataset.olho);
+  const ver = alvo.type === 'password';
+  alvo.type = ver ? 'text' : 'password';
+  b.setAttribute('aria-label', ver ? 'Ocultar senha' : 'Mostrar senha');
+  b.innerHTML = ver ? '<i class="fas fa-eye-slash"></i>' : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>';
+  alvo.focus();
+}));
+
+$$('[data-ir]').forEach(b => b.addEventListener('click', () => {
+  ['aviso-login','aviso-esqueci','aviso-codigo','aviso-primeiro'].forEach(a => avisar(a, ''));
+  irPara(b.dataset.ir);
+}));
+
+/* Máscaras */
+$('#i-matricula').addEventListener('input', e => e.target.value = soDigitos(e.target.value));
+$('#i-cpf').addEventListener('input',       e => e.target.value = formatarCPF(e.target.value));
+$('#i-codigo').addEventListener('input',    e => e.target.value = soDigitos(e.target.value));
+
+/* ============================================================================
+   5. LOGIN
+   ============================================================================ */
+$('#form-login').addEventListener('submit', async e => {
+  e.preventDefault();
+  avisar('aviso-login','');
+  const matricula = $('#i-matricula').value.trim();
+  const senha     = $('#i-senha').value;
+
+  erroCampo('c-matricula','d-matricula', matricula ? '' : 'Informe a matrícula.');
+  erroCampo('c-senha','d-senha', senha ? '' : 'Informe a senha.');
+  if(!matricula || !senha) return;
+
+  const btn = $('#b-entrar');
+  ocupado(btn, true);
   try{
-    const res = await fetch(ENDPOINT, {method:'POST', body: JSON.stringify({acao:'login', mat:mat, cpf:cpf})});
-    r = await res.json();
-  }catch(_){ r = null; }
+    const r = await API.login(matricula, senha);
+    ocupado(btn, false, 'Entrar');
 
-  if(!r){
-    const h = await sha256Hex(mat + ':' + cpf);
-    r = await loginJsonp(h ? {mat:mat, hash:h} : {mat:mat, cpf:cpf});
+    if(!r.ok){
+      // Mensagem única de propósito: não revela se a matrícula existe.
+      avisar('aviso-login', traduzir(r.motivo), 'erro');
+      $('#i-senha').value = ''; $('#i-senha').focus();
+      return;
+    }
+
+    if(r.primeiroAcesso){
+      aguardandoPrimeiro = { matricula, senhaAtual:senha, cpf:soDigitos(r.usuario.cpf) };
+      irPara('tela-primeiro');
+      return;
+    }
+
+    sessao  = r.token;
+    usuario = r.usuario;
+    abrirApp(true);
+
+  }catch(err){
+    ocupado(btn, false, 'Entrar');
+    avisar('aviso-login','Não foi possível conectar ao servidor. Tente novamente em instantes.','erro');
+  }
+});
+
+/* ============================================================================
+   6. PRIMEIRO ACESSO
+   ============================================================================ */
+$('#form-primeiro').addEventListener('submit', async e => {
+  e.preventDefault();
+  avisar('aviso-primeiro','');
+  const s1 = $('#i-nova1').value, s2 = $('#i-nova2').value;
+
+  const msg = senhaValida(s1, aguardandoPrimeiro?.cpf);
+  erroCampo('c-nova1','d-nova1', msg || 'Mínimo de 8 caracteres, com letra e número. Não pode ser o CPF.');
+  $('#c-nova1').classList.toggle('campo--erro', !!msg);
+  if(msg) return;
+
+  const diverge = s1 !== s2 ? 'As duas senhas não são iguais.' : '';
+  erroCampo('c-nova2','d-nova2', diverge);
+  if(diverge) return;
+
+  const btn = e.target.querySelector('.btn');
+  ocupado(btn, true);
+  const r = await API.definirSenha(aguardandoPrimeiro.matricula, aguardandoPrimeiro.senhaAtual, s1);
+  ocupado(btn, false, 'Salvar senha e entrar');
+
+  if(!r.ok){ avisar('aviso-primeiro', traduzir(r.motivo), 'erro'); return; }
+
+  sessao  = r.token;
+  usuario = r.usuario;
+  aguardandoPrimeiro = null;
+  $('#i-nova1').value = $('#i-nova2').value = '';
+  abrirApp(true);
+});
+
+/* ============================================================================
+   7. TROCA DE SENHA COM CONFIRMAÇÃO POR EMAIL
+   ============================================================================ */
+$('#form-esqueci').addEventListener('submit', async e => {
+  e.preventDefault();
+  avisar('aviso-esqueci','');
+
+  const email = $('#i-email').value.trim();
+  const cpf   = soDigitos($('#i-cpf').value);
+  const s1    = $('#i-rec1').value, s2 = $('#i-rec2').value;
+
+  let parar = false;
+  const eOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+  erroCampo('c-email','d-email', eOk ? '' : 'Digite um email válido.'); parar ||= !eOk;
+
+  const cOk = cpf.length === 11;
+  erroCampo('c-cpf','d-cpf', cOk ? '' : 'O CPF precisa ter 11 dígitos.'); parar ||= !cOk;
+
+  const msg = senhaValida(s1, cpf);
+  $('#c-rec1').classList.toggle('campo--erro', !!msg);
+  $('#d-rec1').textContent = msg || 'Mínimo de 8 caracteres, com letra e número.';
+  parar ||= !!msg;
+
+  const diverge = s1 !== s2 ? 'As duas senhas não são iguais.' : '';
+  erroCampo('c-rec2','d-rec2', diverge); parar ||= !!diverge;
+
+  if(parar) return;
+
+  const btn = e.target.querySelector('.btn');
+  ocupado(btn, true);
+  const r = await API.solicitarTroca(email, cpf, s1);
+  ocupado(btn, false, 'Enviar confirmação por email');
+
+  if(!r.ok){
+    avisar('aviso-esqueci', traduzir(r.motivo), 'erro');
+    return;
   }
 
-  btnEntrar.disabled = false; btnEntrar.textContent = label;
+  $('#txt-destino').textContent = 'Enviamos um código de 6 dígitos para ' + r.emailMascarado + '. A senha atual continua valendo até você confirmar.';
+  if(MODO_DEMO && r.codigoDemo){
+    $('#email-demo').hidden = false;
+    $('#cod-demo').textContent = r.codigoDemo;
+  }
+  irPara('tela-codigo');
+});
 
-  if(!r){ loginMsg('Não foi possível falar com o servidor. Verifique a internet e tente de novo.'); return; }
-  if(!r.ok){ loginMsg(r.erro || 'Matrícula ou CPF não conferem.'); inpCpf.select(); return; }
+$('#form-codigo').addEventListener('submit', async e => {
+  e.preventDefault();
+  avisar('aviso-codigo','');
+  const cod = $('#i-codigo').value.trim();
 
-  const s = {token:r.token, nome:r.nome, mat:r.mat, exp: Date.now() + (r.horas||48)*3600*1000};
-  try{ localStorage.setItem(SESSAO_LS_KEY, JSON.stringify(s)); }catch(_){}
-  loginMsg('Bem-vindo, ' + r.nome + '!', true);
-  setTimeout(()=>abrirMenu(s), 350);
+  if(cod.length !== 6){ erroCampo('c-codigo','d-codigo','O código tem 6 dígitos.'); return; }
+  erroCampo('c-codigo','d-codigo','');
+
+  const btn = e.target.querySelector('.btn');
+  ocupado(btn, true);
+  const r = await API.confirmarTroca(cod);
+  ocupado(btn, false, 'Confirmar nova senha');
+
+  if(!r.ok){
+    avisar('aviso-codigo', traduzir(r.motivo), 'erro');
+    return;
+  }
+
+  $('#form-esqueci').reset(); $('#form-codigo').reset();
+  $('#email-demo').hidden = true;
+  irPara('tela-login');
+  avisar('aviso-login','Senha alterada. Entre com a matrícula e a nova senha.','ok');
+});
+
+/* ============================================================================
+   8. APLICAÇÃO
+   ============================================================================ */
+function iniciais(nome){
+  const p = String(nome || '').trim().split(/\s+/).filter(Boolean);
+  if(!p.length) return '?';   // cadastro recém-criado, nome ainda em branco
+  return ((p[0][0] || '') + (p.length > 1 ? p[p.length-1][0] : '')).toUpperCase();
 }
 
-btnEntrar.addEventListener('click', entrarClique);
-inpMat.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); inpCpf.focus(); }});
-inpCpf.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); entrarClique(); }});
-
-/* ------- entrada ------- */
-const sessao = lerSessao();
-if(sessao){
-  abrirMenu(sessao);
-}else{
-  setTimeout(()=>{
-    const a = document.activeElement;
-    if(!a || a===document.body || a===document.documentElement) inpMat.focus();
-  }, 200);
+function camposPendentes(){
+  return CAMPOS_PERFIL.filter(c => c.chave && c.obrigatorio && !String(usuario[c.chave] || '').trim());
 }
 
+function abrirApp(recemLogado){
+  gravarSessao();
+  $('#portao').hidden = true;
+  $('#app').hidden = false;
+
+  const primeiro = (usuario.nome || '').trim().split(' ')[0] || 'colega';
+  const h = new Date().getHours();
+  $('#saudacao').textContent = (h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite') + ', ' + primeiro;
+  $('#ano').textContent = new Date().getFullYear();
+
+  $('#bar-nome').textContent  = usuario.nome || 'Matrícula ' + usuario.matricula;
+  $('#bar-setor').textContent = (usuario.setor || 'Setor não informado') + ' · ' + usuario.perfil;
+  $('#menu-nome').textContent = usuario.nome || 'Complete seu cadastro';
+  $('#menu-mat').textContent  = 'Matrícula ' + usuario.matricula;
+  $('#avatar-iniciais').textContent = iniciais(usuario.nome);
+
+  const pend = camposPendentes().length;
+  $('#avatar-alerta').hidden = pend === 0;
+  $('#selo-pend').hidden     = pend === 0;
+  if(pend) $('#selo-pend').textContent = pend + ' PENDENTE' + (pend > 1 ? 'S' : '');
+
+  const grade = $('#grade-modulos');
+  grade.innerHTML = '';
+  const visiveis = (typeof MODULOS === 'undefined' ? [] : MODULOS)
+    .filter(m => !m.perfis || m.perfis.includes(usuario.perfil));
+
+  if(!visiveis.length){
+    grade.innerHTML = '<p class="vazio">Nenhuma opção liberada para o perfil ' + usuario.perfil +
+      '. Acrescente um módulo em <span class="mono">config/modulos.js</span>.</p>';
+  }
+
+  const esc = t => String(t == null ? '' : t)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  grade.classList.toggle('apps--um', visiveis.length === 1);
+
+  visiveis.forEach(m => {
+    const a = document.createElement('a');
+    a.className = 'app-card';
+    a.style.setProperty('--c', m.cor || '#1f6feb');
+    a.href = m.url || '#';
+    if(m.url && m.novaAba !== false){ a.target = '_blank'; a.rel = 'noopener'; }
+    a.innerHTML =
+      '<span class="ico"><i class="' + esc(m.icone || 'fas fa-cube') + '"></i></span>' +
+      '<span class="txt">' +
+        '<span class="app-title">' + esc(m.nome) + '</span>' +
+        '<span class="app-desc">' + esc(m.desc) + '</span>' +
+      '</span>' +
+      '<span class="go">Abrir <i class="fas fa-arrow-right"></i></span>';
+    if(!m.url){
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        alert('O módulo ' + m.cod + ' ainda não tem "url" definida em config/modulos.js.');
+      });
+    }
+    grade.appendChild(a);
+  });
+
+  // O empurrão para completar o cadastro é para quem acabou de entrar.
+  // Ao voltar de um módulo, seria um pop-up a cada retorno.
+  if(pend && recemLogado) setTimeout(abrirPerfil, 500);
+}
+
+/* Menu da conta */
+const menu = $('#menu-conta'), botaoAvatar = $('#b-avatar');
+function alternarMenu(forcar){
+  const abrir = forcar ?? menu.hidden;
+  menu.hidden = !abrir;
+  botaoAvatar.setAttribute('aria-expanded', String(abrir));
+}
+botaoAvatar.addEventListener('click', e => { e.stopPropagation(); alternarMenu(); });
+document.addEventListener('click', e => {
+  if(!menu.hidden && !menu.contains(e.target)) alternarMenu(false);
+});
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  if(!$('#veu-perfil').hidden) fecharPerfil();
+  else alternarMenu(false);
+});
+
+$('#b-sair').addEventListener('click', () => {
+  // Derruba a sessão no servidor também. Sem isto o token continuaria valendo
+  // pelas próximas horas para quem tivesse cópia dele.
+  if(sessao) API.chamar('sair', {}).catch(function(){});
+  limparSessao();
+  usuario = null; sessao = null; aguardandoPrimeiro = null;
+  alternarMenu(false);
+  $('#app').hidden = true; $('#portao').hidden = false;
+  $('#form-login').reset();
+  irPara('tela-login');
+});
+
+$('#b-trocar').addEventListener('click', () => {
+  alternarMenu(false);
+  $('#app').hidden = true; $('#portao').hidden = false;
+  $('#i-email').value = usuario?.email || '';
+  irPara('tela-esqueci');
+});
+
+/* ============================================================================
+   9. PERFIL — ver, completar e atualizar
+   ============================================================================ */
+$('#b-perfil').addEventListener('click', () => { alternarMenu(false); abrirPerfil(); });
+$('#b-fechar-perfil').addEventListener('click', fecharPerfil);
+$('#b-cancelar-perfil').addEventListener('click', fecharPerfil);
+$('#veu-perfil').addEventListener('click', e => { if(e.target.id === 'veu-perfil') fecharPerfil(); });
+
+function podeEditar(campo){
+  if(campo.edita === 'nunca') return false;
+  if(campo.edita === 'dono')  return true;
+  if(usuario.perfil === 'ADMIN') return true;
+  // campo do administrativo ainda em branco: a própria pessoa preenche uma vez
+  return campo.preenchivel === true && !String(usuario[campo.chave] || '').trim();
+}
+
+function abrirPerfil(){
+  const alvo = $('#perfil-campos');
+  alvo.innerHTML = '';
+  avisar('aviso-perfil','');
+
+  const faltando = camposPendentes().length;
+  if(faltando){
+    avisar('aviso-perfil', faltando + (faltando > 1 ? ' campos obrigatórios estão' : ' campo obrigatório está') +
+      ' em branco. Preencha para manter seu cadastro em dia.', 'info');
+  }
+
+  CAMPOS_PERFIL.forEach(c => {
+    if(c.grupo){
+      const h = document.createElement('div');
+      h.className = 'secao'; h.textContent = c.grupo;
+      alvo.appendChild(h); return;
+    }
+
+    const editavel = podeEditar(c);
+    const valor    = usuario[c.chave] || '';
+    const vazio    = c.obrigatorio && !String(valor).trim();
+
+    const div = document.createElement('div');
+    div.className = 'campo';
+    div.innerHTML =
+      '<label class="campo__rot" for="p-' + c.chave + '">' + c.rotulo +
+        (vazio ? '<span class="pendente">FALTA</span>' : '') +
+        (editavel ? '' : '<span class="trava">bloqueado</span>') +
+      '</label>' +
+      '<div class="campo__caixa">' +
+        '<input id="p-' + c.chave + '" data-chave="' + c.chave + '" ' +
+          'type="' + (c.tipo || 'text') + '" ' +
+          (c.mono ? 'class="mono" ' : '') +
+          'value="' + String(valor).replace(/"/g,'&quot;') + '" ' +
+          (c.placeholder ? 'placeholder="' + c.placeholder + '" ' : '') +
+          (editavel ? '' : 'readonly ') + '>' +
+      '</div>' +
+      (editavel
+        ? (c.preenchivel && usuario.perfil !== 'ADMIN'
+            ? '<span class="campo__dica">Você preenche uma vez. Depois, só o setor administrativo altera.</span>'
+            : '')
+        : '<span class="campo__dica">Alteração só pelo setor administrativo.</span>');
+    alvo.appendChild(div);
+  });
+
+  const tel = $('#p-telefone');
+  if(tel && !tel.readOnly) tel.addEventListener('input', e => e.target.value = formatarTelefone(e.target.value));
+
+  $('#veu-perfil').hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+function fecharPerfil(){
+  $('#veu-perfil').hidden = true;
+  document.body.style.overflow = '';
+}
+
+$('#form-perfil').addEventListener('submit', async e => {
+  e.preventDefault();
+  const alteracoes = {};
+  let faltou = false;
+
+  CAMPOS_PERFIL.filter(c => c.chave && podeEditar(c)).forEach(c => {
+    const input = $('#p-' + c.chave);
+    if(!input) return;
+    const v = input.value.trim();
+    if(c.obrigatorio && !v){ input.closest('.campo').classList.add('campo--erro'); faltou = true; }
+    else input.closest('.campo').classList.remove('campo--erro');
+    if(v !== String(usuario[c.chave] || '')) alteracoes[c.chave] = v;
+  });
+
+  if(faltou){ avisar('aviso-perfil','Preencha os campos marcados em vermelho.','erro'); return; }
+  if(!Object.keys(alteracoes).length){ avisar('aviso-perfil','Nada foi alterado.','info'); return; }
+
+  const btn = e.target.querySelector('.btn');
+  ocupado(btn, true);
+  const r = await API.salvarPerfil(usuario.matricula, alteracoes);
+  ocupado(btn, false, 'Salvar alterações');
+
+  if(!r.ok){
+    avisar('aviso-perfil', traduzir(r.motivo), r.motivo==='NADA' ? 'info' : 'erro');
+    if(r.motivo==='SESSAO') setTimeout(()=>$('#b-sair').click(), 1400);
+    return;
+  }
+
+  usuario = r.usuario;
+  gravarSessao();   // o nome aparece nos módulos; precisa acompanhar a alteração
+  avisar('aviso-perfil','Dados atualizados.','ok');
+
+  const pend = camposPendentes().length;
+  $('#avatar-alerta').hidden = pend === 0;
+  $('#selo-pend').hidden     = pend === 0;
+  if(pend) $('#selo-pend').textContent = pend + ' PENDENTE' + (pend > 1 ? 'S' : '');
+  $('#bar-nome').textContent = usuario.nome;
+  $('#bar-setor').textContent = (usuario.setor || 'Setor não informado') + ' · ' + usuario.perfil;
+  $('#avatar-iniciais').textContent = iniciais(usuario.nome);
+
+  setTimeout(fecharPerfil, 900);
+});
+
+/* ============================================================================
+   TEMA CLARO / ESCURO
+   Usa a mesma chave (ew_theme) dos apps de campo: quem escolhe escuro num,
+   abre o outro já no escuro. Sem escolha salva, segue o tema do aparelho.
+   ============================================================================ */
+const CHAVE_TEMA = 'ew_theme';
+
+/* Ícones dos controles em SVG, não em Font Awesome: se o CDN cair, o botão de
+   tema e o de mostrar senha ficariam invisíveis e sem como usar. */
+const SVG_SOL = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const SVG_LUA = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>';
+
+function aplicarTema(t){
+  if(t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  else { document.documentElement.removeAttribute('data-theme'); t = null; }
+  const escuro = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme:dark)').matches);
+  $('#theme-btn').innerHTML = escuro ? SVG_SOL : SVG_LUA;
+  const cor = document.querySelector('meta[name="theme-color"]');
+  if(cor) cor.setAttribute('content', escuro ? '#081525' : '#6db3ef');
+}
+
+$('#theme-btn').addEventListener('click', () => {
+  const atual = document.documentElement.getAttribute('data-theme');
+  const escuro = atual === 'dark' || (!atual && window.matchMedia('(prefers-color-scheme:dark)').matches);
+  const proximo = escuro ? 'light' : 'dark';
+  try{ localStorage.setItem(CHAVE_TEMA, proximo); }catch(e){}
+  aplicarTema(proximo);
+});
+
+(function temaInicial(){
+  let salvo = null;
+  try{ salvo = localStorage.getItem(CHAVE_TEMA); }catch(e){}
+  aplicarTema(salvo);
 })();
-</script>
-<script>
-/* PWA — registra o service worker (uso offline) */
-if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}
+
+/* ============================================================================
+   RETOMAR A SESSÃO
+   Sem isto, voltar de um módulo (que é uma navegação normal, na mesma aba)
+   recarregaria o portal na tela de login, mesmo com a sessão válida.
+   Mostra o menu na hora com o que está guardado e confere com o servidor em
+   seguida — assim não pisca login e não fica com dado velho.
+   ============================================================================ */
+function retomarSessao(){
+  const s = lerSessaoGuardada();
+  if(!s) return false;
+
+  sessao  = s.token;
+  usuario = s.usuario;
+  abrirApp(false);
+
+  API.chamar('sessao', {})
+    .then(r => {
+      if(r && r.ok && r.usuario){
+        usuario = r.usuario;      // cadastro pode ter mudado desde o último login
+        gravarSessao();
+        abrirApp(false);
+        return;
+      }
+      // Implantação antiga, sem a ação 'sessao': mantém o que está guardado.
+      // A primeira ação de verdade avisa se o token tiver caído.
+      if(r && r.motivo === 'ACAO_DESCONHECIDA') return;
+      encerrarPorSessao();
+    })
+    .catch(() => { /* sem rede agora: segue com o que está guardado */ });
+
+  return true;
+}
+
+function encerrarPorSessao(){
+  limparSessao();
+  usuario = null; sessao = null;
+  $('#app').hidden = true;
+  $('#portao').hidden = false;
+  irPara('tela-login');
+  avisar('aviso-login','Sua sessão expirou. Entre novamente.','info');
+}
+
+/* Início */
+if(MODO_DEMO && typeof DEMO === 'undefined'){
+  avisar('aviso-login','MODO_DEMO está ligado, mas config/demo.js não foi carregado. ' +
+    'Descomente a tag <script> dele no index.html, ou ponha MODO_DEMO = false ' +
+    'em config/config.js para usar o servidor.','erro');
+  $('#b-entrar').disabled = true;
+}
+
+// Se há sessão válida guardada, vai direto ao menu; senão, tela de login.
+if(!retomarSessao()) irPara('tela-login');
+
 </script>
 </body>
 </html>
