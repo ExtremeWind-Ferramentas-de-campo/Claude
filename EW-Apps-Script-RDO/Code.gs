@@ -59,6 +59,9 @@
  *   - doGet?lista=tecnicos  ->  devolve [{nome, mat}] para o autocomplete do form.
  *   - aba "Relatorios": coluna "Tecnicos" virou "Matriculas".
  *
+ * Meus Equipamentos (set/2026): ação 'meusEquipamentos' + bloco no fim do
+ *   arquivo. Lê o .xlsm do almoxarifado no Dropbox. Ver o cabeçalho do bloco.
+ *
  * Propriedades do Script necessárias (Configurações do projeto):
  *   SHEET_ID, DROPBOX_APP_KEY, DROPBOX_APP_SECRET,
  *   DROPBOX_REFRESH_TOKEN, DROPBOX_FOLDER,
@@ -115,6 +118,9 @@ function doPost(e) {
 
     /* --- Meus Dados: Pé de meia, Cursos e Dívidas (valida o token lá dentro) --- */
     if (dados.acao === 'consultaPessoal') return resposta(consultaPessoal(dados));
+
+    /* --- Meus Dados: Meus Equipamentos (valida o token lá dentro) --- */
+    if (dados.acao === 'meusEquipamentos') return resposta(meusEquipamentos(dados));
 
     /* --- checklist semanal da equipe: valida o token lá dentro --- */
     if (dados.acao === 'checklistStatus') return resposta(checklistStatus(dados));
@@ -202,6 +208,13 @@ function doGet(e) {
     try { rc = consultaPessoal({ token: p.token, tipo: p.tipo }); }
     catch (e3) { rc = { ok: false, erro: String(e3) }; }
     return saida(rc, p.callback);
+  }
+
+  if (p.acao === 'meusEquipamentos') {
+    var re;
+    try { re = meusEquipamentos({ token: p.token }); }
+    catch (e5) { re = { ok: false, erro: String(e5) }; }
+    return saida(re, p.callback);
   }
 
   if (p.acao === 'peDeMeia') {
@@ -2507,4 +2520,512 @@ function testarChecklistEquipe() {
     Logger.log(JSON.stringify(cklEquipeDoTecnico(amostra, hoje)));
   }
   return { matriculas: Object.keys(todas).length, naJanela: naJanela.length };
+}
+
+/* =====================================================================
+ * MEUS DADOS — MEUS EQUIPAMENTOS
+ * ---------------------------------------------------------------------
+ * Fonte: "CONTROLE DE EQUIPAMENTOS - EXTREME.xlsm", no Dropbox do
+ * almoxarifado. O almoxarifado continua editando o Excel normalmente;
+ * este backend só LÊ o arquivo.
+ *
+ * Como fica "em tempo real":
+ *   um gatilho de tempo roda eqGatilho() a cada 10 min. Ele pergunta ao
+ *   Dropbox a revisão do arquivo; se mudou, baixa, lê a aba BASE DE DADOS
+ *   direto do XML do .xlsm (sem converter para Google Sheets, sem macros)
+ *   e monta um índice por matrícula no cache. A tela do técnico lê só o
+ *   índice, então a resposta é rápida.
+ *   Atraso real = salvar no Excel + sincronizar o Dropbox + até 10 min.
+ *
+ * Proteção contra item de uma pessoa aparecer para outra:
+ *   o item só entra no índice da matrícula da coluna "MATRÍCULA RESPONSÁVEL"
+ *   se o nome da coluna RESPONSÁVEL bater com o nome dessa matrícula na
+ *   mini master. Se não bater, o item NÃO aparece e vai para o relatório de
+ *   divergências (relatorioDivergenciasEquipamentos).
+ *
+ * O que NÃO sai para o técnico: valor em R$, observações, itens com status
+ * Disponível/Descarte, matrícula 0 (EM SEPARAÇÃO, ADM etc.).
+ *
+ * Propriedades do Script (todas opcionais):
+ *   EQUIP_ARQUIVO               caminho ou id do Dropbox (padrão: o id abaixo)
+ *   EQUIP_ABA                   padrão "BASE DE DADOS"
+ *   EQUIP_EMAIL_DIVERGENCIAS    e-mail que recebe a lista de divergências
+ *                               sempre que a planilha muda (vazio = não envia)
+ *
+ * Rodar à mão no editor:
+ *   testarEquipamentos()                  sincroniza e mostra o diagnóstico
+ *   relatorioDivergenciasEquipamentos()   lista o que ficou de fora e por quê
+ *   instalarGatilhoEquipamentos()         cria o gatilho de 10 min (1 vez só)
+ * ===================================================================== */
+
+var EQ_ARQUIVO_PADRAO = 'id:zJii0PvESPAAAAAAAAmXCg';
+var EQ_ABA_PADRAO = 'BASE DE DADOS';
+var EQ_CACHE_SEG = 21600;          /* 6 h (máximo do CacheService) */
+var EQ_TRAVA_SEG = 240;            /* trava "suave" da sincronização */
+var EQ_STATUS_FORA = { 'DISPONIVEL': 1, 'DESCARTE': 1 };
+
+/* cabeçalhos procurados na linha de cabeçalho (comparação sem acento/caixa).
+   A 1ª ocorrência vence — as colunas MIRROR têm nome diferente. */
+var EQ_COLUNAS = {
+  id:         ['ID'],
+  codigo:     ['CODIGO'],
+  classe:     ['CLASSIFICACAO'],
+  categoria:  ['CATEGORIA'],
+  serie:      ['N DE SERIE', 'NO DE SERIE', 'NUMERO DE SERIE'],
+  marca:      ['MARCA'],
+  descricao:  ['DESCRICAO'],
+  calib:      ['PROX. CALIBRACAO / INSPECAO', 'PROX CALIBRACAO / INSPECAO'],
+  qtd:        ['ESTOQUE'],
+  und:        ['UND. MEDIDA', 'UND MEDIDA'],
+  status:     ['STATUS', 'PARQUE / FABRICA'],
+  local:      ['LOCALIZACAO'],
+  saida:      ['DATA SAIDA'],
+  resp:       ['RESPONSAVEL'],
+  req:        ['N REQUISICAO DE ENTREGA', 'NO REQUISICAO DE ENTREGA'],
+  mat:        ['MATRICULA RESPONSAVEL', 'MATRICULA']
+};
+var EQ_OBRIGATORIAS = ['descricao', 'status', 'resp', 'mat'];
+var EQ_COLS_DATA = { calib: 1, saida: 1 };
+
+/* ---------- entrada: chamada pela tela meus-dados/equipamentos.html ---------- */
+
+function meusEquipamentos(dados) {
+  var s = cpTecnicoDaSessao(dados);
+  if (s.erro) return s.erro;
+
+  var cache = CacheService.getScriptCache();
+  var gen = cache.get('EQ_GEN');
+  if (!gen) {
+    /* cache vazio (1ª vez ou 6 h sem mudança): sincroniza agora */
+    var r = eqSincronizar(false);
+    if (r.ocupado) {
+      return { ok: false, retentar: true,
+               erro: 'A lista de equipamentos está sendo atualizada. Tente de novo em 1 minuto.' };
+    }
+    gen = cache.get('EQ_GEN');
+    if (!gen) return { ok: false, erro: 'Não foi possível ler a planilha de equipamentos agora.' };
+  }
+
+  var meta = {};
+  try { meta = JSON.parse(cache.get('EQ_' + gen + '_META') || '{}'); } catch (e) {}
+  var itens = [];
+  try { itens = JSON.parse(cache.get('EQ_' + gen + '_M' + s.mat) || '[]'); } catch (e2) {}
+
+  return {
+    ok: true, tipo: 'equipamentos',
+    nome: s.tecnico.nome, mat: String(s.tecnico.mat),
+    encontrado: itens.length > 0,
+    itens: itens,
+    atualizadoEm: meta.atualizadoEm || '',
+    lidoEm: meta.lidoEm || ''
+  };
+}
+
+/* ---------- gatilho de tempo ---------- */
+
+function eqGatilho() {
+  try { eqSincronizar(false); }
+  catch (e) { Logger.log('eqGatilho: ' + e); }
+}
+
+function instalarGatilhoEquipamentos() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'eqGatilho') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('eqGatilho').timeBased().everyMinutes(10).create();
+  Logger.log('Gatilho criado: eqGatilho a cada 10 minutos.');
+}
+
+/* ---------- sincronização ---------- */
+
+/**
+ * Não usa o LockService do script de propósito: o envio de RDO usa essa
+ * mesma trava e ficaria esperando ~20 s enquanto a planilha é lida.
+ */
+function eqSincronizar(forcar) {
+  var cache = CacheService.getScriptCache();
+  var props = PropertiesService.getScriptProperties();
+
+  if (cache.get('EQ_SYNC')) return { ok: false, ocupado: true };
+  cache.put('EQ_SYNC', '1', EQ_TRAVA_SEG);
+
+  try {
+    var token = getDropboxToken(props);
+    var arquivo = props.getProperty('EQUIP_ARQUIVO') || EQ_ARQUIVO_PADRAO;
+    var meta = eqDbxMetadata(token, arquivo, props);
+
+    var genAtual = cache.get('EQ_GEN');
+    if (!forcar && genAtual && cache.get('EQ_REV') === meta.rev) {
+      return { ok: true, mudou: false, rev: meta.rev };
+    }
+
+    var blob = eqDbxBaixar(token, arquivo, props);
+    var aba = props.getProperty('EQUIP_ABA') || EQ_ABA_PADRAO;
+    var lido = eqLerAba(Utilities.unzip(blob.setContentType('application/zip')), aba);
+    var idx = eqMontarIndice(lido.linhas, lerMiniMasterCompleto());
+
+    /* geração nova = chaves novas; as antigas expiram sozinhas. Assim um
+       técnico que devolveu tudo não continua vendo a lista velha. */
+    var gen = Utilities.getUuid().slice(0, 8);
+    var lote = {};
+    Object.keys(idx.porMat).forEach(function (m) {
+      lote['EQ_' + gen + '_M' + m] = JSON.stringify(idx.porMat[m]);
+    });
+    lote['EQ_' + gen + '_META'] = JSON.stringify({
+      atualizadoEm: eqFmtDataHora(meta.server_modified),
+      lidoEm: eqFmtDataHora(new Date().toISOString()),
+      rev: meta.rev
+    });
+    lote['EQ_' + gen + '_DIV'] = JSON.stringify(idx.divergencias.slice(0, 400));
+    eqPutAll(cache, lote);
+    cache.putAll({ EQ_GEN: gen, EQ_REV: meta.rev }, EQ_CACHE_SEG);
+
+    var resumo = {
+      ok: true, mudou: true, rev: meta.rev,
+      linhasLidas: lido.linhas.length, cabecalhoNaLinha: lido.linhaCabecalho,
+      colunas: lido.colunas,
+      tecnicos: Object.keys(idx.porMat).length, itensNoApp: idx.totalItens,
+      divergencias: idx.divergencias.length, ignorados: idx.ignorados
+    };
+    eqAvisarDivergencias(props, idx.divergencias, genAtual);
+    return resumo;
+  } finally {
+    cache.remove('EQ_SYNC');
+  }
+}
+
+function eqPutAll(cache, obj) {
+  var chaves = Object.keys(obj), bloco = {};
+  for (var i = 0; i < chaves.length; i++) {
+    var v = obj[chaves[i]];
+    if (v.length > 95000) {
+      /* > 100 KB por chave: corta a lista em vez de perder tudo */
+      var arr = JSON.parse(v);
+      while (JSON.stringify(arr).length > 95000) arr.pop();
+      v = JSON.stringify(arr);
+    }
+    bloco[chaves[i]] = v;
+    if (Object.keys(bloco).length >= 100) { cache.putAll(bloco, EQ_CACHE_SEG); bloco = {}; }
+  }
+  if (Object.keys(bloco).length) cache.putAll(bloco, EQ_CACHE_SEG);
+}
+
+/* ---------- Dropbox ---------- */
+
+/* Conta de time: o arquivo pode estar fora do namespace padrão. Se o caminho
+   não for achado, tenta de novo a partir da raiz do time e guarda a escolha. */
+function eqDbxCall(url, token, props, extra, conteudo) {
+  var tentativas = [props.getProperty('EQUIP_PATH_ROOT') || ''];
+  if (tentativas[0] === '') tentativas.push('ROOT');
+
+  var ultimo = null;
+  for (var i = 0; i < tentativas.length; i++) {
+    var headers = { 'Authorization': 'Bearer ' + token };
+    if (tentativas[i] === 'ROOT') {
+      var ns = eqDbxRootNs(token);
+      if (!ns) break;
+      headers['Dropbox-API-Path-Root'] = JSON.stringify({ '.tag': 'root', 'root': ns });
+    }
+    var op = { method: 'post', headers: headers, muteHttpExceptions: true };
+    if (conteudo) {
+      headers['Dropbox-API-Arg'] = escaparArg(extra);
+    } else {
+      op.contentType = 'application/json';
+      op.payload = JSON.stringify(extra);
+    }
+    var r = UrlFetchApp.fetch(url, op);
+    ultimo = r;
+    if (r.getResponseCode() === 200) {
+      if (tentativas[i] !== (props.getProperty('EQUIP_PATH_ROOT') || '')) {
+        props.setProperty('EQUIP_PATH_ROOT', tentativas[i]);
+      }
+      return r;
+    }
+    if (r.getResponseCode() !== 409) break;   /* 409 = não achou: vale tentar a raiz */
+  }
+  throw new Error('Dropbox não liberou o arquivo de equipamentos (' +
+    (ultimo ? ultimo.getResponseCode() + ': ' + ultimo.getContentText().slice(0, 300) : 'sem resposta') +
+    '). Confira se a conta do app do RDO enxerga a pasta do almoxarifado.');
+}
+
+function eqDbxRootNs(token) {
+  var r = UrlFetchApp.fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+    method: 'post', headers: { 'Authorization': 'Bearer ' + token }, muteHttpExceptions: true
+  });
+  if (r.getResponseCode() !== 200) return null;
+  var j = JSON.parse(r.getContentText());
+  return j.root_info && j.root_info.root_namespace_id;
+}
+
+function eqDbxMetadata(token, arquivo, props) {
+  var r = eqDbxCall('https://api.dropboxapi.com/2/files/get_metadata', token, props, { path: arquivo });
+  return JSON.parse(r.getContentText());
+}
+
+function eqDbxBaixar(token, arquivo, props) {
+  return eqDbxCall('https://content.dropboxapi.com/2/files/download', token, props, { path: arquivo }, true).getBlob();
+}
+
+/* ---------- leitura do .xlsm (é um zip de XMLs) ---------- */
+
+function eqLerAba(blobs, nomeAba) {
+  var arq = {};
+  blobs.forEach(function (b) { arq[b.getName()] = b; });
+  var txt = function (n) { return arq[n] ? arq[n].getDataAsString('UTF-8') : ''; };
+  return eqLerAbaXml(txt('xl/workbook.xml'), txt('xl/_rels/workbook.xml.rels'),
+                     txt('xl/sharedStrings.xml'), txt, nomeAba);
+}
+
+/* Parte pura (sem serviços do Google): dá para testar fora do Apps Script. */
+function eqLerAbaXml(wbXml, relsXml, ssXml, lerArquivo, nomeAba) {
+  var alvo = eqNorm(nomeAba), rid = null, m;
+  var reSheet = /<sheet\b([^>]*)\/?>/g;
+  while ((m = reSheet.exec(wbXml))) {
+    var nm = /\bname="([^"]*)"/.exec(m[1]), id = /\br:id="([^"]*)"/.exec(m[1]);
+    if (nm && id && eqNorm(eqXmlTexto(nm[1])) === alvo) { rid = id[1]; break; }
+  }
+  if (!rid) throw new Error('Aba "' + nomeAba + '" não encontrada na planilha.');
+
+  var alvoArq = null, reRel = /<Relationship\b([^>]*)\/?>/g;
+  while ((m = reRel.exec(relsXml))) {
+    var i2 = /\bId="([^"]*)"/.exec(m[1]), t2 = /\bTarget="([^"]*)"/.exec(m[1]);
+    if (i2 && i2[1] === rid && t2) { alvoArq = t2[1]; break; }
+  }
+  if (!alvoArq) throw new Error('Arquivo da aba "' + nomeAba + '" não encontrado.');
+  alvoArq = alvoArq.charAt(0) === '/' ? alvoArq.slice(1) : 'xl/' + alvoArq.replace(/^\.\//, '');
+
+  /* textos compartilhados */
+  var ss = [], reSi = /<si>([\s\S]*?)<\/si>/g;
+  while ((m = reSi.exec(ssXml))) ss.push(eqJuntarT(m[1]));
+
+  var xml = lerArquivo(alvoArq);
+  if (!xml) throw new Error('Não consegui abrir ' + alvoArq + '.');
+
+  var colunas = null, linhaCab = 0, linhas = [];
+  var linhaAtual = 0, vals = {};
+
+  function fecharLinha() {
+    if (!linhaAtual) return;
+    if (!colunas) {
+      if (linhaAtual <= 15) {
+        var c = eqAcharColunas(vals);
+        if (c) { colunas = c; linhaCab = linhaAtual; }
+      }
+    } else {
+      var reg = { _linha: linhaAtual }, tem = false;
+      Object.keys(colunas).forEach(function (k) {
+        var v = vals[colunas[k]];
+        if (v !== undefined && v !== null && v !== '') { reg[k] = v; tem = true; }
+      });
+      if (tem) linhas.push(reg);
+    }
+  }
+
+  var reC = /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+  while ((m = reC.exec(xml))) {
+    var ref = /\br="([A-Z]+)(\d+)"/.exec(m[1]);
+    if (!ref) continue;
+    var ln = Number(ref[2]);
+    if (ln !== linhaAtual) { fecharLinha(); linhaAtual = ln; vals = {}; }
+    if (!m[2]) continue;
+    var tipo = /\bt="([^"]*)"/.exec(m[1]);
+    tipo = tipo ? tipo[1] : 'n';
+    var v = null;
+    if (tipo === 'inlineStr') {
+      v = eqJuntarT(m[2]);
+    } else {
+      var vv = /<v>([\s\S]*?)<\/v>/.exec(m[2]);
+      if (vv) {
+        if (tipo === 's') v = ss[Number(vv[1])];
+        else if (tipo === 'str') v = eqXmlTexto(vv[1]);
+        else if (tipo === 'e') v = null;              /* #REF!, #N/D… */
+        else if (tipo === 'b') v = vv[1] === '1';
+        else v = Number(vv[1]);
+      }
+    }
+    if (typeof v === 'string') v = v.trim();
+    vals[ref[1]] = v;
+  }
+  fecharLinha();
+
+  if (!colunas) {
+    throw new Error('Não achei a linha de cabeçalho na aba "' + nomeAba +
+      '" (precisa ter as colunas ' + EQ_OBRIGATORIAS.join(', ') + ').');
+  }
+  return { colunas: colunas, linhaCabecalho: linhaCab, linhas: linhas };
+}
+
+function eqAcharColunas(vals) {
+  var achadas = {};
+  Object.keys(EQ_COLUNAS).forEach(function (k) {
+    var alvos = EQ_COLUNAS[k];
+    for (var a = 0; a < alvos.length && !achadas[k]; a++) {
+      for (var col in vals) {
+        if (typeof vals[col] === 'string' && eqNorm(vals[col]) === alvos[a]) {
+          if (!achadas[k] || eqColNum(col) < eqColNum(achadas[k])) achadas[k] = col;
+        }
+      }
+    }
+  });
+  for (var i = 0; i < EQ_OBRIGATORIAS.length; i++) if (!achadas[EQ_OBRIGATORIAS[i]]) return null;
+  return achadas;
+}
+
+function eqColNum(l) { var n = 0; for (var i = 0; i < l.length; i++) n = n * 26 + (l.charCodeAt(i) - 64); return n; }
+
+function eqJuntarT(x) {
+  var semFonetica = x.replace(/<rPh\b[\s\S]*?<\/rPh>/g, '');
+  var out = '', m, re = /<t\b[^>]*>([\s\S]*?)<\/t>/g;
+  while ((m = re.exec(semFonetica))) out += m[1];
+  return eqXmlTexto(out);
+}
+
+function eqXmlTexto(s) {
+  return String(s)
+    .replace(/_x([0-9A-Fa-f]{4})_/g, function (_, h) { return String.fromCharCode(parseInt(h, 16)); })
+    .replace(/&#x([0-9A-Fa-f]+);/g, function (_, h) { return String.fromCharCode(parseInt(h, 16)); })
+    .replace(/&#(\d+);/g, function (_, d) { return String.fromCharCode(Number(d)); })
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+}
+
+function eqNorm(s) {
+  return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[ºª°]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+}
+
+/* ---------- índice por matrícula, com a checagem de nome ---------- */
+
+function eqMontarIndice(linhas, miniMaster) {
+  var nomePorMat = {};
+  miniMaster.forEach(function (t) { nomePorMat[normMat(t.mat)] = t.nome; });
+
+  var porMat = {}, div = [], total = 0;
+  var ign = { semMatricula: 0, statusFora: 0 };
+
+  linhas.forEach(function (r) {
+    var mat = normMat(r.mat);
+    if (!mat || mat === '0') { ign.semMatricula++; return; }
+    var st = eqNorm(r.status);
+    if (EQ_STATUS_FORA[st]) { ign.statusFora++; return; }
+
+    var nomeCad = nomePorMat[mat];
+    var problema = null;
+    if (!nomeCad) problema = 'matrícula não existe na mini master';
+    else if (!eqNomeBate(r.resp, nomeCad)) problema = 'nome não bate com a matrícula (cadastro: ' + nomeCad + ')';
+    if (problema) {
+      div.push({ linha: r._linha, id: r.id != null ? String(r.id) : '', descricao: String(r.descricao || ''),
+                 responsavel: String(r.resp || ''), matricula: mat, motivo: problema });
+      return;
+    }
+
+    (porMat[mat] = porMat[mat] || []).push(eqItemPublico(r));
+    total++;
+  });
+
+  Object.keys(porMat).forEach(function (m) {
+    porMat[m].sort(function (a, b) { return (a.status + a.descricao).localeCompare(b.status + b.descricao); });
+  });
+  return { porMat: porMat, divergencias: div, totalItens: total, ignorados: ign };
+}
+
+/* Todos os pedaços do nome escrito na planilha precisam existir no nome do
+   cadastro (aceita nome abreviado, recusa nome de outra pessoa). */
+function eqNomeBate(nomePlanilha, nomeCadastro) {
+  var a = eqNorm(nomePlanilha).split(/[\s\/]+/).filter(Boolean);
+  if (!a.length) return false;
+  var b = {};
+  eqNorm(nomeCadastro).split(' ').forEach(function (p) { b[p] = 1; });
+  for (var i = 0; i < a.length; i++) if (!b[a[i]]) return false;
+  return true;
+}
+
+function eqItemPublico(r) {
+  var o = {};
+  ['id', 'codigo', 'classe', 'categoria', 'serie', 'marca', 'descricao', 'qtd', 'und',
+   'status', 'local', 'saida', 'req', 'calib'].forEach(function (k) {
+    var v = r[k];
+    if (v === undefined || v === null || v === '' || v === '-') return;
+    if (EQ_COLS_DATA[k]) v = eqData(v);
+    o[k] = typeof v === 'number' ? v : String(v);
+  });
+  return o;
+}
+
+/* número de série do Excel -> dd/mm/aaaa; texto fica como está */
+function eqData(v) {
+  if (typeof v === 'number' && v > 20000 && v < 80000) {
+    var d = new Date(Math.round((v - 25569) * 86400000));
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return p(d.getUTCDate()) + '/' + p(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear();
+  }
+  return String(v);
+}
+
+function eqFmtDataHora(iso) {
+  try { return Utilities.formatDate(new Date(iso), 'America/Fortaleza', "dd/MM/yyyy 'às' HH:mm"); }
+  catch (e) { return String(iso || ''); }
+}
+
+/* ---------- divergências ---------- */
+
+function eqAvisarDivergencias(props, div, genAnterior) {
+  var para = props.getProperty('EQUIP_EMAIL_DIVERGENCIAS');
+  if (!para || !div.length || !genAnterior) return;   /* 1ª carga não dispara e-mail */
+  var linhas = div.slice(0, 200).map(function (d) {
+    return '<tr><td>' + d.linha + '</td><td>' + eqHtml(d.id) + '</td><td>' + eqHtml(d.descricao) +
+           '</td><td>' + eqHtml(d.responsavel) + '</td><td>' + d.matricula + '</td><td>' + eqHtml(d.motivo) + '</td></tr>';
+  }).join('');
+  try {
+    MailApp.sendEmail({
+      to: para,
+      subject: 'Equipamentos: ' + div.length + ' item(ns) fora do app dos técnicos',
+      htmlBody: '<p>Estes itens da BASE DE DADOS não aparecem no app porque a matrícula ' +
+        '(coluna MATRÍCULA RESPONSÁVEL) não confere com o nome em RESPONSÁVEL.</p>' +
+        '<table border="1" cellpadding="4" cellspacing="0"><tr><th>Linha</th><th>ID</th><th>Descrição</th>' +
+        '<th>Responsável</th><th>Matrícula</th><th>Motivo</th></tr>' + linhas + '</table>',
+      name: 'App dos técnicos — Extreme Wind'
+    });
+  } catch (e) { Logger.log('e-mail de divergências falhou: ' + e); }
+}
+
+function eqHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+
+/* ---------- rodar à mão ---------- */
+
+function testarEquipamentos() {
+  var r = eqSincronizar(true);
+  Logger.log(JSON.stringify(r, null, 2));
+  relatorioDivergenciasEquipamentos();
+  return r;
+}
+
+function relatorioDivergenciasEquipamentos() {
+  var cache = CacheService.getScriptCache();
+  var gen = cache.get('EQ_GEN');
+  if (!gen) { Logger.log('Sem dados no cache: rode testarEquipamentos() primeiro.'); return []; }
+  var div = JSON.parse(cache.get('EQ_' + gen + '_DIV') || '[]');
+  var grupos = {};
+  div.forEach(function (d) {
+    var k = d.responsavel + ' → mat. ' + d.matricula + ' | ' + d.motivo;
+    grupos[k] = (grupos[k] || 0) + 1;
+  });
+  Logger.log('Itens fora do app: ' + div.length);
+  Object.keys(grupos).sort(function (a, b) { return grupos[b] - grupos[a]; })
+    .forEach(function (k) { Logger.log(grupos[k] + ' × ' + k); });
+  return div;
+}
+
+/** Simula a tela de um técnico sem precisar logar no celular. */
+function testarEquipamentosDaMatricula() {
+  var mat = '239';   /* troque aqui */
+  var cache = CacheService.getScriptCache();
+  var gen = cache.get('EQ_GEN');
+  var itens = gen ? JSON.parse(cache.get('EQ_' + gen + '_M' + normMat(mat)) || '[]') : [];
+  Logger.log(itens.length + ' itens para a matrícula ' + mat);
+  Logger.log(JSON.stringify(itens.slice(0, 5), null, 2));
 }

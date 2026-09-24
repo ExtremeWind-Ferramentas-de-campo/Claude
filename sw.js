@@ -17,7 +17,7 @@
    IMPORTANTE: ao atualizar arquivos do app, incremente o número do CACHE
    abaixo — é o que descarta o cache antigo e força a atualização.
    ───────────────────────────────────────────────────────────── */
-const CACHE = 'ew-site-v38';
+const CACHE = 'ew-site-v39';
 
 const CORE = [
   './',
@@ -46,7 +46,8 @@ const CORE = [
   'meus-dados/index.html',                   // hub pessoal (fica antes das ferramentas)
   'meus-dados/pe-de-meia.html',              // a tela abre offline; a consulta em si exige rede
   'meus-dados/cursos.html',
-  'meus-dados/dividas.html'
+  'meus-dados/dividas.html',
+  'meus-dados/equipamentos.html'
 ];
 /* Frotas fica fora do CORE de propósito: addAll é tudo-ou-nada, e um 404 aqui
    (pasta ainda não publicada, nome com espaço mal servido) derrubaria o cache
