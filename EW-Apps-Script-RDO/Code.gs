@@ -2522,6 +2522,7 @@ function testarChecklistEquipe() {
   return { matriculas: Object.keys(todas).length, naJanela: naJanela.length };
 }
 
+
 /* =====================================================================
  * MEUS DADOS — MEUS EQUIPAMENTOS
  * ---------------------------------------------------------------------
@@ -2543,8 +2544,11 @@ function testarChecklistEquipe() {
  *   mini master. Se não bater, o item NÃO aparece e vai para o relatório de
  *   divergências (relatorioDivergenciasEquipamentos).
  *
- * O que NÃO sai para o técnico: valor em R$, observações, itens com status
- * Disponível/Descarte, matrícula 0 (EM SEPARAÇÃO, ADM etc.).
+ * Aba Meus Equipamentos: ID, descrição, qtd (somada), localização, data de saída.
+ * Aba Extraviados e Avariados: linhas com status Extraviado/Quarentena e
+ *   matrícula na coluna MATRÍCULA RESPONSÁVEL — descrição, valor, observação e,
+ *   se existirem na planilha, as colunas PROJETO, MÊS, DESCONTADO e LINK RELATÓRIO.
+ * Não sai: Disponível/Descarte e matrícula 0 (EM SEPARAÇÃO, ADM etc.).
  *
  * Propriedades do Script (todas opcionais):
  *   EQUIP_ARQUIVO               caminho ou id do Dropbox (padrão: o id abaixo)
@@ -2563,6 +2567,8 @@ var EQ_ABA_PADRAO = 'BASE DE DADOS';
 var EQ_CACHE_SEG = 21600;          /* 6 h (máximo do CacheService) */
 var EQ_TRAVA_SEG = 240;            /* trava "suave" da sincronização */
 var EQ_STATUS_FORA = { 'DISPONIVEL': 1, 'DESCARTE': 1 };
+var EQ_STATUS_EXTRAVIO = { 'EXTRAVIADO': 1, 'QUARENTENA': 1 };   /* aba Extraviados e Avariados */
+var EQ_PFX = 'EQ2_';               /* troca de formato do cache = prefixo novo */
 
 /* cabeçalhos procurados na linha de cabeçalho (comparação sem acento/caixa).
    A 1ª ocorrência vence — as colunas MIRROR têm nome diferente. */
@@ -2582,10 +2588,17 @@ var EQ_COLUNAS = {
   saida:      ['DATA SAIDA'],
   resp:       ['RESPONSAVEL'],
   req:        ['N REQUISICAO DE ENTREGA', 'NO REQUISICAO DE ENTREGA'],
-  mat:        ['MATRICULA RESPONSAVEL', 'MATRICULA']
+  mat:        ['MATRICULA RESPONSAVEL', 'MATRICULA'],
+  /* usadas na aba Extraviados e Avariados (as 4 últimas são opcionais:
+     se a coluna não existir na planilha, o campo só não aparece) */
+  valor:      ['R$ VALOR', 'VALOR (R$)', 'VALOR'],
+  obs:        ['OBSERVACOES', 'OBSERVACAO'],
+  projeto:    ['PROJETO'],
+  mes:        ['MES', 'MES DO EXTRAVIO', 'MES DA OCORRENCIA'],
+  descontado: ['DESCONTADO', 'DESCONTO'],
+  link:       ['LINK RELATORIO', 'LINK DO RELATORIO', 'RELATORIO DE DESMOBILIZACAO', 'LINK']
 };
 var EQ_OBRIGATORIAS = ['descricao', 'status', 'resp', 'mat'];
-var EQ_COLS_DATA = { calib: 1, saida: 1 };
 
 /* ---------- entrada: chamada pela tela meus-dados/equipamentos.html ---------- */
 
@@ -2594,7 +2607,7 @@ function meusEquipamentos(dados) {
   if (s.erro) return s.erro;
 
   var cache = CacheService.getScriptCache();
-  var gen = cache.get('EQ_GEN');
+  var gen = cache.get(EQ_PFX + 'GEN');
   if (!gen) {
     /* cache vazio (1ª vez ou 6 h sem mudança): sincroniza agora */
     var r = eqSincronizar(false);
@@ -2602,20 +2615,21 @@ function meusEquipamentos(dados) {
       return { ok: false, retentar: true,
                erro: 'A lista de equipamentos está sendo atualizada. Tente de novo em 1 minuto.' };
     }
-    gen = cache.get('EQ_GEN');
+    gen = cache.get(EQ_PFX + 'GEN');
     if (!gen) return { ok: false, erro: 'Não foi possível ler a planilha de equipamentos agora.' };
   }
 
   var meta = {};
-  try { meta = JSON.parse(cache.get('EQ_' + gen + '_META') || '{}'); } catch (e) {}
-  var itens = [];
-  try { itens = JSON.parse(cache.get('EQ_' + gen + '_M' + s.mat) || '[]'); } catch (e2) {}
+  try { meta = JSON.parse(cache.get(EQ_PFX + gen + '_META') || '{}'); } catch (e) {}
+  var reg = { itens: [], extravios: [] };
+  try { reg = JSON.parse(cache.get(EQ_PFX + gen + '_M' + s.mat) || '{"itens":[],"extravios":[]}'); } catch (e2) {}
 
   return {
     ok: true, tipo: 'equipamentos',
     nome: s.tecnico.nome, mat: String(s.tecnico.mat),
-    encontrado: itens.length > 0,
-    itens: itens,
+    encontrado: (reg.itens || []).length + (reg.extravios || []).length > 0,
+    itens: reg.itens || [],
+    extravios: reg.extravios || [],
     atualizadoEm: meta.atualizadoEm || '',
     lidoEm: meta.lidoEm || ''
   };
@@ -2646,16 +2660,16 @@ function eqSincronizar(forcar) {
   var cache = CacheService.getScriptCache();
   var props = PropertiesService.getScriptProperties();
 
-  if (cache.get('EQ_SYNC')) return { ok: false, ocupado: true };
-  cache.put('EQ_SYNC', '1', EQ_TRAVA_SEG);
+  if (cache.get(EQ_PFX + 'SYNC')) return { ok: false, ocupado: true };
+  cache.put(EQ_PFX + 'SYNC', '1', EQ_TRAVA_SEG);
 
   try {
     var token = getDropboxToken(props);
     var arquivo = props.getProperty('EQUIP_ARQUIVO') || EQ_ARQUIVO_PADRAO;
     var meta = eqDbxMetadata(token, arquivo, props);
 
-    var genAtual = cache.get('EQ_GEN');
-    if (!forcar && genAtual && cache.get('EQ_REV') === meta.rev) {
+    var genAtual = cache.get(EQ_PFX + 'GEN');
+    if (!forcar && genAtual && cache.get(EQ_PFX + 'REV') === meta.rev) {
       return { ok: true, mudou: false, rev: meta.rev };
     }
 
@@ -2669,16 +2683,16 @@ function eqSincronizar(forcar) {
     var gen = Utilities.getUuid().slice(0, 8);
     var lote = {};
     Object.keys(idx.porMat).forEach(function (m) {
-      lote['EQ_' + gen + '_M' + m] = JSON.stringify(idx.porMat[m]);
+      lote[EQ_PFX + gen + '_M' + m] = JSON.stringify(idx.porMat[m]);
     });
-    lote['EQ_' + gen + '_META'] = JSON.stringify({
+    lote[EQ_PFX + gen + '_META'] = JSON.stringify({
       atualizadoEm: eqFmtDataHora(meta.server_modified),
       lidoEm: eqFmtDataHora(new Date().toISOString()),
       rev: meta.rev
     });
-    lote['EQ_' + gen + '_DIV'] = JSON.stringify(idx.divergencias.slice(0, 400));
+    lote[EQ_PFX + gen + '_DIV'] = JSON.stringify(idx.divergencias.slice(0, 400));
     eqPutAll(cache, lote);
-    cache.putAll({ EQ_GEN: gen, EQ_REV: meta.rev }, EQ_CACHE_SEG);
+    cache.putAll(eqObj(EQ_PFX + 'GEN', gen, EQ_PFX + 'REV', meta.rev), EQ_CACHE_SEG);
 
     var resumo = {
       ok: true, mudou: true, rev: meta.rev,
@@ -2690,9 +2704,11 @@ function eqSincronizar(forcar) {
     eqAvisarDivergencias(props, idx.divergencias, genAtual);
     return resumo;
   } finally {
-    cache.remove('EQ_SYNC');
+    cache.remove(EQ_PFX + 'SYNC');
   }
 }
+
+function eqObj() { var o = {}; for (var i = 0; i < arguments.length; i += 2) o[arguments[i]] = arguments[i + 1]; return o; }
 
 function eqPutAll(cache, obj) {
   var chaves = Object.keys(obj), bloco = {};
@@ -2700,9 +2716,10 @@ function eqPutAll(cache, obj) {
     var v = obj[chaves[i]];
     if (v.length > 95000) {
       /* > 100 KB por chave: corta a lista em vez de perder tudo */
-      var arr = JSON.parse(v);
-      while (JSON.stringify(arr).length > 95000) arr.pop();
-      v = JSON.stringify(arr);
+      var o = JSON.parse(v);
+      var lista = Array.isArray(o) ? o : (o.itens || []);
+      while (JSON.stringify(o).length > 95000 && lista.length) lista.pop();
+      v = JSON.stringify(o);
     }
     bloco[chaves[i]] = v;
     if (Object.keys(bloco).length >= 100) { cache.putAll(bloco, EQ_CACHE_SEG); bloco = {}; }
@@ -2900,33 +2917,113 @@ function eqMontarIndice(linhas, miniMaster) {
   var nomePorMat = {};
   miniMaster.forEach(function (t) { nomePorMat[normMat(t.mat)] = t.nome; });
 
-  var porMat = {}, div = [], total = 0;
+  var porMat = {}, agrup = {}, div = [], total = 0;
   var ign = { semMatricula: 0, statusFora: 0 };
+
+  function reg(m) { return (porMat[m] = porMat[m] || { itens: [], extravios: [] }); }
+
+  /* algumas linhas vêm com a DESCRIÇÃO vazia (fórmula sem resultado):
+     completa com a descrição de outra linha do mesmo ID */
+  var descPorId = {};
+  linhas.forEach(function (r) {
+    if (r.id != null && r.descricao && !descPorId[r.id]) descPorId[r.id] = String(r.descricao).trim();
+  });
+  linhas.forEach(function (r) {
+    if (!r.descricao && r.id != null && descPorId[r.id]) r.descricao = descPorId[r.id];
+  });
 
   linhas.forEach(function (r) {
     var mat = normMat(r.mat);
     if (!mat || mat === '0') { ign.semMatricula++; return; }
     var st = eqNorm(r.status);
     if (EQ_STATUS_FORA[st]) { ign.statusFora++; return; }
+    var ehExtravio = !!EQ_STATUS_EXTRAVIO[st];
 
+    /* Extravio sem nome em RESPONSÁVEL: vale a matrícula que o almoxarifado
+       colocou. Com nome, o nome tem que bater com a matrícula. */
     var nomeCad = nomePorMat[mat];
+    var semNome = !r.resp || eqNorm(r.resp) === 'INDISPONIVEL';
     var problema = null;
     if (!nomeCad) problema = 'matrícula não existe na mini master';
-    else if (!eqNomeBate(r.resp, nomeCad)) problema = 'nome não bate com a matrícula (cadastro: ' + nomeCad + ')';
+    else if (!(ehExtravio && semNome) && !eqNomeBate(r.resp, nomeCad)) {
+      problema = 'nome não bate com a matrícula (cadastro: ' + nomeCad + ')';
+    }
     if (problema) {
       div.push({ linha: r._linha, id: r.id != null ? String(r.id) : '', descricao: String(r.descricao || ''),
                  responsavel: String(r.resp || ''), matricula: mat, motivo: problema });
       return;
     }
 
-    (porMat[mat] = porMat[mat] || []).push(eqItemPublico(r));
+    if (ehExtravio) {
+      reg(mat).extravios.push(eqExtravioPublico(r));
+    } else {
+      /* uma linha por unidade na planilha -> soma por ID + local + data de saída */
+      var saida = r.saida != null ? eqData(r.saida) : '';
+      var k = mat + '|' + (r.id != null ? r.id : r.descricao) + '|' + (r.local || '') + '|' + saida;
+      var q = typeof r.qtd === 'number' ? r.qtd : 1;
+      if (agrup[k]) { agrup[k].qtd += q; }
+      else {
+        agrup[k] = { id: r.id != null ? String(r.id) : '', descricao: String(r.descricao || '').trim(),
+                     qtd: q, localizacao: String(r.local || '').trim(), dataSaida: saida };
+        reg(mat).itens.push(agrup[k]);
+      }
+    }
     total++;
   });
 
   Object.keys(porMat).forEach(function (m) {
-    porMat[m].sort(function (a, b) { return (a.status + a.descricao).localeCompare(b.status + b.descricao); });
+    porMat[m].itens.sort(function (a, b) {
+      if (!a.descricao !== !b.descricao) return a.descricao ? -1 : 1;   /* sem descrição vai pro fim */
+      return a.descricao.localeCompare(b.descricao);
+    });
   });
   return { porMat: porMat, divergencias: div, totalItens: total, ignorados: ign };
+}
+
+var EQ_MESES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO',
+                'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+
+function eqExtravioPublico(r) {
+  var obs = r.obs != null ? String(r.obs).trim() : '';
+  var mes = r.mes != null ? (typeof r.mes === 'number' ? eqMesDeSerial(r.mes) : String(r.mes).trim().toUpperCase()) : '';
+  if (!mes) {   /* sem coluna MÊS: tenta a data escrita na observação (dd/mm/aaaa) */
+    var d = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(obs);
+    if (d && Number(d[2]) >= 1 && Number(d[2]) <= 12) mes = EQ_MESES[Number(d[2]) - 1];
+  }
+  var desc = null;
+  if (r.descontado != null && r.descontado !== '') {
+    var t = eqNorm(r.descontado);
+    if (r.descontado === true || /^(SIM|S|X|OK|DESCONTADO|TRUE|1)$/.test(t)) desc = true;
+    else if (r.descontado === false || /^(NAO|N|NAO DESCONTADO|FALSE|0)$/.test(t)) desc = false;
+  }
+  var link = r.link != null ? String(r.link).trim() : '';
+  if (!/^https:\/\//i.test(link)) link = '';
+  return {
+    descricao: String(r.descricao || '').trim(),
+    status: String(r.status || ''),
+    valor: eqMoeda(r.valor),
+    projeto: r.projeto != null ? String(r.projeto).trim() : '',
+    mes: mes,
+    descontado: desc,
+    ocorrencia: obs,
+    linkRelatorio: link
+  };
+}
+
+function eqMesDeSerial(v) {
+  if (v > 20000 && v < 80000) return EQ_MESES[new Date(Math.round((v - 25569) * 86400000)).getUTCMonth()];
+  return String(v);
+}
+
+function eqMoeda(v) {
+  if (typeof v !== 'number') {
+    if (v == null || v === '') return '';
+    var n = Number(String(v).replace(/[^\d,.-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'));
+    if (isNaN(n)) return String(v);
+    v = n;
+  }
+  var p = v.toFixed(2).split('.');
+  return 'R$ ' + p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + p[1];
 }
 
 /* Todos os pedaços do nome escrito na planilha precisam existir no nome do
@@ -2938,18 +3035,6 @@ function eqNomeBate(nomePlanilha, nomeCadastro) {
   eqNorm(nomeCadastro).split(' ').forEach(function (p) { b[p] = 1; });
   for (var i = 0; i < a.length; i++) if (!b[a[i]]) return false;
   return true;
-}
-
-function eqItemPublico(r) {
-  var o = {};
-  ['id', 'codigo', 'classe', 'categoria', 'serie', 'marca', 'descricao', 'qtd', 'und',
-   'status', 'local', 'saida', 'req', 'calib'].forEach(function (k) {
-    var v = r[k];
-    if (v === undefined || v === null || v === '' || v === '-') return;
-    if (EQ_COLS_DATA[k]) v = eqData(v);
-    o[k] = typeof v === 'number' ? v : String(v);
-  });
-  return o;
 }
 
 /* número de série do Excel -> dd/mm/aaaa; texto fica como está */
@@ -3006,9 +3091,9 @@ function testarEquipamentos() {
 
 function relatorioDivergenciasEquipamentos() {
   var cache = CacheService.getScriptCache();
-  var gen = cache.get('EQ_GEN');
+  var gen = cache.get(EQ_PFX + 'GEN');
   if (!gen) { Logger.log('Sem dados no cache: rode testarEquipamentos() primeiro.'); return []; }
-  var div = JSON.parse(cache.get('EQ_' + gen + '_DIV') || '[]');
+  var div = JSON.parse(cache.get(EQ_PFX + gen + '_DIV') || '[]');
   var grupos = {};
   div.forEach(function (d) {
     var k = d.responsavel + ' → mat. ' + d.matricula + ' | ' + d.motivo;
@@ -3024,8 +3109,8 @@ function relatorioDivergenciasEquipamentos() {
 function testarEquipamentosDaMatricula() {
   var mat = '239';   /* troque aqui */
   var cache = CacheService.getScriptCache();
-  var gen = cache.get('EQ_GEN');
-  var itens = gen ? JSON.parse(cache.get('EQ_' + gen + '_M' + normMat(mat)) || '[]') : [];
-  Logger.log(itens.length + ' itens para a matrícula ' + mat);
-  Logger.log(JSON.stringify(itens.slice(0, 5), null, 2));
+  var gen = cache.get(EQ_PFX + 'GEN');
+  var r = gen ? JSON.parse(cache.get(EQ_PFX + gen + '_M' + normMat(mat)) || '{"itens":[],"extravios":[]}') : { itens: [], extravios: [] };
+  Logger.log(r.itens.length + ' linhas de equipamento e ' + r.extravios.length + ' extravios/avarias para a matrícula ' + mat);
+  Logger.log(JSON.stringify({ itens: r.itens.slice(0, 5), extravios: r.extravios.slice(0, 5) }, null, 2));
 }
