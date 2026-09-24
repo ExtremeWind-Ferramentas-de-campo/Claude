@@ -1529,20 +1529,42 @@ function execSelecionadas(){
   const nomes=[...document.querySelectorAll('.atv-tipo')].map(s=>s.value).filter(v=>v&&ehExecutavel(v));
   return [...new Set(nomes)];
 }
+/* Nao transforma o arquivo inteiro em texto base64 antes de reduzir: uma foto
+   de 12 MP virava ~5,5 MB de string e ~48 MB de bitmap preso no objeto Image.
+   Depois de algumas fotos o celular ficava sem memoria e o formulario fechava. */
+async function decodificarFoto(file){
+  if(typeof createImageBitmap==='function'){
+    try{ return {img: await createImageBitmap(file,{imageOrientation:'from-image'}), bitmap:true}; }
+    catch(e){ /* cai para o modo antigo */ }
+  }
+  const url=URL.createObjectURL(file);
+  try{
+    const img=await new Promise((ok,err)=>{
+      const im=new Image();
+      im.onload=()=>ok(im);
+      im.onerror=()=>err(new Error('imagem invalida'));
+      im.src=url;
+    });
+    return {img:img, bitmap:false, url:url};
+  }catch(e){ URL.revokeObjectURL(url); throw e; }
+}
 function comprimir(file,cb){
-  const r=new FileReader();
-  r.onload=ev=>{
-    const img=new Image();
-    img.onload=()=>{
-      const MAX=1280;let{width:w,height:h}=img;
+  decodificarFoto(file).then(d=>{
+    const img=d.img;
+    try{
+      const MAX=1280; let w=img.width, h=img.height;
       if(w>MAX||h>MAX){const s=MAX/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}
       const c=document.createElement('canvas');c.width=w;c.height=h;
       c.getContext('2d').drawImage(img,0,0,w,h);
-      cb(c.toDataURL('image/jpeg',0.7));
-    };
-    img.src=ev.target.result;
-  };
-  r.readAsDataURL(file);
+      const saida=c.toDataURL('image/jpeg',0.7);
+      c.width=c.height=1;                      /* libera o canvas grande na hora */
+      if(d.bitmap) img.close(); else URL.revokeObjectURL(d.url);
+      cb(saida);
+    }catch(e){
+      if(d.bitmap) img.close(); else URL.revokeObjectURL(d.url);
+      throw e;
+    }
+  }).catch(e=>{ console.error('comprimir',e); alert('Nao consegui processar esta foto. Tente outra.'); });
 }
 function atualizarFotos(){
   const nomes=execSelecionadas();

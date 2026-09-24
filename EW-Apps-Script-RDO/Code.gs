@@ -2523,6 +2523,7 @@ function testarChecklistEquipe() {
 }
 
 
+
 /* =====================================================================
  * MEUS DADOS — MEUS EQUIPAMENTOS
  * ---------------------------------------------------------------------
@@ -2545,14 +2546,17 @@ function testarChecklistEquipe() {
  *   divergências (relatorioDivergenciasEquipamentos).
  *
  * Aba Meus Equipamentos: ID, descrição, qtd (somada), localização, data de saída.
- * Aba Extraviados e Avariados: linhas com status Extraviado/Quarentena e
- *   matrícula na coluna MATRÍCULA RESPONSÁVEL — descrição, valor, observação e,
- *   se existirem na planilha, as colunas PROJETO, MÊS, DESCONTADO e LINK RELATÓRIO.
+ * Aba Extraviados e Avariados: arquivo "LISTA DE EXTRAVIO E DESCONTOS
+ *   Equipamentos.xlsx" (01 - ALMOXARIFADO/12 - Slides), aba Inventário:
+ *   descrição, valor, responsável, projeto/parque, desconto (SIM/NÃO), mês;
+ *   ocorrência = nota da célula; relatório = hiperlink da linha (se houver).
  * Não sai: Disponível/Descarte e matrícula 0 (EM SEPARAÇÃO, ADM etc.).
  *
  * Propriedades do Script (todas opcionais):
  *   EQUIP_ARQUIVO               caminho ou id do Dropbox (padrão: o id abaixo)
  *   EQUIP_ABA                   padrão "BASE DE DADOS"
+ *   EQUIP_EXTRAVIO_ARQUIVO      caminho ou id da lista de extravio (padrão: o id abaixo)
+ *   EQUIP_EXTRAVIO_ABA          padrão "Inventário"
  *   EQUIP_EMAIL_DIVERGENCIAS    e-mail que recebe a lista de divergências
  *                               sempre que a planilha muda (vazio = não envia)
  *
@@ -2567,8 +2571,27 @@ var EQ_ABA_PADRAO = 'BASE DE DADOS';
 var EQ_CACHE_SEG = 21600;          /* 6 h (máximo do CacheService) */
 var EQ_TRAVA_SEG = 240;            /* trava "suave" da sincronização */
 var EQ_STATUS_FORA = { 'DISPONIVEL': 1, 'DESCARTE': 1 };
-var EQ_STATUS_EXTRAVIO = { 'EXTRAVIADO': 1, 'QUARENTENA': 1 };   /* aba Extraviados e Avariados */
-var EQ_PFX = 'EQ2_';               /* troca de formato do cache = prefixo novo */
+/* Extraviado/Quarentena da BASE não entram na tabela: a aba Extraviados e
+   Avariados vem da LISTA DE EXTRAVIO E DESCONTOS (abaixo). */
+var EQ_STATUS_EXTRAVIO = { 'EXTRAVIADO': 1, 'QUARENTENA': 1 };
+var EQ_PFX = 'EQ3_';               /* troca de formato do cache = prefixo novo */
+
+/* ---- LISTA DE EXTRAVIO E DESCONTOS Equipamentos.xlsx (pasta 12 - Slides) ---- */
+var EQ_EXT_ARQUIVO_PADRAO = 'id:zJii0PvESPAAAAAAAAjUiw';
+var EQ_EXT_ABA_PADRAO = 'Inventário';
+var EQ_EXT_COLUNAS = {
+  descricao:  ['DESCRICAO'],
+  valor:      ['R$ VALOR', 'VALOR (R$)', 'VALOR'],
+  resp:       ['RESPONSAVEL', 'TECNICO'],
+  projeto:    ['PROJETO/PARQUE', 'PROJETO / PARQUE', 'PROJETO', 'PARQUE'],
+  descontado: ['DESCONTO', 'DESCONTADO'],
+  mes:        ['MES'],
+  mat:        ['MATRICULA', 'MATRICULAS', 'MATRICULA RESPONSAVEL'],   /* opcional */
+  obs:        ['OCORRENCIA', 'OBSERVACAO', 'OBSERVACOES'],           /* opcional: senão usa o comentário da célula */
+  link:       ['LINK RELATORIO', 'LINK DO RELATORIO', 'RELATORIO', 'LINK'] /* opcional: senão usa o hiperlink da linha */
+};
+var EQ_EXT_OBRIGATORIAS = ['descricao', 'resp', 'descontado'];
+var EQ_EXT_NAO_PESSOA = { 'EQUIPE': 1, 'TOTAL': 1 };
 
 /* cabeçalhos procurados na linha de cabeçalho (comparação sem acento/caixa).
    A 1ª ocorrência vence — as colunas MIRROR têm nome diferente. */
@@ -2588,15 +2611,7 @@ var EQ_COLUNAS = {
   saida:      ['DATA SAIDA'],
   resp:       ['RESPONSAVEL'],
   req:        ['N REQUISICAO DE ENTREGA', 'NO REQUISICAO DE ENTREGA'],
-  mat:        ['MATRICULA RESPONSAVEL', 'MATRICULA'],
-  /* usadas na aba Extraviados e Avariados (as 4 últimas são opcionais:
-     se a coluna não existir na planilha, o campo só não aparece) */
-  valor:      ['R$ VALOR', 'VALOR (R$)', 'VALOR'],
-  obs:        ['OBSERVACOES', 'OBSERVACAO'],
-  projeto:    ['PROJETO'],
-  mes:        ['MES', 'MES DO EXTRAVIO', 'MES DA OCORRENCIA'],
-  descontado: ['DESCONTADO', 'DESCONTO'],
-  link:       ['LINK RELATORIO', 'LINK DO RELATORIO', 'RELATORIO DE DESMOBILIZACAO', 'LINK']
+  mat:        ['MATRICULA RESPONSAVEL', 'MATRICULA']
 };
 var EQ_OBRIGATORIAS = ['descricao', 'status', 'resp', 'mat'];
 
@@ -2631,6 +2646,7 @@ function meusEquipamentos(dados) {
     itens: reg.itens || [],
     extravios: reg.extravios || [],
     atualizadoEm: meta.atualizadoEm || '',
+    extravioAtualizadoEm: meta.extravioAtualizadoEm || '',
     lidoEm: meta.lidoEm || ''
   };
 }
@@ -2665,43 +2681,72 @@ function eqSincronizar(forcar) {
 
   try {
     var token = getDropboxToken(props);
-    var arquivo = props.getProperty('EQUIP_ARQUIVO') || EQ_ARQUIVO_PADRAO;
-    var meta = eqDbxMetadata(token, arquivo, props);
+    var arqBase = props.getProperty('EQUIP_ARQUIVO') || EQ_ARQUIVO_PADRAO;
+    var arqExt = props.getProperty('EQUIP_EXTRAVIO_ARQUIVO') || EQ_EXT_ARQUIVO_PADRAO;
+    var meta = eqDbxMetadata(token, arqBase, props);
+    var metaExt = null, erroExt = '';
+    try { metaExt = eqDbxMetadata(token, arqExt, props); } catch (eM) { erroExt = String(eM); }
+    var rev = meta.rev + '|' + (metaExt ? metaExt.rev : 'sem-lista');
 
     var genAtual = cache.get(EQ_PFX + 'GEN');
-    if (!forcar && genAtual && cache.get(EQ_PFX + 'REV') === meta.rev) {
-      return { ok: true, mudou: false, rev: meta.rev };
+    if (!forcar && genAtual && cache.get(EQ_PFX + 'REV') === rev) {
+      return { ok: true, mudou: false, rev: rev };
     }
 
-    var blob = eqDbxBaixar(token, arquivo, props);
+    var mini = lerMiniMasterCompleto();
+
+    var blob = eqDbxBaixar(token, arqBase, props);
     var aba = props.getProperty('EQUIP_ABA') || EQ_ABA_PADRAO;
     var lido = eqLerAba(Utilities.unzip(blob.setContentType('application/zip')), aba);
-    var idx = eqMontarIndice(lido.linhas, lerMiniMasterCompleto());
+    var idx = eqMontarIndice(lido.linhas, mini);
+
+    /* a lista de extravio falhar não derruba a aba de equipamentos */
+    var ext = { porMat: {}, divergencias: [], total: 0 }, lidoExt = null;
+    if (metaExt) {
+      try {
+        var blobExt = eqDbxBaixar(token, arqExt, props);
+        var abaExt = props.getProperty('EQUIP_EXTRAVIO_ABA') || EQ_EXT_ABA_PADRAO;
+        lidoExt = eqLerAba(Utilities.unzip(blobExt.setContentType('application/zip')), abaExt,
+                           { colunas: EQ_EXT_COLUNAS, obrigatorias: EQ_EXT_OBRIGATORIAS });
+        ext = eqMontarExtravios(lidoExt.linhas, mini);
+      } catch (eX) { erroExt = String(eX); }
+    }
+    if (erroExt) Logger.log('Lista de extravio: ' + erroExt);
 
     /* geração nova = chaves novas; as antigas expiram sozinhas. Assim um
        técnico que devolveu tudo não continua vendo a lista velha. */
     var gen = Utilities.getUuid().slice(0, 8);
-    var lote = {};
-    Object.keys(idx.porMat).forEach(function (m) {
-      lote[EQ_PFX + gen + '_M' + m] = JSON.stringify(idx.porMat[m]);
+    var lote = {}, mats = {};
+    Object.keys(idx.porMat).forEach(function (m) { mats[m] = 1; });
+    Object.keys(ext.porMat).forEach(function (m) { mats[m] = 1; });
+    Object.keys(mats).forEach(function (m) {
+      lote[EQ_PFX + gen + '_M' + m] = JSON.stringify({
+        itens: idx.porMat[m] ? idx.porMat[m].itens : [],
+        extravios: ext.porMat[m] || []
+      });
     });
     lote[EQ_PFX + gen + '_META'] = JSON.stringify({
       atualizadoEm: eqFmtDataHora(meta.server_modified),
+      extravioAtualizadoEm: metaExt ? eqFmtDataHora(metaExt.server_modified) : '',
       lidoEm: eqFmtDataHora(new Date().toISOString()),
-      rev: meta.rev
+      rev: rev
     });
-    lote[EQ_PFX + gen + '_DIV'] = JSON.stringify(idx.divergencias.slice(0, 400));
+    var todasDiv = idx.divergencias.concat(ext.divergencias);
+    lote[EQ_PFX + gen + '_DIV'] = JSON.stringify(todasDiv.slice(0, 400));
     eqPutAll(cache, lote);
-    cache.putAll(eqObj(EQ_PFX + 'GEN', gen, EQ_PFX + 'REV', meta.rev), EQ_CACHE_SEG);
+    cache.putAll(eqObj(EQ_PFX + 'GEN', gen, EQ_PFX + 'REV', rev), EQ_CACHE_SEG);
 
     var resumo = {
-      ok: true, mudou: true, rev: meta.rev,
-      linhasLidas: lido.linhas.length, cabecalhoNaLinha: lido.linhaCabecalho,
-      colunas: lido.colunas,
-      tecnicos: Object.keys(idx.porMat).length, itensNoApp: idx.totalItens,
-      divergencias: idx.divergencias.length, ignorados: idx.ignorados
+      ok: true, mudou: true, rev: rev,
+      base: { linhasLidas: lido.linhas.length, cabecalhoNaLinha: lido.linhaCabecalho, colunas: lido.colunas,
+              tecnicos: Object.keys(idx.porMat).length, itensNoApp: idx.totalItens,
+              divergencias: idx.divergencias.length, ignorados: idx.ignorados },
+      listaExtravio: lidoExt
+        ? { linhasLidas: lidoExt.linhas.length, cabecalhoNaLinha: lidoExt.linhaCabecalho, colunas: lidoExt.colunas,
+            tecnicos: Object.keys(ext.porMat).length, registrosNoApp: ext.total, divergencias: ext.divergencias.length }
+        : { erro: erroExt || 'não lida' }
     };
-    eqAvisarDivergencias(props, idx.divergencias, genAtual);
+    eqAvisarDivergencias(props, todasDiv, genAtual);
     return resumo;
   } finally {
     cache.remove(EQ_PFX + 'SYNC');
@@ -2785,16 +2830,17 @@ function eqDbxBaixar(token, arquivo, props) {
 
 /* ---------- leitura do .xlsm (é um zip de XMLs) ---------- */
 
-function eqLerAba(blobs, nomeAba) {
+function eqLerAba(blobs, nomeAba, cfg) {
   var arq = {};
   blobs.forEach(function (b) { arq[b.getName()] = b; });
   var txt = function (n) { return arq[n] ? arq[n].getDataAsString('UTF-8') : ''; };
   return eqLerAbaXml(txt('xl/workbook.xml'), txt('xl/_rels/workbook.xml.rels'),
-                     txt('xl/sharedStrings.xml'), txt, nomeAba);
+                     txt('xl/sharedStrings.xml'), txt, nomeAba, cfg);
 }
 
 /* Parte pura (sem serviços do Google): dá para testar fora do Apps Script. */
-function eqLerAbaXml(wbXml, relsXml, ssXml, lerArquivo, nomeAba) {
+function eqLerAbaXml(wbXml, relsXml, ssXml, lerArquivo, nomeAba, cfg) {
+  cfg = cfg || { colunas: EQ_COLUNAS, obrigatorias: EQ_OBRIGATORIAS };
   var alvo = eqNorm(nomeAba), rid = null, m;
   var reSheet = /<sheet\b([^>]*)\/?>/g;
   while ((m = reSheet.exec(wbXml))) {
@@ -2818,6 +2864,9 @@ function eqLerAbaXml(wbXml, relsXml, ssXml, lerArquivo, nomeAba) {
   var xml = lerArquivo(alvoArq);
   if (!xml) throw new Error('Não consegui abrir ' + alvoArq + '.');
 
+  /* comentários (notas) e hiperlinks, por número de linha */
+  var extras = eqComentariosELinks(xml, alvoArq, lerArquivo);
+
   var colunas = null, linhaCab = 0, linhas = [];
   var linhaAtual = 0, vals = {};
 
@@ -2825,7 +2874,7 @@ function eqLerAbaXml(wbXml, relsXml, ssXml, lerArquivo, nomeAba) {
     if (!linhaAtual) return;
     if (!colunas) {
       if (linhaAtual <= 15) {
-        var c = eqAcharColunas(vals);
+        var c = eqAcharColunas(vals, cfg);
         if (c) { colunas = c; linhaCab = linhaAtual; }
       }
     } else {
@@ -2834,7 +2883,11 @@ function eqLerAbaXml(wbXml, relsXml, ssXml, lerArquivo, nomeAba) {
         var v = vals[colunas[k]];
         if (v !== undefined && v !== null && v !== '') { reg[k] = v; tem = true; }
       });
-      if (tem) linhas.push(reg);
+      if (tem) {
+        if (extras.coment[linhaAtual]) reg._coment = extras.coment[linhaAtual];
+        if (extras.link[linhaAtual]) reg._link = extras.link[linhaAtual];
+        linhas.push(reg);
+      }
     }
   }
 
@@ -2845,6 +2898,11 @@ function eqLerAbaXml(wbXml, relsXml, ssXml, lerArquivo, nomeAba) {
     var ln = Number(ref[2]);
     if (ln !== linhaAtual) { fecharLinha(); linhaAtual = ln; vals = {}; }
     if (!m[2]) continue;
+    var fh = /<f\b[^>]*>([\s\S]*?)<\/f>/.exec(m[2]);
+    if (fh) {
+      var hl = /HYPERLINK\(\s*(?:&quot;|")(https?:[^"&]+)/i.exec(fh[1]);
+      if (hl && !extras.link[ln]) extras.link[ln] = eqXmlTexto(hl[1]);
+    }
     var tipo = /\bt="([^"]*)"/.exec(m[1]);
     tipo = tipo ? tipo[1] : 'n';
     var v = null;
@@ -2867,15 +2925,15 @@ function eqLerAbaXml(wbXml, relsXml, ssXml, lerArquivo, nomeAba) {
 
   if (!colunas) {
     throw new Error('Não achei a linha de cabeçalho na aba "' + nomeAba +
-      '" (precisa ter as colunas ' + EQ_OBRIGATORIAS.join(', ') + ').');
+      '" (precisa ter as colunas ' + cfg.obrigatorias.join(', ') + ').');
   }
   return { colunas: colunas, linhaCabecalho: linhaCab, linhas: linhas };
 }
 
-function eqAcharColunas(vals) {
+function eqAcharColunas(vals, cfg) {
   var achadas = {};
-  Object.keys(EQ_COLUNAS).forEach(function (k) {
-    var alvos = EQ_COLUNAS[k];
+  Object.keys(cfg.colunas).forEach(function (k) {
+    var alvos = cfg.colunas[k];
     for (var a = 0; a < alvos.length && !achadas[k]; a++) {
       for (var col in vals) {
         if (typeof vals[col] === 'string' && eqNorm(vals[col]) === alvos[a]) {
@@ -2884,8 +2942,51 @@ function eqAcharColunas(vals) {
       }
     }
   });
-  for (var i = 0; i < EQ_OBRIGATORIAS.length; i++) if (!achadas[EQ_OBRIGATORIAS[i]]) return null;
+  for (var i = 0; i < cfg.obrigatorias.length; i++) if (!achadas[cfg.obrigatorias[i]]) return null;
   return achadas;
+}
+
+/* Notas da célula (xl/commentsN.xml) e hiperlinks (<hyperlinks> + rels da aba). */
+function eqComentariosELinks(xml, arqAba, lerArquivo) {
+  var out = { coment: {}, link: {} }, m;
+  var relsPath = arqAba.replace(/([^\/]+)$/, '_rels/$1.rels');
+  var rels = {}, relsXml = lerArquivo(relsPath) || '';
+  var reRel = /<Relationship\b([^>]*)\/?>/g;
+  while ((m = reRel.exec(relsXml))) {
+    var id = /\bId="([^"]*)"/.exec(m[1]), tg = /\bTarget="([^"]*)"/.exec(m[1]), tp = /\bType="([^"]*)"/.exec(m[1]);
+    if (id && tg) rels[id[1]] = { alvo: eqXmlTexto(tg[1]), tipo: tp ? tp[1] : '' };
+  }
+
+  var reH = /<hyperlink\b([^>]*)\/?>/g;
+  while ((m = reH.exec(xml))) {
+    var ref = /\bref="[A-Z]+(\d+)/.exec(m[1]), rid = /\br:id="([^"]*)"/.exec(m[1]);
+    if (ref && rid && rels[rid[1]] && /^https?:/i.test(rels[rid[1]].alvo)) out.link[Number(ref[1])] = rels[rid[1]].alvo;
+  }
+
+  Object.keys(rels).forEach(function (k) {
+    if (!/\/comments$/.test(rels[k].tipo)) return;
+    var p = rels[k].alvo;
+    p = p.charAt(0) === '/' ? p.slice(1) : 'xl/' + p.replace(/^(\.\.\/)+/, '').replace(/^\.\//, '');
+    var cx = lerArquivo(p) || '';
+    var autores = [], ma, reA = /<author>([\s\S]*?)<\/author>/g;
+    while ((ma = reA.exec(cx))) autores.push(eqXmlTexto(ma[1]).trim());
+    var reCm = /<comment\b[^>]*\bref="[A-Z]+(\d+)"[^>]*>([\s\S]*?)<\/comment>/g, mc;
+    while ((mc = reCm.exec(cx))) {
+      var t = eqJuntarT(mc[2]);
+      if (t.indexOf('Comentário:') >= 0) t = t.slice(t.lastIndexOf('Comentário:') + 11);   /* comentário encadeado */
+      var mudou = true;
+      while (mudou) {                                   /* tira "extre:" (nome do autor) do começo */
+        mudou = false;
+        for (var i = 0; i < autores.length; i++) {
+          var pre = autores[i] + ':';
+          if (autores[i] && t.trim().indexOf(pre) === 0) { t = t.trim().slice(pre.length); mudou = true; }
+        }
+      }
+      t = t.replace(/\s+/g, ' ').trim();
+      if (t) { var ln = Number(mc[1]); out.coment[ln] = out.coment[ln] ? out.coment[ln] + ' ' + t : t; }
+    }
+  });
+  return out;
 }
 
 function eqColNum(l) { var n = 0; for (var i = 0; i < l.length; i++) n = n * 26 + (l.charCodeAt(i) - 64); return n; }
@@ -2937,36 +3038,27 @@ function eqMontarIndice(linhas, miniMaster) {
     if (!mat || mat === '0') { ign.semMatricula++; return; }
     var st = eqNorm(r.status);
     if (EQ_STATUS_FORA[st]) { ign.statusFora++; return; }
-    var ehExtravio = !!EQ_STATUS_EXTRAVIO[st];
+    if (EQ_STATUS_EXTRAVIO[st]) { ign.statusFora++; return; }
 
-    /* Extravio sem nome em RESPONSÁVEL: vale a matrícula que o almoxarifado
-       colocou. Com nome, o nome tem que bater com a matrícula. */
     var nomeCad = nomePorMat[mat];
-    var semNome = !r.resp || eqNorm(r.resp) === 'INDISPONIVEL';
     var problema = null;
     if (!nomeCad) problema = 'matrícula não existe na mini master';
-    else if (!(ehExtravio && semNome) && !eqNomeBate(r.resp, nomeCad)) {
-      problema = 'nome não bate com a matrícula (cadastro: ' + nomeCad + ')';
-    }
+    else if (!eqNomeBate(r.resp, nomeCad)) problema = 'nome não bate com a matrícula (cadastro: ' + nomeCad + ')';
     if (problema) {
-      div.push({ linha: r._linha, id: r.id != null ? String(r.id) : '', descricao: String(r.descricao || ''),
-                 responsavel: String(r.resp || ''), matricula: mat, motivo: problema });
+      div.push({ origem: 'BASE DE DADOS', linha: r._linha, id: r.id != null ? String(r.id) : '',
+                 descricao: String(r.descricao || ''), responsavel: String(r.resp || ''), matricula: mat, motivo: problema });
       return;
     }
 
-    if (ehExtravio) {
-      reg(mat).extravios.push(eqExtravioPublico(r));
-    } else {
-      /* uma linha por unidade na planilha -> soma por ID + local + data de saída */
-      var saida = r.saida != null ? eqData(r.saida) : '';
-      var k = mat + '|' + (r.id != null ? r.id : r.descricao) + '|' + (r.local || '') + '|' + saida;
-      var q = typeof r.qtd === 'number' ? r.qtd : 1;
-      if (agrup[k]) { agrup[k].qtd += q; }
-      else {
-        agrup[k] = { id: r.id != null ? String(r.id) : '', descricao: String(r.descricao || '').trim(),
-                     qtd: q, localizacao: String(r.local || '').trim(), dataSaida: saida };
-        reg(mat).itens.push(agrup[k]);
-      }
+    /* uma linha por unidade na planilha -> soma por ID + local + data de saída */
+    var saida = r.saida != null ? eqData(r.saida) : '';
+    var k = mat + '|' + (r.id != null ? r.id : r.descricao) + '|' + (r.local || '') + '|' + saida;
+    var q = typeof r.qtd === 'number' ? r.qtd : 1;
+    if (agrup[k]) { agrup[k].qtd += q; }
+    else {
+      agrup[k] = { id: r.id != null ? String(r.id) : '', descricao: String(r.descricao || '').trim(),
+                   qtd: q, localizacao: String(r.local || '').trim(), dataSaida: saida };
+      reg(mat).itens.push(agrup[k]);
     }
     total++;
   });
@@ -2983,8 +3075,63 @@ function eqMontarIndice(linhas, miniMaster) {
 var EQ_MESES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO',
                 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 
+/**
+ * LISTA DE EXTRAVIO E DESCONTOS: o RESPONSÁVEL é um nome curto e às vezes
+ * vários ("LUANN/HÉLIO/TAYLAN", "MARCOS MUNIZ E WAGNER SANTOS"). Se a lista
+ * ganhar uma coluna MATRÍCULA, ela manda. Sem ela, cada nome só vale se casar
+ * com UM técnico da mini master; ambíguo ou desconhecido vai para divergências
+ * (valor de desconto nunca aparece para a pessoa errada).
+ */
+function eqMontarExtravios(linhas, miniMaster) {
+  var cad = miniMaster.map(function (t) {
+    return { mat: normMat(t.mat), nome: t.nome, toks: eqNorm(t.nome).split(' ') };
+  });
+  var nomePorMat = {};
+  cad.forEach(function (t) { nomePorMat[t.mat] = t.nome; });
+
+  var porMat = {}, div = [], total = 0;
+  function falha(r, nome, motivo, mat) {
+    div.push({ origem: 'LISTA DE EXTRAVIO', linha: r._linha, id: '', descricao: String(r.descricao || ''),
+               responsavel: nome, matricula: mat || '', motivo: motivo });
+  }
+
+  linhas.forEach(function (r) {
+    var desc = eqNorm(r.descricao);
+    if (!desc || desc === 'TOTAL') return;
+    var partes = eqNorm(r.resp).split(/\s*\/\s*|\s+E\s+|\s*,\s*|\s*\+\s*/).filter(Boolean);
+    var item = eqExtravioPublico(r);
+    var mats = [];
+
+    if (r.mat != null && String(r.mat).trim() !== '') {
+      String(r.mat).split(/[^0-9]+/).filter(Boolean).forEach(function (m) {
+        m = normMat(m);
+        if (!nomePorMat[m]) { falha(r, String(r.resp || ''), 'matrícula não existe na mini master', m); return; }
+        var bate = !partes.length || partes.some(function (p) { return eqNomeBate(p, nomePorMat[m]); });
+        if (!bate) { falha(r, String(r.resp || ''), 'nome não bate com a matrícula (cadastro: ' + nomePorMat[m] + ')', m); return; }
+        mats.push(m);
+      });
+    } else {
+      if (!partes.length) { falha(r, '', 'sem responsável'); return; }
+      partes.forEach(function (p) {
+        if (EQ_EXT_NAO_PESSOA[p] || p === eqNorm(r.projeto)) { falha(r, p, 'não é o nome de um técnico'); return; }
+        var tk = p.split(' ');
+        var c = cad.filter(function (t) { return tk.every(function (x) { return t.toks.indexOf(x) >= 0; }); });
+        if (c.length === 1) mats.push(c[0].mat);
+        else if (!c.length) falha(r, p, 'nome não encontrado na mini master');
+        else falha(r, p, 'nome ambíguo: ' + c.slice(0, 4).map(function (t) { return t.mat + ' ' + t.nome; }).join('; '));
+      });
+    }
+
+    mats.filter(function (m, i) { return mats.indexOf(m) === i; }).forEach(function (m) {
+      (porMat[m] = porMat[m] || []).push(item);
+      total++;
+    });
+  });
+  return { porMat: porMat, divergencias: div, total: total };
+}
+
 function eqExtravioPublico(r) {
-  var obs = r.obs != null ? String(r.obs).trim() : '';
+  var obs = r.obs != null && String(r.obs).trim() ? String(r.obs).trim() : (r._coment || '');
   var mes = r.mes != null ? (typeof r.mes === 'number' ? eqMesDeSerial(r.mes) : String(r.mes).trim().toUpperCase()) : '';
   if (!mes) {   /* sem coluna MÊS: tenta a data escrita na observação (dd/mm/aaaa) */
     var d = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(obs);
@@ -2996,11 +3143,10 @@ function eqExtravioPublico(r) {
     if (r.descontado === true || /^(SIM|S|X|OK|DESCONTADO|TRUE|1)$/.test(t)) desc = true;
     else if (r.descontado === false || /^(NAO|N|NAO DESCONTADO|FALSE|0)$/.test(t)) desc = false;
   }
-  var link = r.link != null ? String(r.link).trim() : '';
+  var link = r.link != null && /^https?:/i.test(String(r.link).trim()) ? String(r.link).trim() : (r._link || '');
   if (!/^https:\/\//i.test(link)) link = '';
   return {
     descricao: String(r.descricao || '').trim(),
-    status: String(r.status || ''),
     valor: eqMoeda(r.valor),
     projeto: r.projeto != null ? String(r.projeto).trim() : '',
     mes: mes,
@@ -3058,15 +3204,15 @@ function eqAvisarDivergencias(props, div, genAnterior) {
   var para = props.getProperty('EQUIP_EMAIL_DIVERGENCIAS');
   if (!para || !div.length || !genAnterior) return;   /* 1ª carga não dispara e-mail */
   var linhas = div.slice(0, 200).map(function (d) {
-    return '<tr><td>' + d.linha + '</td><td>' + eqHtml(d.id) + '</td><td>' + eqHtml(d.descricao) +
+    return '<tr><td>' + eqHtml(d.origem || '') + ' ' + d.linha + '</td><td>' + eqHtml(d.id) + '</td><td>' + eqHtml(d.descricao) +
            '</td><td>' + eqHtml(d.responsavel) + '</td><td>' + d.matricula + '</td><td>' + eqHtml(d.motivo) + '</td></tr>';
   }).join('');
   try {
     MailApp.sendEmail({
       to: para,
       subject: 'Equipamentos: ' + div.length + ' item(ns) fora do app dos técnicos',
-      htmlBody: '<p>Estes itens da BASE DE DADOS não aparecem no app porque a matrícula ' +
-        '(coluna MATRÍCULA RESPONSÁVEL) não confere com o nome em RESPONSÁVEL.</p>' +
+      htmlBody: '<p>Estes itens não aparecem no app dos técnicos porque não deu para ligar o ' +
+        'nome em RESPONSÁVEL a uma matrícula com segurança (BASE DE DADOS ou LISTA DE EXTRAVIO).</p>' +
         '<table border="1" cellpadding="4" cellspacing="0"><tr><th>Linha</th><th>ID</th><th>Descrição</th>' +
         '<th>Responsável</th><th>Matrícula</th><th>Motivo</th></tr>' + linhas + '</table>',
       name: 'App dos técnicos — Extreme Wind'
@@ -3096,7 +3242,7 @@ function relatorioDivergenciasEquipamentos() {
   var div = JSON.parse(cache.get(EQ_PFX + gen + '_DIV') || '[]');
   var grupos = {};
   div.forEach(function (d) {
-    var k = d.responsavel + ' → mat. ' + d.matricula + ' | ' + d.motivo;
+    var k = (d.origem || '') + ' | ' + d.responsavel + (d.matricula ? ' → mat. ' + d.matricula : '') + ' | ' + d.motivo;
     grupos[k] = (grupos[k] || 0) + 1;
   });
   Logger.log('Itens fora do app: ' + div.length);

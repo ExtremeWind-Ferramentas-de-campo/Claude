@@ -147,6 +147,7 @@
   .ext-anexo{margin-top:8px;font-size:.8rem;font-weight:700}
   .ext-anexo a{color:var(--cor-forte)}
   .ext-anexo .sem{color:var(--muted);font-weight:600}
+  .ext-fonte{margin-top:12px;text-align:center;font-size:.75rem;color:var(--muted);font-weight:600}
   .vazio-aba{text-align:center;color:var(--muted);font-weight:600;padding:22px 8px;font-size:.9rem}
   .nota{font-size:.75rem;color:var(--muted);text-align:center;line-height:1.5}
   footer{text-align:center;color:var(--muted);font-size:.78rem;padding:8px 16px 18px}
@@ -302,7 +303,9 @@ function mostrar(r){
     +     (ext.length ? ' <span class="tab-badge">' + ext.length + '</span>' : '') + '</button>'
     + '</div>'
     + '<div id="abaEq">' + painelEquipamentos(itens) + '</div>'
-    + '<div id="abaExt" hidden>' + painelExtravio(ext) + '</div>';
+    + '<div id="abaExt" hidden>' + painelExtravio(ext)
+    +   (r.extravioAtualizadoEm ? '<p class="ext-fonte">Lista de extravios e descontos salva em ' + esc(r.extravioAtualizadoEm) + '</p>' : '')
+    + '</div>';
 }
 
 elConteudo.addEventListener('click', e => {
