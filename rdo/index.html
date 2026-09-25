@@ -561,7 +561,7 @@ function ehAlmoco(nome){
 }
 
 /* ---------- listas vindas do Banco de inputs ---------- */
-const IN = { ok:false, clientes:[], parques:{}, resumo:[], reparos:[], comuns:[] };
+const IN = { ok:false, clientes:[], parques:{}, resumo:[], reparos:[], comuns:[], feriado:[] };
 const IN_LS_KEY = 'ew_inputs_v1';
 
 function avisoListas(txt,tipo){
@@ -591,7 +591,7 @@ function modoFeriado(){
 /* atividades com "feriado" no nome, de qualquer tipo de reparo ou das obrigatórias */
 function atividadesFeriado(){
   const out=[], visto={};
-  (IN.reparos||[]).map(r=>r.atividades||[]).concat([IN.comuns||[]]).forEach(lista=>{
+  (IN.reparos||[]).map(r=>r.atividades||[]).concat([IN.comuns||[], IN.feriado||[]]).forEach(lista=>{
     lista.forEach(a=>{
       const k=normTxt(a.nome);
       if(!ehFeriado(a.nome) || visto[k]) return;
@@ -648,6 +648,7 @@ function aplicarInputs(dados,origem){
   IN.clientes=dados.clientes; IN.parques=dados.parques||{};
   IN.resumo=dados.resumo||[]; IN.reparos=dados.reparos;
   IN.comuns=dados.comuns||[];
+  IN.feriado=dados.feriado||[];
   IN.ok=true;
 
   selCliente.innerHTML='<option value="">Selecione o cliente…</option>'
@@ -662,7 +663,10 @@ function aplicarInputs(dados,origem){
     + IN.reparos.map(r=>`<option>${escHtml(r.tipo)}</option>`).join('');
 
   if(origem==='cache'){
-    avisoListas('Listas carregadas do aparelho (sem internet agora). Podem estar desatualizadas.','aviso');
+    /* se o servidor respondeu com erro, mostra o erro (não é falta de internet) */
+    avisoListas(MM.erro && MM.erro!=='listas vazias'
+      ? 'Não foi possível atualizar as listas agora ('+MM.erro+'). Usando as salvas no aparelho — podem estar desatualizadas.'
+      : 'Listas carregadas do aparelho (sem internet agora). Podem estar desatualizadas.','aviso');
   }else{
     avisoListas('');
     try{ localStorage.setItem(IN_LS_KEY,JSON.stringify(dados)); }catch(_){}
