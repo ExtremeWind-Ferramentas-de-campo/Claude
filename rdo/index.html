@@ -392,6 +392,7 @@
 
     <section class="card">
       <h2>Atividades por hora</h2>
+      <div class="hint" id="hintFeriado" hidden style="margin-bottom:10px;">Feriado (folga): lance só as horas do feriado. O Almoço/Janta não é obrigatório.</div>
       <div id="atividades"></div>
       <button type="button" class="btn btn-add" id="addAtividade">+ Adicionar atividade</button>
     </section>
@@ -576,7 +577,31 @@ function reparoAtual(){
 }
 /* atividades do tipo escolhido + as marcadas como "Atividade obrigatória"
    (que valem para todo tipo de reparo), sem repetir */
+/* ---------- feriado (folga) ----------
+   Com "Feriado (folga)" marcado em Atividade realizada (ou um tipo de reparo com
+   "feriado" no nome), Atividades por hora mostra só a atividade de feriado da
+   planilha e o Almoço/Janta deixa de ser obrigatório. */
+function ehFeriado(nome){ return normTxt(nome).indexOf('feriado')>=0; }
+function modoFeriado(){
+  const r=document.querySelector('input[name="resumo"]:checked');
+  if(r && ehFeriado(r.value)) return true;
+  const t=document.getElementById('tipo_reparo');
+  return !!(t && t.value && ehFeriado(t.value));
+}
+/* atividades com "feriado" no nome, de qualquer tipo de reparo ou das obrigatórias */
+function atividadesFeriado(){
+  const out=[], visto={};
+  (IN.reparos||[]).map(r=>r.atividades||[]).concat([IN.comuns||[]]).forEach(lista=>{
+    lista.forEach(a=>{
+      const k=normTxt(a.nome);
+      if(!ehFeriado(a.nome) || visto[k]) return;
+      visto[k]=1; out.push(a);
+    });
+  });
+  return out;
+}
 function atividadesDoTipo(){
+  if(modoFeriado()) return atividadesFeriado();
   const r=reparoAtual();
   if(!r) return [];
   const out=[], visto={};
@@ -1354,13 +1379,21 @@ const atvBox=document.getElementById('atividades');
 
 /* placeholder do campo de atividade conforme o tipo de reparo esteja escolhido */
 function placeholderAtividade(){
+  if(modoFeriado()) return atividadesFeriado().length
+    ? 'Toque para escolher Feriado'
+    : 'Atividade "Feriado" não cadastrada';
   return atividadesDoTipo().length
     ? 'Digite ou toque para ver a lista'
     : 'Escolha o tipo de reparo primeiro';
 }
+function atualizarHintFeriado(){
+  const h=document.getElementById('hintFeriado');
+  if(h) h.hidden=!modoFeriado();
+}
 
 /* ao trocar o tipo de reparo: nomes que não existem mais são limpos */
 function recarregarOpcoesAtividade(){
+  atualizarHintFeriado();
   [...document.querySelectorAll('.atv-tipo')].forEach(inp=>{
     inp.placeholder=placeholderAtividade();
     if(inp.value && !atividadePor(inp.value)){
@@ -1389,7 +1422,10 @@ function ligarBuscaAtividade(inp,list,cfg){
     fecharListas(list);        /* só uma lista aberta por vez */
     const lista=fonte();
     if(!lista.length){
-      list.innerHTML='<div class="atv-empty">'+escHtml(msgVazio)+'</div>';
+      const vz=(!cfg.fonte && modoFeriado())
+        ? 'A atividade "Feriado" não está cadastrada no Banco de inputs. Avise a administração.'
+        : msgVazio;
+      list.innerHTML='<div class="atv-empty">'+escHtml(vz)+'</div>';
       list.classList.add('open'); return;
     }
     /* já escolhida da lista: mostra tudo (o nome inteiro filtraria para 1 item) */
@@ -1498,6 +1534,39 @@ function syncAtividades(){
   atualizarFotos();
 }
 document.getElementById('addAtividade').onclick=addAtividade;
+
+/* entra/sai do modo feriado ao marcar "Feriado (folga)" ou trocar o tipo de reparo */
+(function ligarFeriado(){
+  let resumoAnterior='';
+  function preencherFeriado(){
+    const fer=atividadesFeriado();
+    if(fer.length!==1) return;
+    const vazio=[...document.querySelectorAll('.atv-tipo')].filter(x=>!x.value)[0];
+    if(!vazio) return;
+    vazio.value=fer[0].nome; vazio.dataset.ok='1'; vazio.classList.add('atv-ok');
+  }
+  function aplicar(ev){
+    /* o aviso visível guarda o último estado aplicado (a troca de tipo de reparo
+       já passa por recarregarOpcoesAtividade antes de chegar aqui) */
+    const estava=!document.getElementById('hintFeriado').hidden;
+    const agora=modoFeriado();
+    if(agora && !estava && ev && ev.target && ev.target.name==='resumo'){
+      const outras=[...document.querySelectorAll('.atv-tipo')].filter(x=>x.value && !ehFeriado(x.value)).length;
+      if(outras && !confirm('Com "Feriado (folga)" só vale a atividade Feriado. As '+outras
+          +' atividade(s) já preenchida(s) serão limpas (as horas ficam).\n\nContinuar?')){
+        [...document.querySelectorAll('#resumo input')].forEach(i=>{ i.checked=(i.value===resumoAnterior); });
+        return;
+      }
+    }
+    const r=document.querySelector('input[name="resumo"]:checked');
+    resumoAnterior=r?r.value:'';
+    if(agora!==estava) recarregarOpcoesAtividade();   /* limpa nomes que não valem mais */
+    if(agora) preencherFeriado();
+    atualizarFotos();
+  }
+  document.getElementById('resumo').addEventListener('change',aplicar);
+  document.getElementById('tipo_reparo').addEventListener('change',aplicar);
+})();
 
 /* ---------- trava de minutos (múltiplos de 5) + gatilhos ---------- */
 function snapTime(input){
@@ -2092,7 +2161,7 @@ btnEnviar.onclick=async ()=>{
     }
   });
   /* Almoço/Janta é obrigatório em todo relatório */
-  if(!d.atividades.some(a=>ehAlmoco(a.tipo))){
+  if(!modoFeriado() && !d.atividades.some(a=>ehAlmoco(a.tipo))){
     const existe=atividadesDoTipo().some(a=>ehAlmoco(a.nome));
     erros.push(existe
       ? 'Adicione a atividade "Almoço/Janta" em Atividades por hora — é obrigatória'
