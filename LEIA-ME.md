@@ -51,6 +51,7 @@ Site único no GitHub Pages: uma tela de entrada, um menu, quatro apps.
 │   └── modelos/                  construtor-formulario_2.html + os 3 .json
 │
 ├── EW-Apps-Script-RDO/Code.gs    backend do RDO (colar no Apps Script)
+├── EW-Apps-Script-RDO/Abastecimento.gs  2º arquivo do MESMO projeto (Checklist Frotas)
 ├── EW-Sheets-Script/Code.gs      backend das calculadoras/checklist
 ├── ew-dropbox-proxy/worker.js    Cloudflare Worker
 └── SEGURANCA.md                  revisão de segurança de 06/08/2026

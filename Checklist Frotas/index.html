@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Extreme Wind — Checklist Frotas: gerador elétrico, plataforma e inspeção semanal de veículos">
+<meta name="description" content="Extreme Wind — Checklist Frotas: gerador elétrico, plataforma, inspeção semanal de veículos e abastecimento">
 <meta name="theme-color" content="#12466B">
 <title>Extreme Wind | Checklist Frotas</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous" referrerpolicy="no-referrer">
@@ -95,7 +95,7 @@
     padding:26px 22px 28px;box-shadow:var(--shadow);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);margin-top:4px}
   .picker h2{font-size:1.1rem;font-weight:700;margin-bottom:4px}
   .picker .hint{font-size:.9rem;color:var(--muted);margin-bottom:22px}
-  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
   .opt-card{background:var(--card);border:1px solid var(--card-line);border-top:5px solid var(--c);
     border-radius:20px;padding:26px 18px 20px;text-decoration:none;color:var(--ink);
     display:flex;flex-direction:column;align-items:center;gap:10px;min-height:230px;justify-content:center;
@@ -202,7 +202,7 @@
   </div>
 
   <section class="picker">
-    <h2>Selecione o checklist</h2>
+    <h2>Selecione o formulário</h2>
     <p class="hint">Preencha no celular, gere o PDF e guarde na pasta do equipamento.</p>
     <div class="cards">
 
@@ -229,6 +229,15 @@
         <span class="txt">
           <span class="opt-title">Veículo — semanal</span>
           <span class="opt-desc">Inspeção, volta completa em fotos, pneus e carrocinha</span>
+        </span>
+        <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-right"></i></span>
+      </a>
+
+      <a class="opt-card" href="abastecimento.html" style="--c:#1F3F99">
+        <span class="ico"><i class="fas fa-gas-pump"></i></span>
+        <span class="txt">
+          <span class="opt-title">Abastecimento</span>
+          <span class="opt-desc">Placa, KM e fotos da bomba e da nota</span>
         </span>
         <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-right"></i></span>
       </a>

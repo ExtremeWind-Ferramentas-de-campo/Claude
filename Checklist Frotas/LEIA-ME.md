@@ -1,6 +1,7 @@
 # Checklist Frotas
 
-Três checklists de frota rodando **dentro do site da EW**, sem forms.app: o
+Três checklists de frota + o formulário de **Abastecimento** (seção própria no
+fim deste arquivo). Os três checklists rodando **dentro do site da EW**, sem forms.app: o
 técnico preenche no celular, o PDF é montado no próprio aparelho e a página
 funciona offline depois da primeira abertura.
 
@@ -147,3 +148,73 @@ Para corrigir, troque as barras no campo **Pasta** do construtor:
 As três páginas entram no cache pelo `sw.js` da raiz, junto com o jsPDF do
 cdnjs. Ao trocar qualquer arquivo desta pasta, **incremente o `CACHE` no
 `sw.js`** — sem isso o aparelho continua servindo a versão antiga.
+
+
+## Abastecimento (`abastecimento.html`)
+
+**Não vem do construtor.** Precisa de login, busca por placa e envio de vários
+arquivos, que o construtor não faz. Edite o HTML direto e **não** coloque no
+`_costurar.js` — guard e seta voltar já estão no arquivo.
+
+Backend: arquivo `EW-Apps-Script-RDO/Abastecimento.gs`, no **mesmo projeto** do
+Apps Script do RDO (as rotas `frotaPorPlaca` e `abastecimento` ficam no
+doPost/doGet do `Code.gs`). Usa o login, o Dropbox e a
+leitura de .xlsx que já existiam para o RDO e o Meus Equipamentos.
+
+### Campos
+
+| Campo | Origem |
+|---|---|
+| Nome e matrícula | token do login (o servidor ignora o que o celular mandar) |
+| Data e hora do registro | relógio do celular no toque em Enviar; o servidor grava também a hora em que recebeu |
+| Data do abastecimento | técnico; não aceita data futura |
+| Placa | técnico; ABC1D23 ou ABC1234 (as duas formas casam entre si) |
+| Condutor, Parque, Frota, Cartão, Senha | planilha da frota, aba ACOMPANHAMENTO: D placa, T frota, U parque, V condutor, X cartão, Y senha. Placa repetida: vale a linha mais de baixo |
+| KM abastecido | técnico, só números |
+| Fotos Antes, Bomba, Depois, Nota | câmera (sem galeria, mesma regra dos checklists) |
+| Observação | opcional |
+
+### Para onde vai
+
+```
+CONTROLE DE COMBUSTÍVEL- EXTREME WIND/
+├── CONTROLE DE COMBUSTÍVEL.xlsx          espelho gerado pelo app
+└── W40/                                  semana ISO da DATA DO ABASTECIMENTO
+    └── 28-09-2026/
+        └── <PARQUE>/
+            ├── Abastecimento - <condutor> - <parque> - 28-09-2026.pdf
+            ├── Foto - antes - <condutor> - <parque> - 28-09-2026.jpg
+            ├── Foto - bomba - ...
+            ├── Foto - depois - ...
+            └── Foto - nota - ...
+```
+
+Segundo abastecimento do mesmo condutor/parque/dia ganha ` (2)` nos cinco
+arquivos. Reenvio do mesmo registro (sem resposta no 4G) não duplica: o celular
+manda um identificador e o servidor devolve o resultado do primeiro envio.
+
+### Planilha de controle
+
+- **Fonte da verdade:** aba `Abastecimentos` da planilha Google do RDO
+  (ou `ABAST_SHEET_ID`).
+- **Espelho no Dropbox:** `CONTROLE DE COMBUSTÍVEL.xlsx`, regerado a cada envio.
+  O app só sobrescreve a versão que ele mesmo gravou. Se alguém editar o arquivo
+  no Excel, o app para de atualizar (não apaga trabalho de ninguém). Para
+  voltar: renomeie o arquivo editado e rode `abAtualizarXlsx()`. Para análise,
+  puxe este arquivo por Power Query em vez de digitar nele.
+
+### Senha do cartão
+
+Aparece só na tela do técnico, atrás de "Mostrar". Não vai para PDF, tela de
+conclusão, Sheets nem xlsx — o PDF sai por WhatsApp.
+
+### Instalação (uma vez)
+
+1. No projeto do RDO: colar o `Code.gs` novo por cima do atual; **+ → Script**,
+   nome `Abastecimento`, colar o `Abastecimento.gs`; salvar os dois →
+   **Nova versão** da implantação existente.
+2. Rodar `testarAbastecimento()` e ler o log: placas lidas, repetidas, placas
+   fora do formato, pasta base encontrada.
+3. Rodar `instalarGatilhoAbastecimento()` (gatilho de 10 min).
+4. `testarPlaca()` com uma placa real.
+5. Subir o site (o `CACHE` do `sw.js` já foi para v45).
