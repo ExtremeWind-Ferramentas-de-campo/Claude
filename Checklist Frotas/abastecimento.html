@@ -119,8 +119,6 @@
   .msg.aviso{background:#FFF8ED;border:1px solid #F0D9B5;color:#7A4A0B}
   .msg a{color:inherit;font-weight:700}
   .rascunho{background:#EDF3F8;border:1px solid #B9D2E6;border-radius:2px;padding:12px;margin-bottom:12px;font-size:14px}
-  .rascunho-bts{display:flex;gap:8px;margin-top:10px}
-  .rascunho-bts .btn{flex:1}
 
   /* Conclusão */
   .fim{background:#fff;border:1px solid var(--linha);border-top:4px solid var(--ok);border-radius:2px;padding:22px 18px}
@@ -142,6 +140,11 @@
   .fim-bts{display:flex;flex-direction:column;gap:8px}
   .fim-bts .enviar{max-width:none}
   .fim-bts .btn{padding:12px}
+
+  .assin{display:block;width:100%;height:170px;border:1px solid var(--linha);border-radius:2px;background:#fff;touch-action:none}
+  .bloco.erro .assin{border-color:var(--sinal)}
+  .carimbo .fixo{font-weight:400;font-size:12.5px;color:var(--tinta-2)}
+  .rascunho{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 
   @media (max-width:380px){
     .placa input{font-size:38px}
@@ -165,14 +168,9 @@
       <dl class="carimbo">
         <div><dt>Técnico</dt><dd id="vNome">—</dd></div>
         <div><dt>Matrícula</dt><dd id="vMat">—</dd></div>
-        <div><dt>Registro</dt><dd class="relogio" id="vRelogio">—</dd></div>
-        <div><dt>&nbsp;</dt><dd style="font-weight:400;font-size:12.5px;color:var(--tinta-2)">Hora do celular, gravada no envio</dd></div>
+        <div><dt>Data e hora do registro</dt><dd class="relogio" id="vRelogio">—</dd></div>
+        <div><dt>&nbsp;</dt><dd class="fixo" id="vRegNota">Fixa quando você começar a preencher</dd></div>
       </dl>
-    </section>
-
-    <section class="bloco" data-campo="dataAbast">
-      <label class="rot" for="dataAbast">Data do abastecimento <span class="obr">*</span></label>
-      <input class="entrada" type="date" id="dataAbast" required>
     </section>
 
     <section class="bloco" data-campo="placa">
@@ -205,6 +203,13 @@
       <textarea class="entrada" id="obs" maxlength="1500"></textarea>
     </section>
 
+    <section class="bloco" data-campo="assinatura">
+      <span class="rot">Assinatura do técnico <span class="obr">*</span></span>
+      <p class="ajuda">Assine com o dedo na hora de enviar. A assinatura não fica no rascunho.</p>
+      <canvas class="assin" id="assin" aria-label="Área de assinatura"></canvas>
+      <button type="button" class="btn" id="btLimparAssin" style="margin-top:8px">Limpar assinatura</button>
+    </section>
+
   </form>
 </main>
 
@@ -222,6 +227,9 @@ const FOTOS = [
   {k:'nota',   rot:'Nota',   dica:'Nota fiscal ou cupom legível'}
 ];
 const FOTO_LADO = 1400, FOTO_QUAL = 0.72;
+const LS_PENDENTE = 'ew_ab_pendente';     // o cartão do menu mostra "não enviado"
+const LS_FROTAS = 'ew_ab_frotas';         // últimas placas consultadas (uso sem internet)
+const FROTAS_GUARDADAS = 6;
 
 const $ = id => document.getElementById(id);
 const msg = $('msg');
@@ -250,16 +258,28 @@ $('vNome').textContent = S.nome || '—';
 $('vMat').textContent = S.mat || '—';
 
 function sessaoCaiu(){
-  alerta('ruim', 'Sua sessão expirou. <a href="../index.html">Entre de novo</a> — o que já foi preenchido fica guardado neste aparelho.', true);
+  alerta('ruim', 'Sua sessão expirou. <a href="../index.html">Entre de novo</a> — o que já foi preenchido continua salvo neste aparelho.', true);
 }
 
-/* ---------------- relógio do registro ---------------- */
-function agoraTexto(d){ return p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()+' '+p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds()); }
+/* ---------------- data e hora do registro ----------------
+   É a hora do ABASTECIMENTO: fixa no primeiro toque no formulário (na bomba),
+   não no envio — o envio pode ser horas depois, quando tiver sinal. */
 function agoraIso(d){ return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T'+p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds()); }
-function hojeIso(){ const d = new Date(); return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); }
-const relogio = setInterval(()=>{ $('vRelogio').textContent = agoraTexto(new Date()); }, 1000);
-$('vRelogio').textContent = agoraTexto(new Date());
-$('dataAbast').max = hojeIso();
+function isoTexto(iso){ const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(iso||''); return m ? m[3]+'/'+m[2]+'/'+m[1]+' '+m[4]+':'+m[5]+':'+m[6] : ''; }
+function isoDataArq(iso){ const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso||''); return m ? m[3]+'-'+m[2]+'-'+m[1] : ''; }
+let registroIso = null;
+function mostrarRegistro(){
+  if(registroIso){
+    $('vRelogio').textContent = isoTexto(registroIso);
+    $('vRegNota').textContent = 'Fixada no início do preenchimento (hora do celular)';
+  }else{
+    $('vRelogio').textContent = isoTexto(agoraIso(new Date()));
+    $('vRegNota').textContent = 'Fixa quando você começar a preencher';
+  }
+}
+function fixarRegistro(){ if(!registroIso){ registroIso = agoraIso(new Date()); mostrarRegistro(); } }
+const relogio = setInterval(()=>{ if(!registroIso) mostrarRegistro(); }, 1000);
+mostrarRegistro();
 
 /* ---------------- estado ---------------- */
 let idEnvio = novoId();
@@ -267,14 +287,20 @@ let tentou = false;                 // já houve uma tentativa de envio com este
 const fotos = {};                   // k -> {id, w, h, mini, blob?}
 let frota = null;                   // resultado da busca por placa
 let placaBuscada = '';
+let restaurando = false;
+let enviado = false;
 
 function novoId(){
   const a = new Uint8Array(9); crypto.getRandomValues(a);
   return 'ab' + Date.now().toString(36) + Array.from(a, b => b.toString(36).padStart(2,'0')).join('').slice(0,12);
 }
 /* Mexeu em algo depois de uma tentativa: é outro registro, não um reenvio */
-function mexeu(){ if(tentou){ idEnvio = novoId(); tentou = false; } agendarRascunho(); revalidar(); }
-/* Depois de um envio barrado, as marcas vermelhas acompanham a correção */
+function mexeu(){
+  if(restaurando) return;
+  fixarRegistro();
+  if(tentou){ idEnvio = novoId(); tentou = false; }
+  agendarRascunho(); revalidar();
+}
 let conferindo = false;
 function revalidar(){
   if(!conferindo) return;
@@ -287,6 +313,21 @@ function revalidar(){
 const inPlaca = $('placa'), molde = $('placaMold'), dica = $('placaDica'), ficha = $('ficha');
 function normPlaca(v){ return String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,7); }
 function placaValida(p){ return /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(p); }
+/* mesma chave do servidor: ABC1234 e ABC1C34 são o mesmo carro */
+function chavePlaca(p){ p = normPlaca(p); if(!placaValida(p)) return ''; const c = p.charAt(4); return /\d/.test(c) ? p.slice(0,4) + 'ABCDEFGHIJ'.charAt(+c) + p.slice(5) : p; }
+
+/* Últimas placas consultadas ficam no aparelho: sem sinal na bomba, o técnico
+   ainda vê cartão e senha do carro que ele já usou. */
+function frotasGuardadas(){ try{ return JSON.parse(localStorage.getItem(LS_FROTAS) || '{}') || {}; }catch(_){ return {}; } }
+function guardarFrota(j){
+  const g = frotasGuardadas(), k = chavePlaca(j.placa);
+  if(!k) return;
+  g[k] = {d: {placa:j.placa, condutor:j.condutor, parque:j.parque, frota:j.frota, cartao:j.cartao, senha:j.senha,
+              faltando:j.faltando||[], atualizadoEm:j.atualizadoEm||''}, quando: Date.now()};
+  Object.keys(g).sort((a,b) => g[b].quando - g[a].quando).slice(FROTAS_GUARDADAS).forEach(x => delete g[x]);
+  try{ localStorage.setItem(LS_FROTAS, JSON.stringify(g)); }catch(_){}
+}
+function frotaGuardada(p){ const g = frotasGuardadas()[chavePlaca(p)]; return g ? Object.assign({}, g.d, {guardadaEm: g.quando}) : null; }
 
 let timerPlaca = null;
 inPlaca.addEventListener('input', ()=>{
@@ -303,27 +344,39 @@ inPlaca.addEventListener('input', ()=>{
     dica.textContent = 'Formato inválido. Três letras, um número, uma letra ou número, dois números.';
   }else{
     dica.textContent = '';
-    timerPlaca = setTimeout(()=> buscarPlaca(p), 300);
+    timerPlaca = setTimeout(()=> buscarPlaca(p), restaurando ? 0 : 300);
   }
   mexeu();
 });
 
-let seqBusca = 0;
-async function buscarPlaca(p){
-  const seq = ++seqBusca;
-  mostrarFicha('buscando');
+/* Consulta o servidor. null = sem conexão. */
+async function consultarPlaca(p){
   let j = null;
   try{
     const r = await fetch(ENDPOINT, {method:'POST', body: JSON.stringify({acao:'frotaPorPlaca', token:S.token, placa:p})});
     j = await r.json();
   }catch(_){ j = null; }
-  if(!j) j = await jsonp({acao:'frotaPorPlaca', token:S.token, placa:p});
+  if(!j && navigator.onLine) j = await jsonp({acao:'frotaPorPlaca', token:S.token, placa:p});
+  if(j && j.ok && j.encontrado) guardarFrota(j);
+  return j;
+}
+
+let seqBusca = 0;
+async function buscarPlaca(p){
+  const seq = ++seqBusca;
+  const salva = frotaGuardada(p);
+  if(salva && !navigator.onLine){ usarFrota(p, salva); return; }
+  mostrarFicha('buscando');
+  const j = await consultarPlaca(p);
   if(seq !== seqBusca || normPlaca(inPlaca.value) !== p) return;   // já digitou outra
 
-  if(!j){ mostrarFicha('rede', p); return; }
-  if(j.sessao === false){ mostrarFicha(null); sessaoCaiu(); return; }
-  if(!j.ok){ mostrarFicha('erro', p, j.erro, j.retentar); return; }
+  if(!j){ if(salva) usarFrota(p, salva); else mostrarFicha('rede', p); return; }
+  if(j.sessao === false){ if(salva) usarFrota(p, salva); else mostrarFicha(null); sessaoCaiu(); return; }
+  if(!j.ok){ if(salva) usarFrota(p, salva); else mostrarFicha('erro', p, j.erro); return; }
   if(!j.encontrado){ molde.classList.add('errada'); mostrarFicha('naoachou', p, j.atualizadoEm); return; }
+  usarFrota(p, j);
+}
+function usarFrota(p, j){
   frota = j; placaBuscada = p;
   molde.classList.add('certa');
   mostrarFicha('achou');
@@ -345,8 +398,10 @@ function jsonp(params){
   });
 }
 
+function quandoTxt(ms){ const d = new Date(ms); return p2(d.getDate())+'/'+p2(d.getMonth()+1)+' às '+p2(d.getHours())+':'+p2(d.getMinutes()); }
+
 let senhaVisivel = false;
-function mostrarFicha(estado, placa, extra, retentar){
+function mostrarFicha(estado, placa, extra){
   if(!estado){ ficha.className = 'ficha'; ficha.innerHTML = ''; return; }
   ficha.className = 'ficha mostrar';
   if(estado === 'buscando'){
@@ -354,7 +409,9 @@ function mostrarFicha(estado, placa, extra, retentar){
     return;
   }
   if(estado === 'rede' || estado === 'erro'){
-    const texto = estado === 'rede' ? 'Sem conexão com o servidor. A busca da placa precisa de internet.' : esc(extra || 'Não foi possível buscar a placa.');
+    const texto = estado === 'rede'
+      ? 'Sem internet: os dados do veículo aparecem quando tiver sinal. Pode continuar preenchendo — tudo fica salvo e a placa é conferida no envio.'
+      : esc(extra || 'Não foi possível buscar a placa.');
     ficha.innerHTML = '<div class="ficha-estado ruim">' + texto +
       ' <button type="button" class="btn btn-mini" id="btRebuscar">Buscar de novo</button></div>';
     $('btRebuscar').addEventListener('click', ()=> buscarPlaca(placa));
@@ -383,18 +440,24 @@ function mostrarFicha(estado, placa, extra, retentar){
     ((f.faltando && f.faltando.length)
       ? '<p class="ficha-origem" style="color:#7C2D12">A planilha está sem ' + esc(f.faltando.join(', ')) + ' para esta placa — o envio vai ser recusado até a logística completar.</p>'
       : '') +
-    (f.atualizadoEm ? '<p class="ficha-origem">Planilha da frota salva em ' + esc(f.atualizadoEm) + '.</p>' : '');
+    (f.guardadaEm
+      ? '<p class="ficha-origem">Sem internet: dados guardados neste aparelho em ' + esc(quandoTxt(f.guardadaEm)) + '. São conferidos de novo no envio.</p>'
+      : (f.atualizadoEm ? '<p class="ficha-origem">Planilha da frota salva em ' + esc(f.atualizadoEm) + '.</p>' : ''));
   const bs = $('btSenha');
   if(bs) bs.addEventListener('click', ()=>{ senhaVisivel = !senhaVisivel; mostrarFicha('achou'); });
 }
+/* voltou o sinal com a placa ainda sem dados: busca sozinho */
+window.addEventListener('online', ()=>{
+  const p = normPlaca(inPlaca.value);
+  if(placaValida(p) && (!frota || frota.guardadaEm)) buscarPlaca(p);
+});
 
-/* ---------------- KM ---------------- */
+/* ---------------- KM e observação ---------------- */
 $('km').addEventListener('input', e=>{
   const v = e.target.value.replace(/\D/g,'').replace(/^0+(?=\d)/,'').slice(0,9);
   if(e.target.value !== v) e.target.value = v;
   mexeu();
 });
-$('dataAbast').addEventListener('change', mexeu);
 $('obs').addEventListener('input', mexeu);
 
 /* ---------------- fotos ---------------- */
@@ -405,7 +468,7 @@ FOTOS.forEach(ft=>{
   inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture','environment'); inp.hidden = true;
   const bt = document.createElement('button');
   bt.type = 'button'; bt.className = 'slot'; bt.id = 'slot-' + ft.k;
-  bt.addEventListener('click', ()=> inp.click());
+  bt.addEventListener('click', ()=>{ fixarRegistro(); inp.click(); });
   inp.addEventListener('change', async ()=>{
     const arq = inp.files && inp.files[0];
     inp.value = '';
@@ -418,13 +481,14 @@ FOTOS.forEach(ft=>{
       const antiga = fotos[ft.k];
       fotos[ft.k] = {id: chave, w: r.w, h: r.h, mini: r.mini, blob: guardou ? null : r.blob};
       if(antiga && antiga.id) bdDel('fotos', antiga.id);
-      bt.classList.remove('erro');
+      if(!guardou) alerta('aviso', 'Este navegador não deixou guardar a foto no aparelho. Envie sem fechar a página.');
     }catch(e){
       console.error(e);
       alerta('ruim', 'Não foi possível ler a foto "' + ft.rot + '". Tire de novo.');
     }
     desenharSlot(ft);
     mexeu();
+    salvarRascunho();                          // foto é o que mais dói perder: grava na hora
   });
   slots.appendChild(bt); slots.appendChild(inp);
   desenharSlot(ft);
@@ -465,8 +529,45 @@ function comprimir(file){
   });
 }
 
+/* ---------------- assinatura (NÃO vai para o rascunho) ---------------- */
+const cvAssin = $('assin');
+let assinatura = null;                     // {d: dataURL, w, h} ou null
+(function prepararAssinatura(){
+  let cx, desenhando = false, vazio = true;
+  function dimensionar(){
+    const esc = window.devicePixelRatio || 1, r = cvAssin.getBoundingClientRect();
+    cvAssin.width = Math.round(r.width * esc); cvAssin.height = Math.round(r.height * esc);
+    cx = cvAssin.getContext('2d'); cx.setTransform(esc,0,0,esc,0,0);
+    cx.fillStyle = '#fff'; cx.fillRect(0,0,r.width,r.height);
+    cx.lineWidth = 2.2; cx.lineCap = 'round'; cx.lineJoin = 'round'; cx.strokeStyle = '#1A2329';
+    vazio = true; assinatura = null;
+  }
+  const ponto = ev => { const b = cvAssin.getBoundingClientRect(); return {x: ev.clientX - b.left, y: ev.clientY - b.top}; };
+  cvAssin.addEventListener('pointerdown', ev=>{
+    desenhando = true; vazio = false; cvAssin.setPointerCapture(ev.pointerId);
+    const p = ponto(ev); cx.beginPath(); cx.moveTo(p.x, p.y); cx.lineTo(p.x + .1, p.y + .1); cx.stroke();
+  });
+  cvAssin.addEventListener('pointermove', ev=>{ if(!desenhando) return; const p = ponto(ev); cx.lineTo(p.x, p.y); cx.stroke(); });
+  const parar = ()=>{
+    if(!desenhando) return;
+    desenhando = false;
+    assinatura = vazio ? null : {d: cvAssin.toDataURL('image/png'), w: cvAssin.width, h: cvAssin.height};
+    revalidar();
+  };
+  cvAssin.addEventListener('pointerup', parar);
+  cvAssin.addEventListener('pointercancel', parar);
+  $('btLimparAssin').addEventListener('click', ()=>{ dimensionar(); revalidar(); });
+  /* girar a tela muda o tamanho: melhor pedir de novo que esticar o traço */
+  let largura = 0;
+  window.addEventListener('resize', ()=>{ const w = cvAssin.getBoundingClientRect().width; if(Math.abs(w - largura) > 2){ largura = w; dimensionar(); } });
+  largura = cvAssin.getBoundingClientRect().width;
+  dimensionar();
+})();
+
 /* ---------------- rascunho (IndexedDB) ----------------
-   Aba descartada por memória ou fechada sem querer não perde nada, fotos inclusive. */
+   Tudo o que foi preenchido fica no aparelho — fotos inclusive — até o envio
+   dar certo. Sem internet na bomba, o técnico preenche, fecha o app e envia
+   depois. Só a assinatura fica de fora. */
 let bancoOk = !!window.indexedDB;
 function banco(fn){
   return new Promise(ok=>{
@@ -484,58 +585,70 @@ function bdDel(loja, k){ return banco((bd, ok)=>{ const t = bd.transaction(loja,
 function bdLimparFotos(){ return banco((bd, ok)=>{ const t = bd.transaction('fotos','readwrite'); t.objectStore('fotos').clear(); t.oncomplete = ()=> ok(true); t.onerror = ()=> ok(null); }); }
 
 function estadoAtual(){
-  const e = {quando: Date.now(), idEnvio, tentou,
-    dataAbast: $('dataAbast').value, placa: normPlaca(inPlaca.value), km: $('km').value, obs: $('obs').value, fotos: {}};
+  const e = {quando: Date.now(), idEnvio, tentou, registroIso,
+    placa: normPlaca(inPlaca.value), km: $('km').value, obs: $('obs').value, fotos: {}};
   FOTOS.forEach(ft=>{ const f = fotos[ft.k]; if(f && f.id && !f.blob) e.fotos[ft.k] = {id:f.id, w:f.w, h:f.h, mini:f.mini}; });
   return e;
 }
-function vazio(e){ return !e.dataAbast && !e.placa && !e.km && !e.obs && !Object.keys(e.fotos).length; }
+function vazio(e){ return !e.placa && !e.km && !e.obs && !Object.keys(e.fotos).length; }
 let timerRasc = null;
-function agendarRascunho(){ clearTimeout(timerRasc); timerRasc = setTimeout(salvarRascunho, 600); }
-function salvarRascunho(){ const e = estadoAtual(); return vazio(e) ? bdDel('estado','atual') : bdPut('estado','atual', e); }
+function agendarRascunho(){ clearTimeout(timerRasc); timerRasc = setTimeout(salvarRascunho, 500); }
+function salvarRascunho(){
+  clearTimeout(timerRasc);
+  if(enviado) return Promise.resolve(null);      // tela de conclusão: não há mais formulário
+  const e = estadoAtual();
+  try{
+    if(vazio(e)) localStorage.removeItem(LS_PENDENTE);
+    else localStorage.setItem(LS_PENDENTE, JSON.stringify({quando: e.quando, registro: e.registroIso, placa: e.placa}));
+  }catch(_){}
+  return vazio(e) ? bdDel('estado','atual') : bdPut('estado','atual', e);
+}
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'hidden') salvarRascunho(); });
+window.addEventListener('pagehide', salvarRascunho);
 
-function aplicarRascunho(e){
+async function descartar(){
+  if(!confirm('Apagar este abastecimento não enviado? As fotos serão apagadas do aparelho.')) return;
+  await bdDel('estado','atual'); await bdLimparFotos();
+  try{ localStorage.removeItem(LS_PENDENTE); }catch(_){}
+  location.reload();
+}
+
+/* Abriu o app com rascunho: volta direto para ele (é o caso normal — preencheu
+   sem sinal e voltou para enviar). */
+bdGet('estado','atual').then(e=>{
+  if(!e || vazio(e)) return;
+  restaurando = true;
   idEnvio = e.idEnvio || idEnvio; tentou = !!e.tentou;
-  $('dataAbast').value = e.dataAbast || '';
+  registroIso = e.registroIso || null; mostrarRegistro();
   $('km').value = e.km || '';
   $('obs').value = e.obs || '';
   Object.keys(e.fotos || {}).forEach(k=>{ fotos[k] = e.fotos[k]; });
   FOTOS.forEach(desenharSlot);
-  if(e.placa){ tentou = false; inPlaca.value = e.placa; inPlaca.dispatchEvent(new Event('input')); }
-  idEnvio = e.idEnvio || idEnvio; tentou = !!e.tentou;   // depois do input: o mexeu() não pode trocar o id
-  salvarRascunho();
-}
+  if(e.placa){ inPlaca.value = e.placa; inPlaca.dispatchEvent(new Event('input')); }
+  restaurando = false;
 
-bdGet('estado','atual').then(e=>{
-  if(!e || vazio(e)) return;
-  const min = Math.round((Date.now() - e.quando) / 60000);
-  const quando = min < 1 ? 'agora há pouco' : (min < 60 ? 'há ' + min + ' min' : 'há ' + Math.round(min/60) + ' h');
+  const faltam = FOTOS.filter(ft => !fotos[ft.k]).length;
   const barra = document.createElement('div'); barra.className = 'rascunho';
-  barra.innerHTML = '<span>Tem um abastecimento não enviado neste aparelho (' + quando + ').</span>' +
-    '<div class="rascunho-bts"><button type="button" class="btn" id="rSim">Continuar</button>' +
-    '<button type="button" class="btn" id="rNao">Começar do zero</button></div>';
+  barra.innerHTML = '<span>Abastecimento de <b>' + esc(isoTexto(registroIso) || quandoTxt(e.quando)) + '</b> ainda não enviado' +
+    (faltam ? ' (faltam ' + faltam + ' foto' + (faltam > 1 ? 's' : '') + ')' : '') + '. Assine e toque em Enviar.</span>' +
+    '<button type="button" class="btn btn-mini" id="rNao">Descartar</button>';
   $('folha').insertBefore(barra, msg);
-  $('rSim').addEventListener('click', ()=>{ aplicarRascunho(e); barra.remove(); });
-  $('rNao').addEventListener('click', async ()=>{ await bdDel('estado','atual'); await bdLimparFotos(); barra.remove(); });
+  $('rNao').addEventListener('click', descartar);
 });
 
 /* ---------------- validação ---------------- */
 function marcar(campo, erro){ const b = document.querySelector('[data-campo="' + campo + '"]'); if(b) b.classList.toggle('erro', !!erro); }
 function validar(){
   const falhas = [];
-  const d = $('dataAbast').value;
-  if(!d){ falhas.push(['dataAbast','Preencha a data do abastecimento.']); }
-  else if(d > hojeIso()){ falhas.push(['dataAbast','A data do abastecimento não pode ser no futuro.']); }
   const p = normPlaca(inPlaca.value);
   if(!placaValida(p)) falhas.push(['placa','Digite a placa completa.']);
-  else if(!frota || placaBuscada !== p) falhas.push(['placa','A placa ainda não foi encontrada na planilha da frota.']);
-  else if(frota.faltando && frota.faltando.length) falhas.push(['placa','A planilha da frota está sem ' + frota.faltando.join(', ') + ' para esta placa. Avise a logística.']);
-  const km = Number($('km').value);
-  if(!km) falhas.push(['km','Preencha o KM.']);
+  else if(frota && placaBuscada === p && frota.faltando && frota.faltando.length)
+    falhas.push(['placa','A planilha da frota está sem ' + frota.faltando.join(', ') + ' para esta placa. Avise a logística.']);
+  if(!Number($('km').value)) falhas.push(['km','Preencha o KM.']);
   const semFoto = FOTOS.filter(ft => !fotos[ft.k]);
   if(semFoto.length) falhas.push(['fotos','Falta foto: ' + semFoto.map(f=>f.rot).join(', ') + '.']);
-  ['dataAbast','placa','km','fotos'].forEach(c => marcar(c, falhas.some(f => f[0] === c)));
+  if(!assinatura) falhas.push(['assinatura','Falta a assinatura.']);
+  ['placa','km','fotos','assinatura'].forEach(c => marcar(c, falhas.some(f => f[0] === c)));
   FOTOS.forEach(ft => $('slot-' + ft.k).classList.toggle('erro', !fotos[ft.k]));
   return falhas;
 }
@@ -548,23 +661,39 @@ async function dataUrlDaFoto(f){
   if(!b) throw new Error('uma das fotos se perdeu da memória do aparelho — tire de novo');
   return blobParaDataURL(b);
 }
-function dataBr(iso){ const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? m[3]+'/'+m[2]+'/'+m[1] : iso; }
 function kmTxt(v){ return Number(v).toLocaleString('pt-BR') + ' km'; }
+function destravar(){ btEnviar.disabled = false; btEnviar.textContent = 'Enviar abastecimento'; }
 
 btEnviar.addEventListener('click', async ()=>{
   limparAlerta();
+  fixarRegistro();
   const falhas = validar();
   if(falhas.length){ conferindo = true; alerta('ruim', falhas.map(f => f[1]).join(' ')); return; }
-  if(!window.jspdf){ alerta('ruim', 'A biblioteca de PDF não carregou. Conecte à internet e recarregue a página.'); return; }
-  if(!navigator.onLine){ alerta('aviso', 'Sem internet agora. O preenchimento está guardado — envie quando tiver sinal.'); return; }
+  await salvarRascunho();
+  if(!navigator.onLine){
+    alerta('aviso', 'Sem internet agora. Está tudo salvo neste aparelho, menos a assinatura. Quando tiver sinal, abra o Abastecimento, assine e toque em Enviar.');
+    return;
+  }
+  if(!window.jspdf){ alerta('ruim', 'A biblioteca de PDF não carregou. Conecte à internet e recarregue a página — o preenchimento continua salvo.'); return; }
 
-  btEnviar.disabled = true; btEnviar.textContent = 'Gerando PDF…';
-  const quando = new Date();
+  /* a planilha manda: confere a placa agora, com internet, mesmo que os dados
+     já estejam na tela (podem ter vindo da cópia guardada no aparelho) */
+  btEnviar.disabled = true; btEnviar.textContent = 'Conferindo a placa…';
+  const p = normPlaca(inPlaca.value);
+  const j = await consultarPlaca(p);
+  if(!j){ destravar(); alerta('aviso', 'Não consegui falar com o servidor. Está tudo salvo — tente de novo quando o sinal melhorar.'); return; }
+  if(j.sessao === false){ destravar(); sessaoCaiu(); return; }
+  if(!j.ok){ destravar(); alerta('ruim', j.erro || 'Não foi possível conferir a placa.'); return; }
+  if(!j.encontrado){ destravar(); molde.classList.add('errada'); mostrarFicha('naoachou', p, j.atualizadoEm); marcar('placa', true);
+    alerta('ruim', 'A placa ' + p + ' não está na planilha da frota.'); return; }
+  usarFrota(p, j);
+  if(j.faltando && j.faltando.length){ destravar(); alerta('ruim', 'A planilha da frota está sem ' + j.faltando.join(', ') + ' para esta placa. Avise a logística.'); return; }
+
+  btEnviar.textContent = 'Gerando PDF…';
   const reg = {
     nome: S.nome || '', mat: S.mat || '',
-    registroTxt: agoraTexto(quando), registroIso: agoraIso(quando),
-    dataAbast: $('dataAbast').value, placa: normPlaca(inPlaca.value),
-    condutor: frota.condutor, parque: frota.parque, frota: frota.frota, cartao: frota.cartao,
+    registroIso, registroTxt: isoTexto(registroIso),
+    placa: p, condutor: j.condutor, parque: j.parque, frota: j.frota, cartao: j.cartao,
     km: $('km').value, obs: $('obs').value.trim()
   };
   let imgs = {}, pdfBlob, pdfB64;
@@ -575,40 +704,41 @@ btEnviar.addEventListener('click', async ()=>{
   }catch(e){
     console.error(e);
     alerta('ruim', 'Falha ao montar o PDF: ' + e.message);
-    btEnviar.disabled = false; btEnviar.textContent = 'Enviar abastecimento';
-    return;
+    destravar(); return;
   }
 
   btEnviar.textContent = 'Enviando…';
   alerta('aviso', 'Enviando para o Dropbox. Não feche a página.');
-  tentou = true; salvarRascunho();
+  tentou = true; await salvarRascunho();
   const corpo = {
     acao: 'abastecimento', token: S.token, idEnvio,
-    registro: reg.registroIso, dataAbast: reg.dataAbast, placa: reg.placa, km: reg.km, obs: reg.obs,
+    registro: reg.registroIso, placa: reg.placa, km: reg.km, obs: reg.obs,
     fotos: {}, pdf: pdfB64
   };
   FOTOS.forEach(ft => { corpo.fotos[ft.k] = imgs[ft.k].split(',')[1]; });
-  const nomePdf = 'Abastecimento - ' + limparNome(reg.condutor) + ' - ' + limparNome(reg.parque) + ' - ' + reg.dataAbast.split('-').reverse().join('-') + '.pdf';
+  const nomePdf = 'Abastecimento - ' + limparNome(reg.condutor) + ' - ' + limparNome(reg.parque) + ' - ' + isoDataArq(reg.registroIso) + '.pdf';
 
   let r = null;
   try{
     const resp = await fetch(ENDPOINT, {method:'POST', body: JSON.stringify(corpo), redirect:'follow'});
     const bruto = await resp.text();
-    try{ r = JSON.parse(bruto); }catch(_){ r = {ok:false, erro:'resposta ' + resp.status + ' fora do formato esperado'}; }
+    try{ r = JSON.parse(bruto); }catch(_){ r = {ok:false, erro:'resposta ' + resp.status + ' fora do formato esperado.'}; }
   }catch(e){ r = null; }
 
   if(r && r.ok){
+    enviado = true; clearTimeout(timerRasc);
     pdfPronto = {blob: pdfBlob, nome: nomePdf};
     const usadas = FOTOS.map(ft => fotos[ft.k] && fotos[ft.k].id).filter(Boolean);
     await bdDel('estado','atual'); usadas.forEach(k => bdDel('fotos', k));
+    try{ localStorage.removeItem(LS_PENDENTE); }catch(_){}
     clearInterval(relogio);
-    concluir(reg, r, imgs);
+    concluir(reg, r);
     baixarPDF();                           // "baixado no celular": já dispara o download
     return;
   }
-  btEnviar.disabled = false; btEnviar.textContent = 'Enviar abastecimento';
+  destravar();
   if(r && r.sessao === false){ sessaoCaiu(); return; }
-  if(r){ alerta('ruim', 'O servidor recusou o envio: ' + (r.erro || 'motivo não informado') + ' Nada foi registrado.'); return; }
+  if(r){ alerta('ruim', 'O servidor recusou o envio: ' + (r.erro || 'motivo não informado') + ' Nada foi registrado; o preenchimento continua salvo.'); return; }
   alerta('aviso', 'Não recebi confirmação do servidor. Pode ter chegado mesmo assim. ' +
                   'Toque em Enviar de novo sem mudar nada: se já tiver chegado, não duplica.');
 });
@@ -642,10 +772,10 @@ function montarPDF(reg, imgs){
     doc.setDrawColor(226,230,228); doc.setLineWidth(0.2); doc.line(M, y - 3, L - M, y - 3);
   }
   par('Técnico', reg.nome, 'Matrícula', reg.mat);
-  par('Data do abastecimento', dataBr(reg.dataAbast), 'Data e hora do registro', reg.registroTxt);
-  par('Placa', reg.placa, 'Frota', reg.frota);
-  par('Condutor', reg.condutor, 'Parque', reg.parque);
-  par('Cartão', reg.cartao, 'KM abastecido', kmTxt(reg.km));
+  par('Data e hora do registro', reg.registroTxt, 'Placa', reg.placa);
+  par('Condutor', reg.condutor, 'Frota', reg.frota);
+  par('Parque', reg.parque, 'Cartão', reg.cartao);
+  par('KM abastecido', kmTxt(reg.km));
   if(reg.obs){
     doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(92,106,115);
     doc.text('OBSERVAÇÃO', M, y);
@@ -655,7 +785,7 @@ function montarPDF(reg, imgs){
   }
 
   /* fotos 2 x 2, sem deformar */
-  const gap = 6, cx = (U - gap)/2, cy = 76;
+  const gap = 6, cx = (U - gap)/2, cy = 62;
   for(let i=0; i<FOTOS.length; i+=2){
     if(y + cy + 8 > FIM){ doc.addPage(); y = M + 4; }
     for(let j=0; j<2; j++){
@@ -666,6 +796,17 @@ function montarPDF(reg, imgs){
       doc.addImage(imgs[ft.k], 'JPEG', x0 + (cx - lg)/2, y + 2.5, lg, al);
     }
     y += cy + 6;
+  }
+
+  /* assinatura */
+  if(assinatura){
+    const e = Math.min(70 / assinatura.w, 20 / assinatura.h), lg = assinatura.w*e, al = assinatura.h*e;
+    if(y + al + 14 > FIM){ doc.addPage(); y = M + 4; }
+    doc.addImage(assinatura.d, 'PNG', M, y, lg, al);
+    y += al + 1.5;
+    doc.setDrawColor(26,35,41); doc.setLineWidth(0.3); doc.line(M, y, M + 80, y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(92,106,115);
+    doc.text('Assinatura do técnico — ' + (reg.nome || ''), M, y + 4.5);
   }
 
   const tot = doc.internal.getNumberOfPages();
@@ -695,7 +836,7 @@ async function compartilharPDF(){
 }
 
 /* ---------------- conclusão ---------------- */
-function concluir(reg, r, imgs){
+function concluir(reg, r){
   $('rodape').style.display = 'none';
   const podeShare = !!(navigator.canShare && window.File);
   const fotosHtml = FOTOS.map(ft =>
@@ -708,15 +849,14 @@ function concluir(reg, r, imgs){
       '<dl>' +
         '<div><dt>Técnico</dt><dd>' + esc(r.tecnico || reg.nome) + '</dd></div>' +
         '<div><dt>Matrícula</dt><dd>' + esc(r.mat || reg.mat) + '</dd></div>' +
-        '<div><dt>Registro</dt><dd>' + esc(reg.registroTxt) + '</dd></div>' +
-        '<div><dt>Data do abastecimento</dt><dd>' + esc(dataBr(reg.dataAbast)) + '</dd></div>' +
+        '<div><dt>Data e hora do registro</dt><dd>' + esc(reg.registroTxt) + '</dd></div>' +
         '<div><dt>Placa</dt><dd>' + esc(reg.placa) + '</dd></div>' +
-        '<div><dt>Frota</dt><dd>' + esc(reg.frota) + '</dd></div>' +
         '<div class="larga"><dt>Condutor</dt><dd>' + esc(reg.condutor) + '</dd></div>' +
         '<div><dt>Parque</dt><dd>' + esc(reg.parque) + '</dd></div>' +
+        '<div><dt>Frota</dt><dd>' + esc(reg.frota) + '</dd></div>' +
         '<div><dt>Cartão</dt><dd>' + esc(reg.cartao) + '</dd></div>' +
         '<div><dt>KM abastecido</dt><dd>' + esc(kmTxt(reg.km)) + '</dd></div>' +
-        '<div><dt>Protocolo</dt><dd style="font-family:var(--mono);font-size:13px">' + esc(r.id || '—') + '</dd></div>' +
+        '<div class="larga"><dt>Protocolo</dt><dd style="font-family:var(--mono);font-size:13px">' + esc(r.id || '—') + '</dd></div>' +
         (reg.obs ? '<div class="larga"><dt>Observação</dt><dd style="font-weight:400">' + esc(reg.obs) + '</dd></div>' : '') +
       '</dl>' +
       '<div class="fim-fotos">' + fotosHtml + '</div>' +

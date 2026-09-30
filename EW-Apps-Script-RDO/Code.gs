@@ -62,6 +62,12 @@
  * Meus Equipamentos (set/2026): ação 'meusEquipamentos' + bloco no fim do
  *   arquivo. Lê o .xlsm do almoxarifado no Dropbox. Ver o cabeçalho do bloco.
  *
+ * Abastecimento (set/2026): ações 'frotaPorPlaca' e 'abastecimento'. O código
+ *   mora no arquivo Abastecimento.gs (mesmo projeto); aqui ficam só as rotas
+ *   no doPost/doGet. Lê a planilha da frota no Dropbox, grava PDF + 4 fotos
+ *   em W<nn>/<data>/<parque> e registra na aba Abastecimentos. Depois de colar:
+ *   rodar testarAbastecimento() e instalarGatilhoAbastecimento() uma vez.
+ *
  * Propriedades do Script necessárias (Configurações do projeto):
  *   SHEET_ID, DROPBOX_APP_KEY, DROPBOX_APP_SECRET,
  *   DROPBOX_REFRESH_TOKEN, DROPBOX_FOLDER,
@@ -96,7 +102,10 @@ var LOGIN_JANELA_SEG = 600;
 
 
 var MM_CACHE_KEY = 'MM_TECNICOS_V2';
-var IN_CACHE_KEY = 'INPUTS_V2';
+var IN_CACHE_KEY = 'INPUTS_V3';   /* V3: + lista "feriado" (troca de chave = cache antigo ignorado) */
+/* Banco de inputs guardado só 10 min: o que for editado na planilha aparece no
+   app em até 10 min, sem precisar rodar limparCacheInputs(). */
+var IN_CACHE_SEG = 600;
 
 /* Abas do Banco de inputs (sobrescrevíveis por Propriedade do Script) */
 var IN_ABA_PC_PADRAO = 'PARQUE E CLIENTE';
@@ -126,6 +135,10 @@ function doPost(e) {
     /* --- checklist semanal da equipe: valida o token lá dentro --- */
     if (dados.acao === 'checklistStatus') return resposta(checklistStatus(dados));
     if (dados.acao === 'checklistFeito') return resposta(checklistFeito(dados));
+
+    /* --- Checklist Frotas: Abastecimento (valida o token lá dentro) --- */
+    if (dados.acao === 'frotaPorPlaca') return resposta(frotaPorPlaca(dados));
+    if (dados.acao === 'abastecimento') return resposta(registrarAbastecimento(dados));
 
     /* --- envio de RDO: exige sessão válida --- */
     var sess = validarToken(dados.token);
@@ -246,6 +259,15 @@ function doGet(e) {
     try { rf = checklistFeito({ token: p.token, checklist: p.checklist }); }
     catch (e4) { rf = { ok: false, erro: String(e4) }; }
     return saida(rf, p.callback);
+  }
+
+  /* plano B da busca por placa (o envio do abastecimento não tem plano B:
+     4 fotos + PDF não cabem numa URL) */
+  if (p.acao === 'frotaPorPlaca') {
+    var rfp;
+    try { rfp = frotaPorPlaca({ token: p.token, placa: p.placa }); }
+    catch (e7) { rfp = { ok: false, erro: String(e7) }; }
+    return saida(rfp, p.callback);
   }
 
   if (p.lista === 'tecnicos') {
@@ -616,7 +638,7 @@ function lerInputs() {
   try { cache = CacheService.getScriptCache(); } catch (e) {}
   if (cache) {
     var hit = cache.get(IN_CACHE_KEY);
-    if (hit) { try { var j = JSON.parse(hit); if (j && j.reparos && j.comuns) return j; } catch (e2) {} }
+    if (hit) { try { var j = JSON.parse(hit); if (j && j.reparos && j.comuns && j.feriado) return j; } catch (e2) {} }
   }
 
   var props = PropertiesService.getScriptProperties();
@@ -630,13 +652,14 @@ function lerInputs() {
     parques: {},
     resumo: lerAbaResumo(ss, props),
     reparos: atv.reparos,
-    comuns: atv.comuns
+    comuns: atv.comuns,
+    feriado: atv.feriado
   };
   var pc = lerAbaParqueCliente(ss, props);
   out.clientes = pc.clientes;
   out.parques = pc.parques;
 
-  if (cache) { try { cache.put(IN_CACHE_KEY, JSON.stringify(out), MM_CACHE_SEG); } catch (e3) {} }
+  if (cache) { try { cache.put(IN_CACHE_KEY, JSON.stringify(out), IN_CACHE_SEG); } catch (e3) {} }
   return out;
 }
 
@@ -749,6 +772,7 @@ function lerAbaAtvPorHora(ss, props) {
   }, -1);                                                  /* F — só se existir */
 
   var grupos = {}, ordem = [], comuns = [], vistoComum = {};
+  var feriado = [], vistoFeriado = {};   /* atividades com "feriado" no nome, com ou sem tipo */
 
   for (var r = 1; r < v.length; r++) {
     var linha = v[r];
@@ -762,6 +786,11 @@ function lerAbaAtvPorHora(ss, props) {
       obs: ehSim(linha[iObs])
     };
     var comum = ehSim(linha[iObrig]);
+
+    if (chaveNome(nome).indexOf('feriado') >= 0 && !vistoFeriado[chaveNome(nome)]) {
+      vistoFeriado[chaveNome(nome)] = true;
+      feriado.push(item);
+    }
 
     if (comum) {
       var kc = chaveNome(nome);
@@ -793,7 +822,7 @@ function lerAbaAtvPorHora(ss, props) {
       + 'Confira a coluna "Tipo de reparo" e se todas as linhas não estão marcadas '
       + 'como "Atividade obrigatória".');
   }
-  return { reparos: reparos, comuns: comuns };
+  return { reparos: reparos, comuns: comuns, feriado: feriado };
 }
 
 /** true se nenhuma atividade exige foto (provável coluna F ausente/vazia) */
@@ -812,7 +841,9 @@ function limparCacheInputs() {
   Logger.log('Cache limpo. Clientes: ' + i.clientes.length
     + ' | Itens de resumo: ' + i.resumo.length
     + ' | Tipos de reparo: ' + i.reparos.length
-    + ' | Atividades comuns: ' + i.comuns.length);
+    + ' | Atividades comuns: ' + i.comuns.length
+    + ' | Resumo com feriado: ' + i.resumo.filter(function (x) { return chaveNome(x).indexOf('feriado') >= 0; }).join(', ')
+    + ' | Atividades de feriado: ' + i.feriado.map(function (a) { return a.nome; }).join(', '));
   return i;
 }
 

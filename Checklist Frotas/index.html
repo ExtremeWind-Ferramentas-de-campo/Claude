@@ -109,6 +109,10 @@
   .opt-card .go i{transition:transform .18s ease}
   .opt-card:hover .go i{transform:translateX(4px)}
 
+  .ab-pend{display:inline-block;align-self:center;margin-top:4px;font-size:.72rem;font-weight:800;letter-spacing:.02em;
+    background:#B45309;color:#fff;padding:3px 9px;border-radius:999px}
+  .ab-pend[hidden]{display:none}
+  @media(max-width:768px){ .ab-pend{align-self:flex-start} }
   footer{text-align:center;color:var(--muted);font-size:.8rem;padding:22px 16px 10px;
     text-shadow:0 1px 8px rgba(255,255,255,.3)}
   :root[data-theme="dark"] footer{text-shadow:0 1px 10px rgba(0,0,0,.5)}
@@ -233,11 +237,12 @@
         <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-right"></i></span>
       </a>
 
-      <a class="opt-card" href="abastecimento.html" style="--c:#1F3F99">
+      <a class="opt-card" href="abastecimento.html" style="--c:#1F3F99" id="cardAbast">
         <span class="ico"><i class="fas fa-gas-pump"></i></span>
         <span class="txt">
           <span class="opt-title">Abastecimento</span>
           <span class="opt-desc">Placa, KM e fotos da bomba e da nota</span>
+          <span class="ab-pend" id="abPend" hidden></span>
         </span>
         <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-right"></i></span>
       </a>
@@ -267,6 +272,19 @@ document.getElementById('year').textContent = new Date().getFullYear();
     var dark=cur==='dark'||(!cur&&window.matchMedia('(prefers-color-scheme:dark)').matches);
     var next=dark?'light':'dark'; localStorage.setItem(KEY,next); apply(next);
   });
+})();
+</script>
+<script>
+/* Abastecimento preenchido sem internet e ainda não enviado: avisa no cartão.
+   A marca é gravada pelo abastecimento.html e some quando o envio dá certo. */
+(function(){
+  try{
+    var p = JSON.parse(localStorage.getItem('ew_ab_pendente') || 'null');
+    if(!p) return;
+    var el = document.getElementById('abPend');
+    el.textContent = '1 não enviado' + (p.placa ? ' · ' + p.placa : '');
+    el.hidden = false;
+  }catch(_){}
 })();
 </script>
 <script>

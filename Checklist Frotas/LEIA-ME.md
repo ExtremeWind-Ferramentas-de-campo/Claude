@@ -166,23 +166,23 @@ leitura de .xlsx que já existiam para o RDO e o Meus Equipamentos.
 | Campo | Origem |
 |---|---|
 | Nome e matrícula | token do login (o servidor ignora o que o celular mandar) |
-| Data e hora do registro | relógio do celular no toque em Enviar; o servidor grava também a hora em que recebeu |
-| Data do abastecimento | técnico; não aceita data futura |
+| Data e hora do registro | relógio do celular, **fixada no primeiro toque no formulário** (na bomba), não no envio. É também a "Data abastecimento" da planilha e define a pasta W<nn>/data. O servidor grava à parte a hora em que o envio chegou |
 | Placa | técnico; ABC1D23 ou ABC1234 (as duas formas casam entre si) |
 | Condutor, Parque, Frota, Cartão, Senha | planilha da frota, aba ACOMPANHAMENTO: D placa, T frota, U parque, V condutor, X cartão, Y senha. Placa repetida: vale a linha mais de baixo |
 | KM abastecido | técnico, só números |
 | Fotos Antes, Bomba, Depois, Nota | câmera (sem galeria, mesma regra dos checklists) |
 | Observação | opcional |
+| Assinatura do técnico | obrigatória; **não** vai para o rascunho — assina na hora de enviar |
 
 ### Para onde vai
 
 ```
 CONTROLE DE COMBUSTÍVEL- EXTREME WIND/
 ├── CONTROLE DE COMBUSTÍVEL.xlsx          espelho gerado pelo app
-└── W40/                                  semana ISO da DATA DO ABASTECIMENTO
-    └── 28-09-2026/
+└── W40/                                  semana ISO da data do registro
+    └── 28-09-2026/                       data do REGISTRO
         └── <PARQUE>/
-            ├── Abastecimento - <condutor> - <parque> - 28-09-2026.pdf
+            ├── Abastecimento - <condutor> - <parque> - 28-09-2026.pdf   (com assinatura)
             ├── Foto - antes - <condutor> - <parque> - 28-09-2026.jpg
             ├── Foto - bomba - ...
             ├── Foto - depois - ...
@@ -203,10 +203,24 @@ manda um identificador e o servidor devolve o resultado do primeiro envio.
   voltar: renomeie o arquivo editado e rode `abAtualizarXlsx()`. Para análise,
   puxe este arquivo por Power Query em vez de digitar nele.
 
+### Sem internet na bomba
+
+- Tudo fica salvo no aparelho (IndexedDB), fotos inclusive, a cada alteração.
+  Só a assinatura fica de fora.
+- Ao abrir o Abastecimento de novo, o rascunho volta sozinho, com um aviso e
+  o botão Descartar. O cartão do menu Checklist Frotas mostra "1 não enviado".
+- Enviar sem internet não perde nada: avisa e mantém o rascunho.
+- Condutor/cartão/senha sem internet: as 6 últimas placas consultadas ficam
+  guardadas no aparelho. Placa nunca consultada nesse celular só mostra os
+  dados quando tiver sinal (dá para preencher o resto normalmente).
+- No envio a placa é consultada de novo no servidor; vale a planilha atual.
+- Um rascunho por aparelho. Para registrar outro, envie ou descarte o atual.
+
 ### Senha do cartão
 
 Aparece só na tela do técnico, atrás de "Mostrar". Não vai para PDF, tela de
-conclusão, Sheets nem xlsx — o PDF sai por WhatsApp.
+conclusão, Sheets nem xlsx — o PDF sai por WhatsApp. Fica guardada no
+aparelho só para as últimas placas que o próprio técnico consultou.
 
 ### Instalação (uma vez)
 
@@ -217,4 +231,5 @@ conclusão, Sheets nem xlsx — o PDF sai por WhatsApp.
    fora do formato, pasta base encontrada.
 3. Rodar `instalarGatilhoAbastecimento()` (gatilho de 10 min).
 4. `testarPlaca()` com uma placa real.
-5. Subir o site (o `CACHE` do `sw.js` já foi para v45).
+5. Subir o site (o `CACHE` do `sw.js` já foi para v46). O técnico precisa abrir
+   o Abastecimento uma vez COM internet para a página ficar disponível offline.
