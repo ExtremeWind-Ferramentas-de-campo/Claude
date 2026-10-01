@@ -17,13 +17,15 @@
    IMPORTANTE: ao atualizar arquivos do app, incremente o número do CACHE
    abaixo — é o que descarta o cache antigo e força a atualização.
    ───────────────────────────────────────────────────────────── */
-const CACHE = 'ew-site-v47';
+const CACHE = 'ew-site-v49';
 
 const CORE = [
   './',
   'index.html',                              // menu + tela de entrada
   'guard.js',                                // porteiro de sessão
   'prazos.js',                               // sinal de prazo semanal nos cartões
+  'ew-form.css',                             // padrão visual do RDO nos checklists e no EHS
+  'ew-form.js',                              // tema + PDF no layout do RDO (sem ele o PDF não sai)
   'manifest.json',
   'logo-ew.png',
   'logo-oem.png',
@@ -58,7 +60,9 @@ const FROTAS = [
   'Checklist Frotas/gerador-eletrico.html',
   'Checklist Frotas/plataforma.html',
   'Checklist Frotas/veiculo.html',
-  'Checklist Frotas/abastecimento.html'      // não vem do construtor (busca placa + login)
+  'Checklist Frotas/abastecimento.html',     // não vem do construtor (busca placa + login)
+  'ehs/index.html',                          // menu EHS
+  'ehs/report-diario/index.html'             // Report Diário de EHS
 ];
 const EXTRA = [
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
