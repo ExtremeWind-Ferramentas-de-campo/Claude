@@ -278,6 +278,7 @@
     <button class="tab"        data-tab="topcoat" onclick="goTab('topcoat')"><i class="fas fa-spray-can"></i> Top Coat 12</button>
     <button class="tab"        data-tab="adesivo" onclick="goTab('adesivo')"><i class="fas fa-droplet"></i> Adesivo</button>
     <button class="tab"        data-tab="pbu"     onclick="goTab('pbu')"><i class="fas fa-ruler-combined"></i> Fita PBU</button>
+    <button class="tab"        data-tab="lm"      onclick="goTab('lm')"><i class="fas fa-wind"></i> Pá LM</button>
     <button class="tab"        data-tab="hist"    onclick="goTab('hist')"><i class="fas fa-clock-rotate-left"></i> Histórico</button>
   </nav>
 
@@ -487,6 +488,45 @@
     </div>
   </section>
 
+  <!-- ══════════════════ PAINEL: PÁ LM ══════════════════ -->
+  <section class="panel" id="panel-lm">
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-spray-can"></i></span> Pá LM — Top Coat 12</div>
+      <div class="card-desc">Pintura de acabamento em pás LM. Proporção em <b>peso</b>.</div>
+      <div class="spec">
+        <div class="row"><span><b>Base:</b> Top Coat 12</span><span id="lmtc-ratio-lbl"></span></div>
+        <div class="row"><span><b>Endurecedor:</b> Hardener 12</span><span class="hint">em peso</span></div>
+        <div class="row"><span><b>Diluente (opcional):</b> Thinner — Mankiewicz</span><span id="lmtc-thinner-lbl"></span></div>
+        <span class="src" id="lmtc-src"></span>
+      </div>
+      <div class="field">
+        <label for="lmtc-base">Peso da base (Top Coat 12) <span class="hint">(g)</span></label>
+        <input type="text" id="lmtc-base" inputmode="decimal" placeholder="Ex: 4000">
+      </div>
+      <label class="check" style="margin-bottom:14px">
+        <input type="checkbox" id="lmtc-thinner"> Adicionar Thinner (diluente — % sobre a mistura base + endurecedor)
+      </label>
+      <button class="btn btn-primary" onclick="calcLmTopcoat()"><i class="fas fa-calculator"></i> Calcular</button>
+      <div class="result" id="res-lmtc"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-fill-drip"></i></span> Pá LM — Filler 3</div>
+      <div class="card-desc">Massa de preenchimento (Putty Profile Filler 3) em pás LM. Proporção em <b>peso</b>.</div>
+      <div class="spec">
+        <div class="row"><span><b>Base:</b> Putty Profile Filler 3</span><span id="lmf-ratio-lbl"></span></div>
+        <div class="row"><span><b>Endurecedor:</b> Endurecedor Filler 3</span><span class="hint">em peso</span></div>
+        <span class="src" id="lmf-src"></span>
+      </div>
+      <div class="field">
+        <label for="lmf-base">Peso da base (Filler 3) <span class="hint">(g)</span></label>
+        <input type="text" id="lmf-base" inputmode="decimal" placeholder="Ex: 600">
+      </div>
+      <button class="btn btn-primary" onclick="calcLmFiller()"><i class="fas fa-calculator"></i> Calcular</button>
+      <div class="result" id="res-lmf"></div>
+    </div>
+  </section>
+
   <!-- ══════════════════ PAINEL: FITA PBU ══════════════════ -->
   <section class="panel" id="panel-pbu">
     <div class="card">
@@ -572,6 +612,9 @@ const CFG = {
   topcoatRatio: 4,           // base : endurecedor = 4 : 1
   thinnerPct: 10,            // Thinner — % sobre a mistura (guia: 5–10%)
   thinnerRange: '5–10% da mistura',
+  // Pá LM — proporções em PESO (base : endurecedor)
+  lmTopcoatRatio: 4,         // Top Coat 12 = 4 : 1
+  lmFillerRatio: 6,          // Filler 3 = 6 : 1
   // Adesivo SIKA 818 = SikaForce-818 L07 (2K POLIURETANO — NÃO é poliéster)
   // Comp. A (base) : Comp. B SikaForce-050 (endurecedor) = 100 : 45. Razão FIXA
   // de fábrica (estequiométrica) — não ajustar. Fonte: TDS Sika v.05.01 (11/2024).
@@ -605,9 +648,9 @@ const API = 'https://ew-dropbox-proxy.ew-fotos.workers.dev';
 
 /* Módulos visíveis por tipo de reparo */
 const MODULOS_POR_TIPO = {
-  'Reforço Externo BA': ['lam','massa','gel','topcoat','adesivo','hist'],
-  'Reparo Externo':     ['lam','massa','gel','topcoat','adesivo','hist'],
-  'Aplicação Fita PBU': ['massa','gel','topcoat','pbu','hist'],
+  'Reforço Externo BA': ['lam','massa','gel','topcoat','adesivo','lm','hist'],
+  'Reparo Externo':     ['lam','massa','gel','topcoat','adesivo','lm','hist'],
+  'Aplicação Fita PBU': ['massa','gel','topcoat','lm','pbu','hist'],
   'Reparo Interno':     ['lam','adesivo','hist']
 };
 const NOTAS_TIPO = {
@@ -645,7 +688,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   aplicarTema(localStorage.getItem('siemens_theme'));
   preencherSpecs();
   atualizarNotaTipo();
-  ['lam-fibra','massa-base','gel-base','tc-base','adesivo-base','pbu-fluido','pbu-comp','i-peso-nucleo']
+  ['lam-fibra','massa-base','gel-base','tc-base','adesivo-base','lmtc-base','lmf-base','pbu-fluido','pbu-comp','i-peso-nucleo']
     .forEach(id=>{ const e=$(id); if(e) e.addEventListener('input',()=>onlyNum(e)); });
   document.querySelectorAll('input[name="tipo"]').forEach(r=>r.addEventListener('change',atualizarNotaTipo));
   document.querySelectorAll('.seg').forEach(seg=>{ seg.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>syncSeg(seg))); syncSeg(seg); });
@@ -673,6 +716,11 @@ function preencherSpecs(){
   $('tc-ratio-lbl').innerHTML  = `<b>${CFG.topcoatRatio} : 1</b>`;
   $('tc-thinner-lbl').innerHTML= `<b>${CFG.thinnerPct}%</b> <span class="hint">(${CFG.thinnerRange})</span>`;
   $('tc-src').textContent      = 'Top Coat 12 4:1 + Hardener 12; Thinner 5–10% da mistura (guia de químicos).';
+  $('lmtc-ratio-lbl').innerHTML= `<b>${CFG.lmTopcoatRatio} : 1</b>`;
+  $('lmtc-thinner-lbl').innerHTML = `<b>${CFG.thinnerPct}%</b> <span class="hint">(${CFG.thinnerRange})</span>`;
+  $('lmtc-src').textContent    = 'Top Coat 12 para pá LM: 4:1 em peso (base : endurecedor); Thinner 5–10% da mistura.';
+  $('lmf-ratio-lbl').innerHTML = `<b>${CFG.lmFillerRatio} : 1</b>`;
+  $('lmf-src').textContent     = 'Filler 3 para pá LM: 6:1 em peso (base : endurecedor).';
   $('adesivo-ratio-lbl').innerHTML = `<b>${CFG.adesivoRatioTxt}</b>`;
   $('adesivo-src').textContent = CFG.adesivoSrc;
   $('pbu-agua-pct').textContent= CFG.fluidoAgua+'%';
@@ -829,6 +877,28 @@ function calcTopcoat(){
   ], {tipo:'Top Coat 12',base,endur,adicional:thinner,total});
 }
 
+function calcLmTopcoat(){
+  const base = num(v('lmtc-base'));
+  if(base<=0){ toast('Informe o peso da base (g)','error'); return; }
+  const endur = base / CFG.lmTopcoatRatio;             // 4:1
+  const usaThinner = $('lmtc-thinner').checked;
+  const thinner = usaThinner ? (base+endur) * CFG.thinnerPct/100 : 0;
+  const total = base + endur + thinner;
+  renderResult('res-lmtc','Pá LM — Top Coat 12',[
+    ['Base',base,'g'], ['Endurecedor (Hardener 12)',endur,'g'],
+    ...(usaThinner?[['Thinner',thinner,'g']]:[]), ['Mistura total',total,'g',true]
+  ], {tipo:'LM Top Coat 12',base,endur,adicional:thinner,total});
+}
+
+function calcLmFiller(){
+  const base = num(v('lmf-base'));
+  if(base<=0){ toast('Informe o peso da base (g)','error'); return; }
+  const endur = base / CFG.lmFillerRatio;              // 6:1
+  renderResult('res-lmf','Pá LM — Filler 3',[
+    ['Base (Filler 3)',base,'g'], ['Endurecedor',endur,'g'], ['Mistura total',base+endur,'g',true]
+  ], {tipo:'LM Filler 3',base,endur,adicional:0,total:base+endur});
+}
+
 function calcFluido(){
   const vol = num(v('pbu-fluido'));
   if(vol<=0){ toast('Informe o volume total (ml)','error'); return; }
@@ -906,6 +976,8 @@ const CATALOGO = {
   'Gel Coat':      { base:['Base Gel Coat','Crystic RAL 7035'],  endur:['Catalisador Gel Coat','MEKP'] },
   'Adesivo SIKA 818':{ base:['Base Adesivo','SikaForce-818 L07'], endur:['Endurecedor Adesivo','SikaForce-050 (comp. B)'] },
   'Top Coat 12':   { base:['Base Pintura','Top Coat 12 - Alexit'], endur:['Endurecedor Pintura','Hardener 12 - Alexit'], adicional:['Diluente','Thinner Mankiewicz'] },
+  'LM Top Coat 12':{ base:['Base Pintura LM','Top Coat 12 - Alexit'], endur:['Endurecedor Pintura LM','Hardener 12 - Alexit'], adicional:['Diluente','Thinner Mankiewicz'] },
+  'LM Filler 3':   { base:['BASE PUTTY PROFILE FILLER 3','BASE PUTTY PROFILE FILLER 3'], endur:['ENDURECEDOR PUTTY PROFILE FILLER 3','ENDURECEDOR PUTTY PROFILE FILLER 3'] },
   'Fluido PBU':    { base:['Água destilada','Água destilada'],   endur:['Álcool isopropílico','IPA'] }
 };
 function linhasDoRegistro(r){
