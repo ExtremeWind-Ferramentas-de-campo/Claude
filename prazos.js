@@ -1,0 +1,530 @@
+/**
+ * PRAZO SEMANAL DOS CHECKLISTS — Extreme Wind
+ *
+ * Pinta o cartão do checklist de vermelho conforme o prazo se aproxima.
+ *
+ *   <script src="../prazos.js"></script>
+ *
+ * COMO FUNCIONA
+ * A janela abre toda SEXTA. De sexta até o dia do prazo o cartão fica
+ * vermelho, e o tom fecha a cada dia que passa — âmbar na sexta, vermelho
+ * forte no dia do vencimento. Passado o prazo o cartão volta ao normal,
+ * tenha sido feito ou não, e fica assim até a sexta seguinte, quando o ciclo
+ * recomeça.
+ *
+ * Feito dentro da janela: volta ao normal na hora, e só volta a alertar no
+ * próximo ciclo.
+ *
+ * PRAZOS
+ *   veiculo   — Checklist de veículos (Frotas) ....... terça
+ *   materiais — Checklist de materiais (Almoxarifado)  segunda
+ *   cordas, epi, ferramentas, loto — Almoxarifado ..... segunda
+ *
+ * O "feito" mora no localStorage, com a data da sexta do ciclo. É por isso
+ * que ele se apaga sozinho: na sexta seguinte a data guardada deixa de bater
+ * com a do ciclo vigente. Não precisa de rotina de limpeza.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * EQUIPE DO DIA (backend do RDO)
+ *
+ * Quem manda é o Apps Script do RDO, que lê a coluna H da aba Relatorios (as
+ * matrículas da equipe de cada RDO) e guarda as baixas na aba
+ * Checklist_Feitos. Ele responde DUAS coisas, que não andam juntas:
+ *
+ *   "está em parque?"  vale para os SEIS cartões. Matrícula que não aparece
+ *                      na coluna H não recebe alerta nenhum.
+ *   "quem já fez?"     vale só para CINCO — materiais, veiculo, loto, cordas
+ *                      e ferramentas. Um técnico faz, some do alerta dos
+ *                      colegas de equipe.
+ *
+ * O 'epi' (Equipamentos Individuais) fica fora do compartilhamento: é o EPI
+ * de cada um. Ele alerta só para quem está na coluna H, e só sai quando o
+ * próprio técnico fizer, no aparelho dele. A etiqueta dele diz "· você".
+ *
+ * O site pergunta ao backend em `checklistStatus` e guarda a resposta em
+ * localStorage. Toda a pintura continua SÍNCRONA e a partir dessa cópia —
+ * a rede nunca segura a tela.
+ *
+ * Três estados possíveis:
+ *   sem resposta ainda  -> vale só o localStorage deste aparelho (é o
+ *                          comportamento antigo, e é o que roda offline)
+ *   ativo = false       -> a matrícula não está na coluna H: NENHUM alerta
+ *   ativo = true        -> feito = o que este aparelho marcou OU, nos cinco
+ *                          compartilhados, o que a equipe marcou
+ *
+ * Offline, na dúvida, o alerta APARECE. Checklist esquecido é pior que
+ * alerta repetido.
+ *
+ * A baixa é gravada no aparelho na hora e entra numa fila. A fila é enviada
+ * de qualquer página que consiga falar com o Apps Script — na prática a tela
+ * inicial, por onde todo mundo passa para entrar.
+ * ─────────────────────────────────────────────────────────────────────────
+ *
+ * ATENÇÃO: é sinal visual, não é controle. Quem tem a verdade é a planilha.
+ * Isto aqui serve para lembrar quem está com o aparelho na mão.
+ */
+(function (global) {
+  'use strict';
+
+  /* Dia da semana do prazo, no padrão do JS: 0=domingo … 6=sábado.
+     A janela SEMPRE abre na sexta (5).
+
+     'auto' diz como o checklist se marca como feito:
+       app    — o próprio app avisa (o de materiais, ao enfileirar o envio;
+                o de veículos, ao gerar o PDF)
+       manual — mora no forms.app, que não tem como nos avisar. Quem baixa o
+                alerta é o técnico, tocando na etiqueta. */
+  var ABRE = 5;
+  var PRAZOS = {
+    veiculo:    { rotulo: 'Checklist de veículos',        limite: 2, nome: 'terça',   auto: 'app' },
+    materiais:  { rotulo: 'Checklist de materiais',       limite: 1, nome: 'segunda', auto: 'app' },
+    cordas:     { rotulo: 'Acesso por Cordas',            limite: 1, nome: 'segunda', auto: 'manual' },
+    epi:        { rotulo: 'Equipamentos Individuais',     limite: 1, nome: 'segunda', auto: 'manual' },
+    ferramentas:{ rotulo: 'Ferramentas Gerais',           limite: 1, nome: 'segunda', auto: 'manual' },
+    loto:       { rotulo: 'Kit LOTO',                     limite: 1, nome: 'segunda', auto: 'manual' }
+  };
+
+  /* Atalhos para os cartões que levam a vários checklists de uma vez. Evita
+     escrever a lista inteira no HTML e esquecer de atualizar quando entrar um
+     checklist novo — aqui é o único lugar. */
+  var GRUPOS = {
+    almoxarifado: ['materiais', 'cordas', 'epi', 'ferramentas', 'loto'],
+    frotas:       ['veiculo']
+  };
+  function expandir(ids) {
+    var fora = [];
+    ids.forEach(function (id) {
+      if (GRUPOS[id]) GRUPOS[id].forEach(function (x) { if (fora.indexOf(x) < 0) fora.push(x); });
+      else if (fora.indexOf(id) < 0) fora.push(id);
+    });
+    return fora;
+  }
+
+  var DIA = 86400000;
+  var CHAVE = 'ew_prazo_';
+
+  /* ── conversa com o backend do RDO ────────────────────────────────────
+     Mesmo endereço do login e do Pé-de-meia. Trocou a implantação do Apps
+     Script? Troque aqui também, junto com index.html, rdo/index.html e
+     meus-dados/pe-de-meia.html. */
+  var API_RDO = 'https://script.google.com/macros/s/AKfycbxoOpV339g76UpYa7sO28C6lS99TAz7po2c0dNAk0i1X1HgsyKC_KXIuuBAS7qbBzLG/exec';
+  var CH_SESSAO = 'ew_sessao';
+  var CH_SNAP = 'ew_prazo_status';   /* cópia da última resposta do backend */
+  var CH_FILA = 'ew_prazo_fila';     /* baixas ainda não confirmadas */
+
+  /* Os que a equipe divide. O 'epi' fica de fora: a engenharia listou cinco,
+     e ele não estava na lista — segue valendo só por aparelho. */
+  var COMPARTILHADOS = ['materiais', 'veiculo', 'loto', 'cordas', 'ferramentas'];
+  function ehCompartilhado(id) { return COMPARTILHADOS.indexOf(id) >= 0; }
+
+  function lerLS(k, padrao) {
+    try {
+      var v = localStorage.getItem(k);
+      return v ? JSON.parse(v) : padrao;
+    } catch (_) { return padrao; }
+  }
+  function gravarLS(k, v) {
+    try { localStorage.setItem(k, JSON.stringify(v)); return true; }
+    catch (_) { return false; }
+  }
+  function sessao() {
+    var s = lerLS(CH_SESSAO, null);
+    return (s && s.token && s.exp > Date.now()) ? s : null;
+  }
+  function token() {
+    var s = sessao();
+    return s ? s.token : '';
+  }
+  /* Matrícula de quem está logado AGORA, normalizada igual ao backend
+     (só dígitos, sem zero à esquerda). */
+  function matAtual() {
+    var s = sessao();
+    if (!s) return '';
+    var d = String(s.mat == null ? '' : s.mat).replace(/[^0-9]/g, '');
+    return d.replace(/^0+/, '') || d;
+  }
+
+  /* Cópia do backend. Só vale se for do ciclo vigente E da MESMA matrícula.
+     O aparelho é compartilhado: sem a checagem da matrícula, a resposta de
+     quem logou antes continuava valendo para quem logou depois — e o colega
+     herdava a equipe, o parque e as baixas de outra pessoa. */
+  function snapshot(hoje) {
+    var s = lerLS(CH_SNAP, null);
+    if (!s || s.ciclo !== iso(sextaDoCiclo(hoje))) return null;
+    if (String(s.mat || '') !== matAtual()) return null;
+    return s;
+  }
+
+  function soData(d) {
+    var x = new Date(d || Date.now());
+    x.setHours(0, 0, 0, 0);
+    return x;
+  }
+
+  /* Sexta que abriu o ciclo vigente — a mais recente, contando hoje. */
+  function sextaDoCiclo(hoje) {
+    var d = soData(hoje);
+    d.setDate(d.getDate() - ((d.getDay() - ABRE + 7) % 7));
+    return d;
+  }
+
+  /* Quantos dias depois da sexta cai o prazo. Segunda = 3, terça = 4. */
+  function offsetDoLimite(limite) {
+    return (limite - ABRE + 7) % 7;
+  }
+
+  function iso(d) {
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+
+  /* A marca guarda "ciclo|matricula". A matrícula entrou em 28/08/2026: o
+     aparelho é compartilhado, e sem ela a baixa de um técnico apagava o
+     alerta do próximo que logasse no mesmo celular — justamente no 'epi',
+     que é individual e não tem o backend para corrigir.
+
+     Marca antiga (só o ciclo, sem "|") continua valendo até a sexta virar,
+     para ninguém perder baixa já dada na troca de versão. */
+  function feitoNesteCiclo(id, hoje) {
+    try {
+      var v = localStorage.getItem(CHAVE + id);
+      if (!v) return false;
+      var p = String(v).split('|');
+      if (p[0] !== iso(sextaDoCiclo(hoje))) return false;
+      if (p.length < 2) return true;                 // formato antigo
+      return p[1] === matAtual();
+    } catch (_) { return false; }   // navegador com storage bloqueado: só não marca
+  }
+
+  /**
+   * Estado do prazo agora.
+   *   ativo  — está dentro da janela e ainda não foi feito
+   *   faltam — dias até o prazo (0 = vence hoje)
+   *   nivel  — 0 na sexta … 1 no dia do vencimento
+   */
+  function estado(id, hoje) {
+    var cfg = PRAZOS[id];
+    if (!cfg) return null;
+    var d = soData(hoje);
+    var off = offsetDoLimite(cfg.limite);
+    var desdeSexta = Math.round((d - sextaDoCiclo(d)) / DIA);
+    var dentro = desdeSexta <= off;
+    var faltam = off - desdeSexta;
+
+    var feito = feitoNesteCiclo(id, d);
+    var porQuem = '', foraDeParque = false;
+
+    /* O backend responde duas coisas diferentes, e elas NÃO andam juntas:
+
+       1. "está em parque?" — é da PESSOA, então vale para TODOS os cartões,
+          inclusive o 'epi'. Matrícula fora da coluna H não recebe alerta
+          nenhum.
+
+       2. "quem já fez?" — só para os cinco que a equipe divide. O 'epi' é
+          individual: nem a equipe dá baixa por você, nem o backend guarda.
+          Só sai quando o próprio técnico fizer, no aparelho dele.
+
+       Decidido pela engenharia em 28/08/2026. */
+    var snap = snapshot(d);
+    if (snap) {
+      if (!snap.ativo) {
+        /* Devolve dentroDaJanela para quem quiser saber que o prazo existe,
+           mas ativo=false garante que nada é pintado. */
+        foraDeParque = true;
+      } else if (ehCompartilhado(id) && snap.feitos && snap.feitos[id]) {
+        feito = true;
+        porQuem = snap.feitos[id].porNome || snap.feitos[id].por || '';
+      }
+    }
+
+    return {
+      id: id,
+      rotulo: cfg.rotulo,
+      nomeDoDia: cfg.nome,
+      dentroDaJanela: dentro,
+      feito: feito,
+      foraDeParque: foraDeParque,
+      porQuem: porQuem,
+      /* Fonte da verdade que valeu, para depurar em campo sem adivinhação. */
+      individual: !ehCompartilhado(id),
+      fonte: !snap ? 'aparelho'
+           : foraDeParque ? 'fora-de-parque'
+           : ehCompartilhado(id) ? 'equipe' : 'aparelho',
+      ativo: dentro && !feito && !foraDeParque,
+      faltam: faltam,
+      /* off nunca é 0 (sexta não é prazo de ninguém aqui), mas a divisão fica
+         protegida de qualquer forma — um prazo configurado para sexta cairia
+         num 0/0 e pintaria NaN. */
+      nivel: off === 0 ? 1 : (off - faltam) / off
+    };
+  }
+
+  /* Âmbar (nível 0) → vermelho forte (nível 1). Mexer aqui muda a escala
+     inteira, nos dois checklists. */
+  function cor(nivel) {
+    var n = Math.max(0, Math.min(1, nivel));
+    var h = Math.round(32 - 32 * n);        // 32° âmbar → 0° vermelho
+    var s = Math.round(88 + 7 * n);
+    var l = Math.round(56 - 15 * n);
+    return 'hsl(' + h + ',' + s + '%,' + l + '%)';
+  }
+
+  function textoDoAviso(e) {
+    if (e.faltam <= 0) return 'Vence hoje';
+    if (e.faltam === 1) return 'Vence amanhã';
+    return 'Vence ' + e.nomeDoDia;
+  }
+
+  var CSS_ID = 'ew-prazo-css';
+  function garantirCss() {
+    if (document.getElementById(CSS_ID)) return;
+    var st = document.createElement('style');
+    st.id = CSS_ID;
+    /* A etiqueta entra no fluxo, dentro do bloco de texto do cartão. Nada de
+       posição absoluta: no desktop o cartão é coluna e no celular é linha, e
+       um canto fixo acabaria em cima do ícone ou da seta em um dos dois. */
+    st.textContent = [
+      '.ew-prazo-tag{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;margin-top:5px;',
+      '  background:var(--ew-prazo-cor,#c0392b);color:#fff;',
+      '  font-size:.62rem;font-weight:800;letter-spacing:.4px;text-transform:uppercase;',
+      '  padding:3px 9px;border-radius:999px;white-space:nowrap;line-height:1.5;',
+      '  box-shadow:0 2px 8px rgba(0,0,0,.22)}',
+      /* Etiqueta que o técnico pode tocar para dar baixa (checklist do
+         forms.app, que não tem como avisar sozinho). Alvo de toque de 30px,
+         senão o dedo erra no celular. */
+      '.ew-prazo-tag.tocavel{cursor:pointer;padding:5px 9px;min-height:30px;',
+      '  border:1px solid rgba(255,255,255,.55)}',
+      '.ew-prazo-tag.tocavel:hover{filter:brightness(1.12)}',
+      '.ew-prazo-hoje .ew-prazo-tag{animation:ew-prazo-pisca 1.6s ease-in-out infinite}',
+      '@keyframes ew-prazo-pisca{0%,100%{opacity:1}50%{opacity:.45}}',
+      '@media(prefers-reduced-motion:reduce){.ew-prazo-hoje .ew-prazo-tag{animation:none}}'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  /**
+   * Pinta um cartão. O elemento precisa usar a variável --c como cor de
+   * destaque (é o padrão dos cartões do site).
+   */
+  function pintar(el, id, hoje, pendentes) {
+    if (!el) return null;
+    var e = estado(id, hoje);
+    if (!e) return null;
+
+    var tagAntiga = el.querySelector('.ew-prazo-tag');
+    if (tagAntiga) tagAntiga.remove();
+    el.classList.remove('ew-prazo', 'ew-prazo-hoje');
+    if (el.dataset.ewCorOriginal !== undefined) {
+      el.style.setProperty('--c', el.dataset.ewCorOriginal);
+    }
+
+    if (!e.ativo) return e;
+
+    garantirCss();
+    if (el.dataset.ewCorOriginal === undefined) {
+      el.dataset.ewCorOriginal = el.style.getPropertyValue('--c') || '';
+    }
+    var c = cor(e.nivel);
+    el.style.setProperty('--c', c);
+    el.classList.add('ew-prazo');
+    if (e.faltam <= 0) el.classList.add('ew-prazo-hoje');
+
+    var tag = document.createElement('span');
+    tag.className = 'ew-prazo-tag';
+    tag.style.setProperty('--ew-prazo-cor', c);
+    /* Cartão que junta vários checklists (o do menu) diz QUANTOS faltam — sem
+       isso, o técnico dá baixa num e o cartão continua vermelho sem explicar
+       por quê. */
+    /* "· você" avisa que este é dos individuais: nem a equipe dá baixa por
+       ele, nem estar fora de parque o apaga. Sem isso, ver um cartão vermelho
+       sozinho com os outros todos apagados parece defeito da tela. */
+    tag.textContent = (pendentes > 1 ? pendentes + ' pendentes · ' : '')
+                    + textoDoAviso(e)
+                    + (e.individual && !pendentes ? ' · você' : '');
+    tag.title = e.rotulo + ' — prazo ' + e.nomeDoDia + '.'
+              + (e.individual ? ' É individual: só sai quando VOCÊ fizer.' : '');
+
+    /* Só o cartão de UM checklist manual ganha o toque para dar baixa. Num
+       cartão-resumo não daria para saber qual dos cinco o técnico fez. */
+    if (!pendentes && PRAZOS[id].auto === 'manual') {
+      tag.classList.add('tocavel');
+      tag.setAttribute('role', 'button');
+      tag.setAttribute('tabindex', '0');
+      tag.title += ' Toque para marcar como feito.';
+      tag.insertAdjacentHTML('beforeend', ' <i class="fas fa-check" aria-hidden="true"></i>');
+      var baixar = function (ev) {
+        /* O cartão é um link: sem isto o toque abriria o formulário junto. */
+        ev.preventDefault(); ev.stopPropagation();
+        if (confirm('Marcar "' + e.rotulo + '" como feito nesta semana?')) marcarFeito(id, hoje);
+      };
+      tag.addEventListener('click', baixar);
+      tag.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') baixar(ev);
+      });
+    }
+
+    /* Dentro do bloco de texto do cartão, quando existe: é lá que ela fica
+       embaixo da descrição nos dois layouts. Cartão sem .txt recebe direto. */
+    (el.querySelector('.txt') || el).appendChild(tag);
+    return e;
+  }
+
+  /**
+   * Pinta tudo que estiver marcado com data-ew-prazo.
+   * O valor aceita um id (`veiculo`), um grupo (`almoxarifado`) ou vários
+   * separados por vírgula. Cartão que junta mais de um mostra o mais urgente
+   * e quantos ainda faltam.
+   */
+  function aplicar(hoje) {
+    var achados = [];
+    document.querySelectorAll('[data-ew-prazo]').forEach(function (el) {
+      var ids = expandir(String(el.dataset.ewPrazo).split(',').map(function (s) { return s.trim(); }));
+      /* Mais urgente = tom mais fechado. Empate de tom (na sexta todos acabam
+         de abrir) desempata por quem vence primeiro — senão o cartão
+         anunciaria "vence terça" num dia em que já há coisa vencendo
+         segunda. */
+      var escolhido = null, pendentes = 0;
+      ids.forEach(function (id) {
+        var e = estado(id, hoje);
+        if (!e || !e.ativo) return;
+        pendentes++;
+        if (!escolhido ||
+            e.nivel > escolhido.nivel ||
+            (e.nivel === escolhido.nivel && e.faltam < escolhido.faltam)) escolhido = e;
+      });
+      /* pendentes só é passado quando o cartão junta vários — é o que decide
+         se cabe o toque de "feito" e a contagem na etiqueta. */
+      var r = pintar(el, escolhido ? escolhido.id : ids[0], hoje,
+                     ids.length > 1 ? pendentes : 0);
+      if (r && r.ativo) achados.push(r);
+    });
+    return achados;
+  }
+
+  /**
+   * Baixa. Grava no aparelho na hora — a tela responde mesmo sem rede — e,
+   * se o checklist for dos que a equipe divide, entra na fila para o backend.
+   */
+  function marcarFeito(id, hoje) {
+    if (!PRAZOS[id]) return false;
+    var ok = false;
+    try {
+      localStorage.setItem(CHAVE + id, iso(sextaDoCiclo(hoje)) + '|' + matAtual());
+      ok = true;
+    } catch (_) {}
+    if (ehCompartilhado(id)) {
+      enfileirar(id, hoje);
+      descarregar();          // tenta agora; falhando, fica para a próxima página
+    }
+    aplicar(hoje);
+    return ok;
+  }
+
+  function limpar(id) {
+    try { localStorage.removeItem(CHAVE + id); } catch (_) {}
+  }
+
+  /* ── fila de baixas ────────────────────────────────────────────────────
+     Existe porque nem toda página consegue falar com o Apps Script: o CSP de
+     algumas só libera 'self'. Quem não consegue enfileira; quem consegue
+     descarrega. Na prática a tela inicial resolve, porque todo mundo passa
+     por ela para entrar. */
+  function enfileirar(id, hoje) {
+    var f = lerLS(CH_FILA, []);
+    if (!Array.isArray(f)) f = [];
+    var ciclo = iso(sextaDoCiclo(hoje));
+    var repetido = f.some(function (x) { return x.id === id && x.ciclo === ciclo; });
+    if (!repetido) f.push({ id: id, ciclo: ciclo, quando: Date.now() });
+    gravarLS(CH_FILA, f);
+  }
+
+  var enviando = false;
+  function descarregar(aoTerminar) {
+    var f = lerLS(CH_FILA, []);
+    var tk = token();
+    if (enviando || !Array.isArray(f) || !f.length || !tk || !global.fetch) {
+      if (aoTerminar) aoTerminar(false);
+      return;
+    }
+    enviando = true;
+    var item = f[0];
+    /* Baixa de ciclo passado não vale mais nada: descarta sem chamar o
+       servidor, senão a fila entope com trabalho que o backend ia recusar. */
+    if (item.ciclo !== iso(sextaDoCiclo())) {
+      gravarLS(CH_FILA, f.slice(1));
+      enviando = false;
+      return descarregar(aoTerminar);
+    }
+    postar({ acao: 'checklistFeito', token: tk, checklist: item.id }, function (r) {
+      enviando = false;
+      if (r && r.ok) {
+        gravarLS(CH_FILA, lerLS(CH_FILA, []).filter(function (x) {
+          return !(x.id === item.id && x.ciclo === item.ciclo);
+        }));
+        descarregar(aoTerminar);        // segue para o próximo
+      } else if (aoTerminar) {
+        aoTerminar(false);              // sem rede: fica na fila
+      }
+    });
+  }
+
+  function postar(corpo, cb) {
+    try {
+      global.fetch(API_RDO, { method: 'POST', body: JSON.stringify(corpo) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { cb(j); })
+        .catch(function () { cb(null); });
+    } catch (_) { cb(null); }
+  }
+
+  /**
+   * Pergunta ao backend quem é a equipe de hoje e o que já foi feito.
+   * Guarda a resposta e repinta. Falha (sem rede, CSP bloqueando) é silêncio:
+   * a tela continua com o que já tinha.
+   */
+  function sincronizar(aoTerminar) {
+    var tk = token();
+    if (!tk || !global.fetch) { if (aoTerminar) aoTerminar(false); return; }
+    postar({ acao: 'checklistStatus', token: tk }, function (r) {
+      if (!r || !r.ok) { if (aoTerminar) aoTerminar(false); return; }
+      var feitos = {};
+      (r.itens || []).forEach(function (it) {
+        if (it.feito) feitos[it.id] = { por: it.por, porNome: it.porNome, quando: it.quando };
+      });
+      gravarLS(CH_SNAP, {
+        /* mat vem do backend, que a tirou do token — é a matrícula de quem
+           realmente está logado, não a que o aparelho diz estar. */
+        mat: String(r.mat || matAtual()),
+        ciclo: r.ciclo, ativo: !!r.ativo, parque: r.parque || '',
+        equipe: r.equipe || [], feitos: feitos, quando: Date.now()
+      });
+      aplicar();
+      descarregar();
+      if (aoTerminar) aoTerminar(true);
+    });
+  }
+
+  function statusLocal(hoje) {
+    return snapshot(hoje);
+  }
+
+  global.EWPrazo = {
+    estado: estado, aplicar: aplicar, pintar: pintar,
+    marcarFeito: marcarFeito, limpar: limpar, expandir: expandir,
+    cor: cor, sextaDoCiclo: sextaDoCiclo, PRAZOS: PRAZOS, GRUPOS: GRUPOS,
+    sincronizar: sincronizar, descarregar: descarregar, status: statusLocal,
+    COMPARTILHADOS: COMPARTILHADOS
+  };
+
+  function iniciar() {
+    aplicar();          // pinta já, com o que houver no aparelho
+    sincronizar();      // e corrige quando o backend responder
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', iniciar);
+  } else {
+    iniciar();
+  }
+  /* Voltou a rede depois de dar baixa offline: manda o que ficou pendente. */
+  global.addEventListener('online', function () { sincronizar(); });
+})(window);
