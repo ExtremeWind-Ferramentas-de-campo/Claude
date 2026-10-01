@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<script src="../guard.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://script.google.com https://script.googleusercontent.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'self'">
+<meta name="theme-color" content="#1A2329">
+<title>Abastecimento | Checklist Frotas</title>
+<!--
+  NÃO é gerado pelo construtor (precisa de login, busca por placa e envio de
+  vários arquivos, que o construtor não faz). Pode editar direto — e NÃO
+  coloque este arquivo no _costurar.js: guard e seta voltar já estão aqui.
+  Backend: ações frotaPorPlaca e abastecimento no EW-Apps-Script-RDO/Code.gs.
+-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --papel:#F2F3F1;--carta:#fff;--tinta:#1A2329;--tinta-2:#5C6A73;--linha:#D6DBD8;
+    --aco:#12466B;--sinal:#C2410C;--ok:#0F6E4F;
+    --placa-azul:#1F3F99;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --placa-fonte:"Arial Narrow","Roboto Condensed","Helvetica Neue Condensed",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--papel);color:var(--tinta);font-size:16px;line-height:1.5;
+    font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
+  button{font-family:inherit;font-size:inherit;cursor:pointer;color:inherit}
+  input,textarea{font-family:inherit;font-size:16px;color:inherit}
+
+  .topo{background:var(--tinta);color:#fff;padding:16px;display:flex;align-items:center;gap:12px}
+  .topo h1{margin:0;font-size:19px;letter-spacing:-.01em}
+  .topo p{margin:3px 0 0;font-size:12px;opacity:.75}
+  .topo .voltar{flex:0 0 auto;width:38px;height:38px;border-radius:50%;
+    border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;
+    display:grid;place-items:center;text-decoration:none;font-size:18px;line-height:1}
+  .topo .voltar:hover{background:rgba(255,255,255,.14)}
+
+  .folha{max-width:720px;margin:0 auto;padding:16px 14px 120px}
+  .bloco{background:var(--carta);border:1px solid var(--linha);border-left:4px solid var(--aco);
+    border-radius:2px;padding:14px;margin-bottom:12px}
+  .bloco.erro{border-left-color:var(--sinal);background:#FFF9F6}
+  .rot{display:block;font-weight:600;margin-bottom:2px}
+  .obr{color:var(--sinal);font-size:13px}
+  .opc{color:var(--tinta-2);font-weight:400;font-size:13px}
+  .ajuda{font-size:13px;color:var(--tinta-2);margin:0 0 8px}
+  .entrada{width:100%;padding:11px 10px;border:1px solid var(--linha);border-radius:2px;background:#fff}
+  .entrada:focus-visible,.btn:focus-visible,.enviar:focus-visible,.slot:focus-visible,.placa input:focus-visible{outline:2px solid var(--aco);outline-offset:2px}
+  textarea.entrada{min-height:96px;resize:vertical}
+
+  /* Registro automático: não é campo, é carimbo */
+  .carimbo{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin:0}
+  .carimbo dt{font-size:12px;color:var(--tinta-2);margin:0}
+  .carimbo dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+  .carimbo .relogio{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums}
+
+  /* ── Placa Mercosul: o campo É a placa ── */
+  .placa{position:relative;max-width:340px;margin:6px 0 2px;border:3px solid var(--tinta);border-radius:9px;
+    background:#fff;overflow:hidden;box-shadow:0 1px 0 rgba(0,0,0,.06)}
+  .placa-faixa{background:var(--placa-azul);color:#fff;display:flex;align-items:center;justify-content:center;
+    height:24px;font-size:11px;font-weight:700;letter-spacing:.32em;padding-left:.32em;font-family:var(--placa-fonte)}
+  .placa input{display:block;width:100%;border:0;background:transparent;text-align:center;text-transform:uppercase;
+    font-family:var(--placa-fonte);font-weight:700;font-size:44px;letter-spacing:.08em;line-height:1;
+    padding:10px 6px 12px;color:var(--tinta);font-variant-numeric:tabular-nums}
+  .placa input::placeholder{color:#C9CFCC}
+  .placa.certa{border-color:var(--ok)}
+  .placa.errada{border-color:var(--sinal)}
+  .placa-dica{font-size:12.5px;color:var(--tinta-2);margin:4px 0 0;min-height:1.4em}
+  .placa-dica.ruim{color:var(--sinal)}
+
+  /* Ficha do veículo (vem da planilha) */
+  .ficha{margin-top:12px;border-top:1px dashed var(--linha);padding-top:12px;display:none}
+  .ficha.mostrar{display:block}
+  .ficha dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;margin:0}
+  .ficha dt{font-size:12px;color:var(--tinta-2)}
+  .ficha dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+  .ficha .larga{grid-column:1/-1}
+  .ficha .vazio{color:var(--sinal);font-weight:500}
+  .senha{display:flex;align-items:center;gap:10px}
+  .senha span{font-family:var(--mono);letter-spacing:.14em}
+  .ficha-estado{font-size:14px;color:var(--tinta-2);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .ficha-estado.ruim{color:#7C2D12}
+  .ficha-origem{font-size:12px;color:var(--tinta-2);margin:10px 0 0}
+  .gira{width:16px;height:16px;border:2px solid var(--linha);border-top-color:var(--aco);border-radius:50%;
+    animation:gira .8s linear infinite;flex:0 0 auto}
+  @keyframes gira{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.gira{animation:none}}
+
+  .btn{border:1px solid var(--linha);background:#fff;border-radius:2px;padding:8px 12px;font-size:13px;font-weight:600}
+  .btn:hover{border-color:var(--aco);color:var(--aco)}
+  .btn-mini{padding:4px 9px;font-size:12px}
+
+  /* Fotos: 4 posições fixas, na ordem do abastecimento */
+  .slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:6px}
+  .slot{position:relative;border:1.5px dashed #AEB7B3;border-radius:4px;background:#FAFBFA;aspect-ratio:4/3;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px;text-align:center;width:100%}
+  .slot:hover{border-color:var(--aco)}
+  .slot svg{width:28px;height:28px;stroke:var(--tinta-2)}
+  .slot b{font-size:15px}
+  .slot small{font-size:12px;color:var(--tinta-2);line-height:1.25}
+  .slot.tem{border:1px solid var(--linha);padding:0;overflow:hidden;background:#000}
+  .slot.tem img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .slot.tem .etq{position:absolute;left:0;right:0;bottom:0;background:rgba(26,35,41,.82);color:#fff;
+    font-size:13px;font-weight:600;padding:5px 8px;display:flex;justify-content:space-between;align-items:center}
+  .slot.tem .etq span{font-weight:400;opacity:.85;font-size:12px}
+  .slot.erro{border-color:var(--sinal);background:#FFF9F6}
+
+  .rodape{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--linha);
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;align-items:center;justify-content:center}
+  .enviar{background:var(--aco);color:#fff;border:1px solid var(--aco);border-radius:2px;
+    padding:14px 22px;font-size:15px;font-weight:700;flex:1;max-width:420px}
+  .enviar:hover{background:#175a86}
+  .enviar:disabled{opacity:.6;cursor:progress}
+
+  .msg{margin:0 0 12px;padding:11px 13px;border-radius:2px;font-size:14px;display:none}
+  .msg.mostrar{display:block}
+  .msg.ruim{background:#FFF1EC;border:1px solid #F3C4AF;color:#7C2D12}
+  .msg.bom{background:#EDF7F2;border:1px solid #A8D5C2;color:#0F6E4F}
+  .msg.aviso{background:#FFF8ED;border:1px solid #F0D9B5;color:#7A4A0B}
+  .msg a{color:inherit;font-weight:700}
+  .rascunho{background:#EDF3F8;border:1px solid #B9D2E6;border-radius:2px;padding:12px;margin-bottom:12px;font-size:14px}
+
+  /* Conclusão */
+  .fim{background:#fff;border:1px solid var(--linha);border-top:4px solid var(--ok);border-radius:2px;padding:22px 18px}
+  .fim-selo{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;
+    background:var(--ok);color:#fff;padding:4px 10px;border-radius:2px;margin-bottom:10px}
+  .fim h2{margin:0 0 4px;font-size:20px}
+  .fim .sub{margin:0 0 16px;color:var(--tinta-2);font-size:14px}
+  .fim dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;margin:0 0 16px}
+  .fim dt{font-size:12px;color:var(--tinta-2)}
+  .fim dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+  .fim .larga{grid-column:1/-1}
+  .fim-fotos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:16px}
+  .fim-fotos figure{margin:0}
+  .fim-fotos img{width:100%;aspect-ratio:1;object-fit:cover;border:1px solid var(--linha);border-radius:2px;display:block}
+  .fim-fotos figcaption{font-size:11.5px;color:var(--tinta-2);text-align:center;margin-top:2px}
+  .fim-local{font-size:12.5px;color:var(--tinta-2);background:#F6F7F6;border:1px solid var(--linha);
+    padding:8px 10px;border-radius:2px;margin:0 0 16px;overflow-wrap:anywhere}
+  .fim-local b{color:var(--tinta)}
+  .fim-bts{display:flex;flex-direction:column;gap:8px}
+  .fim-bts .enviar{max-width:none}
+  .fim-bts .btn{padding:12px}
+
+  .assin{display:block;width:100%;height:170px;border:1px solid var(--linha);border-radius:2px;background:#fff;touch-action:none}
+  .bloco.erro .assin{border-color:var(--sinal)}
+  .carimbo .fixo{font-weight:400;font-size:12.5px;color:var(--tinta-2)}
+  .rascunho{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+  @media (max-width:380px){
+    .placa input{font-size:38px}
+    .carimbo,.ficha dl,.fim dl{grid-template-columns:1fr}
+    .fim-fotos{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+</style>
+<script>try{var t=localStorage.getItem("ew_tema");if(!t&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)t="escuro";document.documentElement.setAttribute("data-tema",t==="escuro"?"escuro":"claro")}catch(e){}</script>
+<link rel="stylesheet" href="../ew-form.css">
+</head>
+<body>
+<div class="topo">
+  <a class="voltar" href="index.html" title="Voltar" aria-label="Voltar">&#8592;</a>
+  <img class="ew-logo" src="../logo-ew.png" alt="Extreme Wind Blade Services">
+  <div><h1>Abastecimento</h1><p id="tSub">Checklist Frotas</p></div>
+  <div class="ew-acoes"><button type="button" class="ew-tema" id="ewTema" title="Alternar tema">&#127769;</button></div>
+</div>
+
+<main class="folha" id="folha">
+  <div class="msg" id="msg" role="status" aria-live="polite"></div>
+
+  <form id="form" novalidate autocomplete="off">
+
+    <section class="bloco" aria-label="Registro">
+      <dl class="carimbo">
+        <div><dt>Técnico</dt><dd id="vNome">—</dd></div>
+        <div><dt>Matrícula</dt><dd id="vMat">—</dd></div>
+        <div><dt>Data e hora do registro</dt><dd class="relogio" id="vRelogio">—</dd></div>
+        <div><dt>&nbsp;</dt><dd class="fixo" id="vRegNota">Fixa quando você começar a preencher</dd></div>
+      </dl>
+    </section>
+
+    <section class="bloco" data-campo="placa">
+      <label class="rot" for="placa">Placa do veículo <span class="obr">*</span></label>
+      <p class="ajuda">Condutor, parque, frota, cartão e senha vêm da planilha da frota.</p>
+      <div class="placa" id="placaMold">
+        <div class="placa-faixa" aria-hidden="true">BRASIL</div>
+        <input id="placa" type="text" inputmode="text" autocapitalize="characters" autocomplete="off"
+               spellcheck="false" maxlength="8" placeholder="ABC1D23" aria-describedby="placaDica">
+      </div>
+      <p class="placa-dica" id="placaDica">Mercosul (ABC1D23) ou modelo antigo (ABC1234).</p>
+
+      <div class="ficha" id="ficha" aria-live="polite"></div>
+    </section>
+
+    <section class="bloco" data-campo="km">
+      <label class="rot" for="km">KM abastecido <span class="obr">*</span></label>
+      <p class="ajuda">Quilometragem do painel no momento do abastecimento, só números.</p>
+      <input class="entrada" type="text" id="km" inputmode="numeric" pattern="[0-9]*" maxlength="9" placeholder="Ex.: 84215">
+    </section>
+
+    <section class="bloco" data-campo="fotos">
+      <span class="rot">Fotos <span class="obr">*</span></span>
+      <p class="ajuda">Abre a câmera. Toque de novo numa foto para refazer.</p>
+      <div class="slots" id="slots"></div>
+    </section>
+
+    <section class="bloco" data-campo="obs">
+      <label class="rot" for="obs">Observação <span class="opc">(opcional)</span></label>
+      <textarea class="entrada" id="obs" maxlength="1500"></textarea>
+    </section>
+
+    <section class="bloco" data-campo="assinatura">
+      <span class="rot">Assinatura do técnico <span class="obr">*</span></span>
+      <p class="ajuda">Assine com o dedo na hora de enviar. A assinatura não fica no rascunho.</p>
+      <canvas class="assin" id="assin" aria-label="Área de assinatura"></canvas>
+      <button type="button" class="btn" id="btLimparAssin" style="margin-top:8px">Limpar assinatura</button>
+    </section>
+
+  </form>
+</main>
+<footer class="ew-credito">Extreme Wind Blade Services &copy; 2026 · Uso interno. Realizado por Ryan Neves.</footer>
+
+<div class="rodape" id="rodape"><button type="button" class="enviar" id="btEnviar">Enviar abastecimento</button></div>
+
+<script>
+'use strict';
+/* Mesmo Apps Script do login e do RDO. Se trocar o endereço lá, troque aqui. */
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbxoOpV339g76UpYa7sO28C6lS99TAz7po2c0dNAk0i1X1HgsyKC_KXIuuBAS7qbBzLG/exec";
+
+const FOTOS = [
+  {k:'antes',  rot:'Antes',  dica:'Painel com o KM e o marcador de combustível'},
+  {k:'bomba',  rot:'Bomba',  dica:'Visor da bomba com litros e valor'},
+  {k:'depois', rot:'Depois', dica:'Painel com o tanque abastecido'},
+  {k:'nota',   rot:'Nota',   dica:'Nota fiscal ou cupom legível'}
+];
+const FOTO_LADO = 1400, FOTO_QUAL = 0.72;
+const LS_PENDENTE = 'ew_ab_pendente';     // o cartão do menu mostra "não enviado"
+const LS_FROTAS = 'ew_ab_frotas';         // últimas placas consultadas (uso sem internet)
+const FROTAS_GUARDADAS = 6;
+
+const $ = id => document.getElementById(id);
+const msg = $('msg');
+function alerta(tipo, texto, html){
+  msg.className = 'msg mostrar ' + tipo;
+  if(html) msg.innerHTML = texto; else msg.textContent = texto;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function limparAlerta(){ msg.className = 'msg'; msg.textContent = ''; }
+function esc(t){
+  return String(t == null ? '' : t).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+const p2 = n => String(n).padStart(2,'0');
+
+/* ---------------- sessão (o guard.js já barrou quem não tem) ---------------- */
+function sessao(){
+  try{
+    const s = JSON.parse(localStorage.getItem('ew_sessao') || 'null');
+    if(!s || !s.token || !s.exp || s.exp <= Date.now()) return null;
+    return s;
+  }catch(_){ return null; }
+}
+const S = sessao() || {};
+$('vNome').textContent = S.nome || '—';
+$('vMat').textContent = S.mat || '—';
+
+function sessaoCaiu(){
+  alerta('ruim', 'Sua sessão expirou. <a href="../index.html">Entre de novo</a> — o que já foi preenchido continua salvo neste aparelho.', true);
+}
+
+/* ---------------- data e hora do registro ----------------
+   É a hora do ABASTECIMENTO: fixa no primeiro toque no formulário (na bomba),
+   não no envio — o envio pode ser horas depois, quando tiver sinal. */
+function agoraIso(d){ return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T'+p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds()); }
+function isoTexto(iso){ const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/.exec(iso||''); return m ? m[3]+'/'+m[2]+'/'+m[1]+' '+m[4]+':'+m[5]+':'+m[6] : ''; }
+function isoDataArq(iso){ const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso||''); return m ? m[3]+'-'+m[2]+'-'+m[1] : ''; }
+let registroIso = null;
+function mostrarRegistro(){
+  if(registroIso){
+    $('vRelogio').textContent = isoTexto(registroIso);
+    $('vRegNota').textContent = 'Fixada no início do preenchimento (hora do celular)';
+  }else{
+    $('vRelogio').textContent = isoTexto(agoraIso(new Date()));
+    $('vRegNota').textContent = 'Fixa quando você começar a preencher';
+  }
+}
+function fixarRegistro(){ if(!registroIso){ registroIso = agoraIso(new Date()); mostrarRegistro(); } }
+const relogio = setInterval(()=>{ if(!registroIso) mostrarRegistro(); }, 1000);
+mostrarRegistro();
+
+/* ---------------- estado ---------------- */
+let idEnvio = novoId();
+let tentou = false;                 // já houve uma tentativa de envio com este idEnvio
+const fotos = {};                   // k -> {id, w, h, mini, blob?}
+let frota = null;                   // resultado da busca por placa
+let placaBuscada = '';
+let restaurando = false;
+let enviado = false;
+
+function novoId(){
+  const a = new Uint8Array(9); crypto.getRandomValues(a);
+  return 'ab' + Date.now().toString(36) + Array.from(a, b => b.toString(36).padStart(2,'0')).join('').slice(0,12);
+}
+/* Mexeu em algo depois de uma tentativa: é outro registro, não um reenvio */
+function mexeu(){
+  if(restaurando) return;
+  fixarRegistro();
+  if(tentou){ idEnvio = novoId(); tentou = false; }
+  agendarRascunho(); revalidar();
+}
+let conferindo = false;
+function revalidar(){
+  if(!conferindo) return;
+  const f = validar();
+  if(!f.length){ conferindo = false; limparAlerta(); }
+  else if(msg.classList.contains('ruim')) msg.textContent = f.map(x => x[1]).join(' ');
+}
+
+/* ---------------- placa ---------------- */
+const inPlaca = $('placa'), molde = $('placaMold'), dica = $('placaDica'), ficha = $('ficha');
+function normPlaca(v){ return String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,7); }
+function placaValida(p){ return /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(p); }
+/* mesma chave do servidor: ABC1234 e ABC1C34 são o mesmo carro */
+function chavePlaca(p){ p = normPlaca(p); if(!placaValida(p)) return ''; const c = p.charAt(4); return /\d/.test(c) ? p.slice(0,4) + 'ABCDEFGHIJ'.charAt(+c) + p.slice(5) : p; }
+
+/* Últimas placas consultadas ficam no aparelho: sem sinal na bomba, o técnico
+   ainda vê cartão e senha do carro que ele já usou. */
+function frotasGuardadas(){ try{ return JSON.parse(localStorage.getItem(LS_FROTAS) || '{}') || {}; }catch(_){ return {}; } }
+function guardarFrota(j){
+  const g = frotasGuardadas(), k = chavePlaca(j.placa);
+  if(!k) return;
+  g[k] = {d: {placa:j.placa, condutor:j.condutor, parque:j.parque, frota:j.frota, cartao:j.cartao, senha:j.senha,
+              faltando:j.faltando||[], atualizadoEm:j.atualizadoEm||''}, quando: Date.now()};
+  Object.keys(g).sort((a,b) => g[b].quando - g[a].quando).slice(FROTAS_GUARDADAS).forEach(x => delete g[x]);
+  try{ localStorage.setItem(LS_FROTAS, JSON.stringify(g)); }catch(_){}
+}
+function frotaGuardada(p){ const g = frotasGuardadas()[chavePlaca(p)]; return g ? Object.assign({}, g.d, {guardadaEm: g.quando}) : null; }
+
+let timerPlaca = null;
+inPlaca.addEventListener('input', ()=>{
+  const p = normPlaca(inPlaca.value);
+  if(inPlaca.value !== p) inPlaca.value = p;
+  molde.classList.remove('certa','errada');
+  dica.classList.remove('ruim');
+  clearTimeout(timerPlaca);
+  if(p !== placaBuscada){ frota = null; placaBuscada = ''; mostrarFicha(null); }
+  if(p.length < 7){
+    dica.textContent = 'Mercosul (ABC1D23) ou modelo antigo (ABC1234).';
+  }else if(!placaValida(p)){
+    molde.classList.add('errada'); dica.classList.add('ruim');
+    dica.textContent = 'Formato inválido. Três letras, um número, uma letra ou número, dois números.';
+  }else{
+    dica.textContent = '';
+    timerPlaca = setTimeout(()=> buscarPlaca(p), restaurando ? 0 : 300);
+  }
+  mexeu();
+});
+
+/* Consulta o servidor. null = sem conexão. */
+async function consultarPlaca(p){
+  let j = null;
+  try{
+    const r = await fetch(ENDPOINT, {method:'POST', body: JSON.stringify({acao:'frotaPorPlaca', token:S.token, placa:p})});
+    j = await r.json();
+  }catch(_){ j = null; }
+  if(!j && navigator.onLine) j = await jsonp({acao:'frotaPorPlaca', token:S.token, placa:p});
+  if(j && j.ok && j.encontrado) guardarFrota(j);
+  return j;
+}
+
+let seqBusca = 0;
+async function buscarPlaca(p){
+  const seq = ++seqBusca;
+  const salva = frotaGuardada(p);
+  if(salva && !navigator.onLine){ usarFrota(p, salva); return; }
+  mostrarFicha('buscando');
+  const j = await consultarPlaca(p);
+  if(seq !== seqBusca || normPlaca(inPlaca.value) !== p) return;   // já digitou outra
+
+  if(!j){ if(salva) usarFrota(p, salva); else mostrarFicha('rede', p); return; }
+  if(j.sessao === false){ if(salva) usarFrota(p, salva); else mostrarFicha(null); sessaoCaiu(); return; }
+  if(!j.ok){ if(salva) usarFrota(p, salva); else mostrarFicha('erro', p, j.erro); return; }
+  if(!j.encontrado){ molde.classList.add('errada'); mostrarFicha('naoachou', p, j.atualizadoEm); return; }
+  usarFrota(p, j);
+}
+function usarFrota(p, j){
+  frota = j; placaBuscada = p;
+  molde.classList.add('certa');
+  mostrarFicha('achou');
+  revalidar();
+}
+
+function jsonp(params){
+  return new Promise(resolve=>{
+    const cb = '__abCb' + Date.now() + Math.floor(Math.random()*1000);
+    let pronto = false;
+    window[cb] = j => { pronto = true; resolve(j); try{ delete window[cb]; }catch(_){ window[cb] = null; } };
+    let qs = 'callback=' + cb;
+    Object.keys(params).forEach(k => { qs += '&' + k + '=' + encodeURIComponent(params[k]); });
+    const sc = document.createElement('script');
+    sc.src = ENDPOINT + '?' + qs;
+    sc.onerror = ()=>{ if(!pronto) resolve(null); };
+    document.head.appendChild(sc);
+    setTimeout(()=>{ if(!pronto) resolve(null); }, 45000);
+  });
+}
+
+function quandoTxt(ms){ const d = new Date(ms); return p2(d.getDate())+'/'+p2(d.getMonth()+1)+' às '+p2(d.getHours())+':'+p2(d.getMinutes()); }
+
+let senhaVisivel = false;
+function mostrarFicha(estado, placa, extra){
+  if(!estado){ ficha.className = 'ficha'; ficha.innerHTML = ''; return; }
+  ficha.className = 'ficha mostrar';
+  if(estado === 'buscando'){
+    ficha.innerHTML = '<div class="ficha-estado"><span class="gira" aria-hidden="true"></span>Buscando a placa na planilha da frota…</div>';
+    return;
+  }
+  if(estado === 'rede' || estado === 'erro'){
+    const texto = estado === 'rede'
+      ? 'Sem internet: os dados do veículo aparecem quando tiver sinal. Pode continuar preenchendo — tudo fica salvo e a placa é conferida no envio.'
+      : esc(extra || 'Não foi possível buscar a placa.');
+    ficha.innerHTML = '<div class="ficha-estado ruim">' + texto +
+      ' <button type="button" class="btn btn-mini" id="btRebuscar">Buscar de novo</button></div>';
+    $('btRebuscar').addEventListener('click', ()=> buscarPlaca(placa));
+    return;
+  }
+  if(estado === 'naoachou'){
+    ficha.innerHTML = '<div class="ficha-estado ruim">A placa ' + esc(placa) + ' não está na planilha da frota. ' +
+      'Confira a digitação; se estiver certa, avise a logística para incluir o veículo.' +
+      ' <button type="button" class="btn btn-mini" id="btRebuscar">Buscar de novo</button></div>' +
+      (extra ? '<p class="ficha-origem">Planilha salva em ' + esc(extra) + '.</p>' : '');
+    $('btRebuscar').addEventListener('click', ()=> buscarPlaca(placa));
+    return;
+  }
+  const f = frota, val = v => v ? esc(v) : '<span class="vazio">não preenchido</span>';
+  ficha.innerHTML =
+    '<dl>' +
+      '<div class="larga"><dt>Condutor</dt><dd>' + val(f.condutor) + '</dd></div>' +
+      '<div><dt>Parque</dt><dd>' + val(f.parque) + '</dd></div>' +
+      '<div><dt>Frota</dt><dd>' + val(f.frota) + '</dd></div>' +
+      '<div><dt>Cartão</dt><dd>' + val(f.cartao) + '</dd></div>' +
+      '<div><dt>Senha</dt><dd>' + (f.senha
+        ? '<span class="senha"><span id="senhaTxt">' + (senhaVisivel ? esc(f.senha) : '••••') + '</span>' +
+          '<button type="button" class="btn btn-mini" id="btSenha" aria-pressed="' + senhaVisivel + '">' + (senhaVisivel ? 'Ocultar' : 'Mostrar') + '</button></span>'
+        : '<span class="vazio">não preenchido</span>') + '</dd></div>' +
+    '</dl>' +
+    ((f.faltando && f.faltando.length)
+      ? '<p class="ficha-origem" style="color:#7C2D12">A planilha está sem ' + esc(f.faltando.join(', ')) + ' para esta placa — o envio vai ser recusado até a logística completar.</p>'
+      : '') +
+    (f.guardadaEm
+      ? '<p class="ficha-origem">Sem internet: dados guardados neste aparelho em ' + esc(quandoTxt(f.guardadaEm)) + '. São conferidos de novo no envio.</p>'
+      : (f.atualizadoEm ? '<p class="ficha-origem">Planilha da frota salva em ' + esc(f.atualizadoEm) + '.</p>' : ''));
+  const bs = $('btSenha');
+  if(bs) bs.addEventListener('click', ()=>{ senhaVisivel = !senhaVisivel; mostrarFicha('achou'); });
+}
+/* voltou o sinal com a placa ainda sem dados: busca sozinho */
+window.addEventListener('online', ()=>{
+  const p = normPlaca(inPlaca.value);
+  if(placaValida(p) && (!frota || frota.guardadaEm)) buscarPlaca(p);
+});
+
+/* ---------------- KM e observação ---------------- */
+$('km').addEventListener('input', e=>{
+  const v = e.target.value.replace(/\D/g,'').replace(/^0+(?=\d)/,'').slice(0,9);
+  if(e.target.value !== v) e.target.value = v;
+  mexeu();
+});
+$('obs').addEventListener('input', mexeu);
+
+/* ---------------- fotos ---------------- */
+const CAMERA = '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" aria-hidden="true"><path d="M4 8h3l1.6-2.2h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.6"/></svg>';
+const slots = $('slots');
+FOTOS.forEach(ft=>{
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture','environment'); inp.hidden = true;
+  const bt = document.createElement('button');
+  bt.type = 'button'; bt.className = 'slot'; bt.id = 'slot-' + ft.k;
+  bt.addEventListener('click', ()=>{ fixarRegistro(); inp.click(); });
+  inp.addEventListener('change', async ()=>{
+    const arq = inp.files && inp.files[0];
+    inp.value = '';
+    if(!arq) return;
+    bt.innerHTML = '<span class="gira"></span><small>Processando…</small>';
+    try{
+      const r = await comprimir(arq);
+      const chave = 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+      const guardou = await bdPut('fotos', chave, r.blob);
+      const antiga = fotos[ft.k];
+      fotos[ft.k] = {id: chave, w: r.w, h: r.h, mini: r.mini, blob: guardou ? null : r.blob};
+      if(antiga && antiga.id) bdDel('fotos', antiga.id);
+      if(!guardou) alerta('aviso', 'Este navegador não deixou guardar a foto no aparelho. Envie sem fechar a página.');
+    }catch(e){
+      console.error(e);
+      alerta('ruim', 'Não foi possível ler a foto "' + ft.rot + '". Tire de novo.');
+    }
+    desenharSlot(ft);
+    mexeu();
+    salvarRascunho();                          // foto é o que mais dói perder: grava na hora
+  });
+  slots.appendChild(bt); slots.appendChild(inp);
+  desenharSlot(ft);
+});
+
+function desenharSlot(ft){
+  const bt = $('slot-' + ft.k), f = fotos[ft.k];
+  if(f){
+    bt.className = 'slot tem';
+    bt.setAttribute('aria-label', 'Foto ' + ft.rot + ' — tocar para refazer');
+    bt.innerHTML = '<img alt="" src="' + f.mini + '"><span class="etq">' + esc(ft.rot) + '<span>refazer</span></span>';
+  }else{
+    bt.className = 'slot' + (bt.classList.contains('erro') ? ' erro' : '');
+    bt.setAttribute('aria-label', 'Tirar foto ' + ft.rot);
+    bt.innerHTML = CAMERA + '<b>' + esc(ft.rot) + '</b><small>' + esc(ft.dica) + '</small>';
+  }
+}
+
+function comprimir(file){
+  return new Promise((ok, err)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      let w = img.naturalWidth, h = img.naturalHeight;
+      const f = Math.min(1, FOTO_LADO / Math.max(w, h));
+      w = Math.round(w*f); h = Math.round(h*f);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0,0,w,h); cx.drawImage(img,0,0,w,h);
+      const fm = Math.min(1, 320 / Math.max(w,h));
+      const cm = document.createElement('canvas'); cm.width = Math.round(w*fm); cm.height = Math.round(h*fm);
+      cm.getContext('2d').drawImage(c, 0, 0, cm.width, cm.height);
+      const mini = cm.toDataURL('image/jpeg', 0.6);
+      c.toBlob(b=>{ c.width = c.height = 1; b ? ok({blob:b, w, h, mini}) : err(new Error('falha ao comprimir')); }, 'image/jpeg', FOTO_QUAL);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); err(new Error('imagem inválida')); };
+    img.src = url;
+  });
+}
+
+/* ---------------- assinatura (NÃO vai para o rascunho) ---------------- */
+const cvAssin = $('assin');
+let assinatura = null;                     // {d: dataURL, w, h} ou null
+(function prepararAssinatura(){
+  let cx, desenhando = false, vazio = true;
+  function dimensionar(){
+    const esc = window.devicePixelRatio || 1, r = cvAssin.getBoundingClientRect();
+    cvAssin.width = Math.round(r.width * esc); cvAssin.height = Math.round(r.height * esc);
+    cx = cvAssin.getContext('2d'); cx.setTransform(esc,0,0,esc,0,0);
+    cx.fillStyle = '#fff'; cx.fillRect(0,0,r.width,r.height);
+    cx.lineWidth = 2.2; cx.lineCap = 'round'; cx.lineJoin = 'round'; cx.strokeStyle = '#1A2329';
+    vazio = true; assinatura = null;
+  }
+  const ponto = ev => { const b = cvAssin.getBoundingClientRect(); return {x: ev.clientX - b.left, y: ev.clientY - b.top}; };
+  cvAssin.addEventListener('pointerdown', ev=>{
+    desenhando = true; vazio = false; cvAssin.setPointerCapture(ev.pointerId);
+    const p = ponto(ev); cx.beginPath(); cx.moveTo(p.x, p.y); cx.lineTo(p.x + .1, p.y + .1); cx.stroke();
+  });
+  cvAssin.addEventListener('pointermove', ev=>{ if(!desenhando) return; const p = ponto(ev); cx.lineTo(p.x, p.y); cx.stroke(); });
+  const parar = ()=>{
+    if(!desenhando) return;
+    desenhando = false;
+    assinatura = vazio ? null : {d: cvAssin.toDataURL('image/png'), w: cvAssin.width, h: cvAssin.height};
+    revalidar();
+  };
+  cvAssin.addEventListener('pointerup', parar);
+  cvAssin.addEventListener('pointercancel', parar);
+  $('btLimparAssin').addEventListener('click', ()=>{ dimensionar(); revalidar(); });
+  /* girar a tela muda o tamanho: melhor pedir de novo que esticar o traço */
+  let largura = 0;
+  window.addEventListener('resize', ()=>{ const w = cvAssin.getBoundingClientRect().width; if(Math.abs(w - largura) > 2){ largura = w; dimensionar(); } });
+  largura = cvAssin.getBoundingClientRect().width;
+  dimensionar();
+})();
+
+/* ---------------- rascunho (IndexedDB) ----------------
+   Tudo o que foi preenchido fica no aparelho — fotos inclusive — até o envio
+   dar certo. Sem internet na bomba, o técnico preenche, fecha o app e envia
+   depois. Só a assinatura fica de fora. */
+let bancoOk = !!window.indexedDB;
+function banco(fn){
+  return new Promise(ok=>{
+    if(!bancoOk) return ok(null);
+    let req;
+    try{ req = indexedDB.open('ew_abastecimento', 1); }catch(_){ bancoOk = false; return ok(null); }
+    req.onupgradeneeded = ()=>{ ['estado','fotos'].forEach(n=>{ if(!req.result.objectStoreNames.contains(n)) req.result.createObjectStore(n); }); };
+    req.onerror = ()=>{ bancoOk = false; ok(null); };
+    req.onsuccess = ()=>{ try{ fn(req.result, ok); }catch(_){ ok(null); } };
+  });
+}
+function bdPut(loja, k, v){ return banco((bd, ok)=>{ const t = bd.transaction(loja,'readwrite'); t.objectStore(loja).put(v, k); t.oncomplete = ()=> ok(true); t.onerror = ()=> ok(null); }); }
+function bdGet(loja, k){ return banco((bd, ok)=>{ const r = bd.transaction(loja,'readonly').objectStore(loja).get(k); r.onsuccess = ()=> ok(r.result || null); r.onerror = ()=> ok(null); }); }
+function bdDel(loja, k){ return banco((bd, ok)=>{ const t = bd.transaction(loja,'readwrite'); t.objectStore(loja).delete(k); t.oncomplete = ()=> ok(true); t.onerror = ()=> ok(null); }); }
+function bdLimparFotos(){ return banco((bd, ok)=>{ const t = bd.transaction('fotos','readwrite'); t.objectStore('fotos').clear(); t.oncomplete = ()=> ok(true); t.onerror = ()=> ok(null); }); }
+
+function estadoAtual(){
+  const e = {quando: Date.now(), idEnvio, tentou, registroIso,
+    placa: normPlaca(inPlaca.value), km: $('km').value, obs: $('obs').value, fotos: {}};
+  FOTOS.forEach(ft=>{ const f = fotos[ft.k]; if(f && f.id && !f.blob) e.fotos[ft.k] = {id:f.id, w:f.w, h:f.h, mini:f.mini}; });
+  return e;
+}
+function vazio(e){ return !e.placa && !e.km && !e.obs && !Object.keys(e.fotos).length; }
+let timerRasc = null;
+function agendarRascunho(){ clearTimeout(timerRasc); timerRasc = setTimeout(salvarRascunho, 500); }
+function salvarRascunho(){
+  clearTimeout(timerRasc);
+  if(enviado) return Promise.resolve(null);      // tela de conclusão: não há mais formulário
+  const e = estadoAtual();
+  try{
+    if(vazio(e)) localStorage.removeItem(LS_PENDENTE);
+    else localStorage.setItem(LS_PENDENTE, JSON.stringify({quando: e.quando, registro: e.registroIso, placa: e.placa}));
+  }catch(_){}
+  return vazio(e) ? bdDel('estado','atual') : bdPut('estado','atual', e);
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'hidden') salvarRascunho(); });
+window.addEventListener('pagehide', salvarRascunho);
+
+async function descartar(){
+  if(!confirm('Apagar este abastecimento não enviado? As fotos serão apagadas do aparelho.')) return;
+  await bdDel('estado','atual'); await bdLimparFotos();
+  try{ localStorage.removeItem(LS_PENDENTE); }catch(_){}
+  location.reload();
+}
+
+/* Abriu o app com rascunho: volta direto para ele (é o caso normal — preencheu
+   sem sinal e voltou para enviar). */
+bdGet('estado','atual').then(e=>{
+  if(!e || vazio(e)) return;
+  restaurando = true;
+  idEnvio = e.idEnvio || idEnvio; tentou = !!e.tentou;
+  registroIso = e.registroIso || null; mostrarRegistro();
+  $('km').value = e.km || '';
+  $('obs').value = e.obs || '';
+  Object.keys(e.fotos || {}).forEach(k=>{ fotos[k] = e.fotos[k]; });
+  FOTOS.forEach(desenharSlot);
+  if(e.placa){ inPlaca.value = e.placa; inPlaca.dispatchEvent(new Event('input')); }
+  restaurando = false;
+
+  const faltam = FOTOS.filter(ft => !fotos[ft.k]).length;
+  const barra = document.createElement('div'); barra.className = 'rascunho';
+  barra.innerHTML = '<span>Abastecimento de <b>' + esc(isoTexto(registroIso) || quandoTxt(e.quando)) + '</b> ainda não enviado' +
+    (faltam ? ' (faltam ' + faltam + ' foto' + (faltam > 1 ? 's' : '') + ')' : '') + '. Assine e toque em Enviar.</span>' +
+    '<button type="button" class="btn btn-mini" id="rNao">Descartar</button>';
+  $('folha').insertBefore(barra, msg);
+  $('rNao').addEventListener('click', descartar);
+});
+
+/* ---------------- validação ---------------- */
+function marcar(campo, erro){ const b = document.querySelector('[data-campo="' + campo + '"]'); if(b) b.classList.toggle('erro', !!erro); }
+function validar(){
+  const falhas = [];
+  const p = normPlaca(inPlaca.value);
+  if(!placaValida(p)) falhas.push(['placa','Digite a placa completa.']);
+  else if(frota && placaBuscada === p && frota.faltando && frota.faltando.length)
+    falhas.push(['placa','A planilha da frota está sem ' + frota.faltando.join(', ') + ' para esta placa. Avise a logística.']);
+  if(!Number($('km').value)) falhas.push(['km','Preencha o KM.']);
+  const semFoto = FOTOS.filter(ft => !fotos[ft.k]);
+  if(semFoto.length) falhas.push(['fotos','Falta foto: ' + semFoto.map(f=>f.rot).join(', ') + '.']);
+  if(!assinatura) falhas.push(['assinatura','Falta a assinatura.']);
+  ['placa','km','fotos','assinatura'].forEach(c => marcar(c, falhas.some(f => f[0] === c)));
+  FOTOS.forEach(ft => $('slot-' + ft.k).classList.toggle('erro', !fotos[ft.k]));
+  return falhas;
+}
+
+/* ---------------- envio ---------------- */
+const btEnviar = $('btEnviar');
+function blobParaDataURL(b){ return new Promise((ok, err)=>{ const r = new FileReader(); r.onload = ()=> ok(r.result); r.onerror = ()=> err(new Error('não consegui reabrir uma foto')); r.readAsDataURL(b); }); }
+async function dataUrlDaFoto(f){
+  const b = f.blob || await bdGet('fotos', f.id);
+  if(!b) throw new Error('uma das fotos se perdeu da memória do aparelho — tire de novo');
+  return blobParaDataURL(b);
+}
+function kmTxt(v){ return Number(v).toLocaleString('pt-BR') + ' km'; }
+function destravar(){ btEnviar.disabled = false; btEnviar.textContent = 'Enviar abastecimento'; }
+
+btEnviar.addEventListener('click', async ()=>{
+  limparAlerta();
+  fixarRegistro();
+  const falhas = validar();
+  if(falhas.length){ conferindo = true; alerta('ruim', falhas.map(f => f[1]).join(' ')); return; }
+  await salvarRascunho();
+  if(!navigator.onLine){
+    alerta('aviso', 'Sem internet agora. Está tudo salvo neste aparelho, menos a assinatura. Quando tiver sinal, abra o Abastecimento, assine e toque em Enviar.');
+    return;
+  }
+  if(!window.jspdf){ alerta('ruim', 'A biblioteca de PDF não carregou. Conecte à internet e recarregue a página — o preenchimento continua salvo.'); return; }
+
+  /* a planilha manda: confere a placa agora, com internet, mesmo que os dados
+     já estejam na tela (podem ter vindo da cópia guardada no aparelho) */
+  btEnviar.disabled = true; btEnviar.textContent = 'Conferindo a placa…';
+  const p = normPlaca(inPlaca.value);
+  const j = await consultarPlaca(p);
+  if(!j){ destravar(); alerta('aviso', 'Não consegui falar com o servidor. Está tudo salvo — tente de novo quando o sinal melhorar.'); return; }
+  if(j.sessao === false){ destravar(); sessaoCaiu(); return; }
+  if(!j.ok){ destravar(); alerta('ruim', j.erro || 'Não foi possível conferir a placa.'); return; }
+  if(!j.encontrado){ destravar(); molde.classList.add('errada'); mostrarFicha('naoachou', p, j.atualizadoEm); marcar('placa', true);
+    alerta('ruim', 'A placa ' + p + ' não está na planilha da frota.'); return; }
+  usarFrota(p, j);
+  if(j.faltando && j.faltando.length){ destravar(); alerta('ruim', 'A planilha da frota está sem ' + j.faltando.join(', ') + ' para esta placa. Avise a logística.'); return; }
+
+  btEnviar.textContent = 'Gerando PDF…';
+  const reg = {
+    nome: S.nome || '', mat: S.mat || '',
+    registroIso, registroTxt: isoTexto(registroIso),
+    placa: p, condutor: j.condutor, parque: j.parque, frota: j.frota, cartao: j.cartao,
+    km: $('km').value, obs: $('obs').value.trim()
+  };
+  let imgs = {}, pdfBlob, pdfB64;
+  try{
+    for(const ft of FOTOS) imgs[ft.k] = await dataUrlDaFoto(fotos[ft.k]);
+    pdfBlob = montarPDF(reg, imgs).output('blob');
+    pdfB64 = (await blobParaDataURL(pdfBlob)).split(',')[1];
+  }catch(e){
+    console.error(e);
+    alerta('ruim', 'Falha ao montar o PDF: ' + e.message);
+    destravar(); return;
+  }
+
+  btEnviar.textContent = 'Enviando…';
+  alerta('aviso', 'Enviando para o Dropbox. Não feche a página.');
+  tentou = true; await salvarRascunho();
+  const corpo = {
+    acao: 'abastecimento', token: S.token, idEnvio,
+    registro: reg.registroIso, placa: reg.placa, km: reg.km, obs: reg.obs,
+    fotos: {}, pdf: pdfB64
+  };
+  FOTOS.forEach(ft => { corpo.fotos[ft.k] = imgs[ft.k].split(',')[1]; });
+  const nomePdf = 'Abastecimento - ' + limparNome(reg.condutor) + ' - ' + limparNome(reg.parque) + ' - ' + isoDataArq(reg.registroIso) + '.pdf';
+
+  let r = null;
+  try{
+    const resp = await fetch(ENDPOINT, {method:'POST', body: JSON.stringify(corpo), redirect:'follow'});
+    const bruto = await resp.text();
+    try{ r = JSON.parse(bruto); }catch(_){ r = {ok:false, erro:'resposta ' + resp.status + ' fora do formato esperado.'}; }
+  }catch(e){ r = null; }
+
+  if(r && r.ok){
+    enviado = true; clearTimeout(timerRasc);
+    pdfPronto = {blob: pdfBlob, nome: nomePdf};
+    const usadas = FOTOS.map(ft => fotos[ft.k] && fotos[ft.k].id).filter(Boolean);
+    await bdDel('estado','atual'); usadas.forEach(k => bdDel('fotos', k));
+    try{ localStorage.removeItem(LS_PENDENTE); }catch(_){}
+    clearInterval(relogio);
+    concluir(reg, r);
+    baixarPDF();                           // "baixado no celular": já dispara o download
+    return;
+  }
+  destravar();
+  if(r && r.sessao === false){ sessaoCaiu(); return; }
+  if(r){ alerta('ruim', 'O servidor recusou o envio: ' + (r.erro || 'motivo não informado') + ' Nada foi registrado; o preenchimento continua salvo.'); return; }
+  alerta('aviso', 'Não recebi confirmação do servidor. Pode ter chegado mesmo assim. ' +
+                  'Toque em Enviar de novo sem mudar nada: se já tiver chegado, não duplica.');
+});
+
+function limparNome(t){ return String(t||'').replace(/[\\\/:*?"<>|]/g,'-').replace(/\s+/g,' ').trim(); }
+
+/* ---------------- PDF ----------------
+   Layout do RDO (peças em ../ew-form.js → EWPDF): cabeçalho EXTREME WIND,
+   linha azul, seções com título, tabela rótulo/valor, fotos e assinatura. */
+function montarPDF(reg, imgs){
+  if(!window.EWPDF) throw new Error('ew-form.js não carregou — recarregue a página com internet');
+  const P = window.EWPDF.novo();
+  P.cabecalho('Registro de Abastecimento · Checklist Frotas', 'Registrado em', reg.registroTxt);
+
+  P.secao('Identificação');
+  P.linha2('Técnico', reg.nome, 'Matrícula', reg.mat);
+  P.linha2('Data e hora do registro', reg.registroTxt, 'Envio', idEnvio);
+
+  P.secao('Veículo');
+  P.linha2('Placa', reg.placa, 'Frota', reg.frota);
+  P.linha2('Condutor', reg.condutor, 'Parque', reg.parque);
+  P.linha2('Cartão', reg.cartao, 'KM abastecido', kmTxt(reg.km));
+
+  if(reg.obs){
+    P.secao('Observação');
+    P.textoLongo('Anotação do técnico', reg.obs);
+  }
+
+  /* 4 fotos, 2 por linha, sem deformar */
+  P.secao('Registro fotográfico', 90);
+  P.fotos(FOTOS.map(ft => ({d: imgs[ft.k], w: fotos[ft.k].w, h: fotos[ft.k].h, leg: 'Foto - ' + ft.rot})), 2);
+
+  P.secao('Assinatura');
+  P.assinatura(assinatura, (reg.nome || '') + (reg.mat ? ' (' + reg.mat + ')' : ''));
+
+  P.rodape();
+  return P.doc;
+}
+
+/* ---------------- entrega do PDF ---------------- */
+let pdfPronto = null;
+function baixarPDF(){
+  if(!pdfPronto) return;
+  const a = document.createElement('a'), url = URL.createObjectURL(pdfPronto.blob);
+  a.href = url; a.download = pdfPronto.nome;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=> URL.revokeObjectURL(url), 10000);
+}
+async function compartilharPDF(){
+  if(!pdfPronto) return;
+  try{
+    const arq = new File([pdfPronto.blob], pdfPronto.nome, {type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[arq]})){ await navigator.share({files:[arq], title:pdfPronto.nome}); return; }
+  }catch(e){ if(e && e.name === 'AbortError') return; }
+  baixarPDF();
+}
+
+/* ---------------- conclusão ---------------- */
+function concluir(reg, r){
+  $('rodape').style.display = 'none';
+  const podeShare = !!(navigator.canShare && window.File);
+  const fotosHtml = FOTOS.map(ft =>
+    '<figure><img alt="Foto ' + esc(ft.rot) + '" src="' + fotos[ft.k].mini + '"><figcaption>' + esc(ft.rot) + '</figcaption></figure>').join('');
+  $('folha').innerHTML =
+    '<div class="fim">' +
+      '<span class="fim-selo">&#10003; Registrado</span>' +
+      '<h2>Abastecimento concluído</h2>' +
+      '<p class="sub">PDF e fotos gravados no Dropbox e na planilha de controle. O PDF foi baixado neste celular.</p>' +
+      '<dl>' +
+        '<div><dt>Técnico</dt><dd>' + esc(r.tecnico || reg.nome) + '</dd></div>' +
+        '<div><dt>Matrícula</dt><dd>' + esc(r.mat || reg.mat) + '</dd></div>' +
+        '<div><dt>Data e hora do registro</dt><dd>' + esc(reg.registroTxt) + '</dd></div>' +
+        '<div><dt>Placa</dt><dd>' + esc(reg.placa) + '</dd></div>' +
+        '<div class="larga"><dt>Condutor</dt><dd>' + esc(reg.condutor) + '</dd></div>' +
+        '<div><dt>Parque</dt><dd>' + esc(reg.parque) + '</dd></div>' +
+        '<div><dt>Frota</dt><dd>' + esc(reg.frota) + '</dd></div>' +
+        '<div><dt>Cartão</dt><dd>' + esc(reg.cartao) + '</dd></div>' +
+        '<div><dt>KM abastecido</dt><dd>' + esc(kmTxt(reg.km)) + '</dd></div>' +
+        '<div class="larga"><dt>Protocolo</dt><dd style="font-family:var(--mono);font-size:13px">' + esc(r.id || '—') + '</dd></div>' +
+        (reg.obs ? '<div class="larga"><dt>Observação</dt><dd style="font-weight:400">' + esc(reg.obs) + '</dd></div>' : '') +
+      '</dl>' +
+      '<div class="fim-fotos">' + fotosHtml + '</div>' +
+      (r.pasta ? '<p class="fim-local"><b>Pasta:</b> ' + esc(r.pasta) + '</p>' : '') +
+      (r.repetido ? '<p class="fim-local">Este envio já tinha chegado antes. Nada foi duplicado.</p>' : '') +
+      '<div class="fim-bts">' +
+        '<button type="button" class="enviar" id="fBaixar">Baixar PDF de novo</button>' +
+        (podeShare ? '<button type="button" class="btn" id="fShare">Compartilhar PDF</button>' : '') +
+        '<button type="button" class="btn" id="fNovo">Registrar outro abastecimento</button>' +
+      '</div>' +
+    '</div>';
+  $('fBaixar').addEventListener('click', baixarPDF);
+  if(podeShare) $('fShare').addEventListener('click', compartilharPDF);
+  $('fNovo').addEventListener('click', ()=> location.reload());
+  window.scrollTo(0,0);
+}
+
+/* PWA — mesmo service worker do site */
+if('serviceWorker' in navigator){ window.addEventListener('load', ()=>{ navigator.serviceWorker.register('../sw.js').catch(()=>{}); }); }
+</script>
+<script src="../ew-form.js"></script>
+</body>
+</html>

@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHECK LIST DE VEÍCULOS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --papel:#F2F3F1;--carta:#fff;--tinta:#1A2329;--tinta-2:#5C6A73;--linha:#D6DBD8;
+    --aco:#12466B;--sinal:#C2410C;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--papel);color:var(--tinta);font-size:16px;line-height:1.5;
+    font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
+  button{font-family:inherit;font-size:inherit;cursor:pointer}
+  input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
+  .topo{background:var(--tinta);color:#fff;padding:16px}
+  .topo h1{margin:0;font-size:19px;letter-spacing:-.01em}
+  .topo p{margin:3px 0 0;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.8}
+  .folha{max-width:720px;margin:0 auto;padding:16px 14px 110px}
+  .bloco{background:var(--carta);border:1px solid var(--linha);border-left:4px solid var(--aco);
+    border-radius:2px;padding:14px;margin-bottom:12px}
+  .bloco.erro{border-left-color:var(--sinal);background:#FFF9F6}
+  .rot{display:block;font-weight:600;margin-bottom:2px}
+  .obr{color:var(--sinal);font-family:var(--mono);font-size:12px}
+  .ajuda{font-size:13px;color:var(--tinta-2);margin:0 0 8px}
+  .ex{max-width:100%;border:1px solid var(--linha);border-radius:2px;margin:8px 0;display:block;cursor:zoom-in}
+  .entrada{width:100%;padding:11px 10px;border:1px solid var(--linha);border-radius:2px;background:#fff}
+  .entrada:focus-visible{outline:2px solid var(--aco);outline-offset:1px}
+  textarea.entrada{min-height:88px;resize:vertical}
+  .opc{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:15px}
+  .opc input{width:19px;height:19px;accent-color:var(--aco);flex:0 0 auto}
+  .btn{border:1px solid var(--linha);background:#fff;border-radius:2px;padding:9px 13px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+  .btn:hover{border-color:var(--aco);color:var(--aco)}
+  .btn-linha{display:flex;gap:8px;flex-wrap:wrap}
+  .btn-linha .btn{flex:1;min-width:130px}
+  .fotos{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:9px}
+  .miniat{position:relative;border:1px solid var(--linha);border-radius:2px;overflow:hidden;aspect-ratio:4/3;background:#fff}
+  .miniat img{width:100%;height:100%;object-fit:cover;display:block}
+  .miniat button{position:absolute;top:3px;right:3px;width:24px;height:24px;border:0;border-radius:2px;
+    background:rgba(26,35,41,.82);color:#fff;line-height:1;padding:0}
+  .assin{border:1px solid var(--linha);border-radius:2px;background:#fff;touch-action:none;width:100%;height:170px;display:block}
+  .tab-caixa{overflow-x:auto;margin-top:8px}
+  table{width:100%;border-collapse:collapse;font-size:14px;min-width:420px}
+  th{background:#F2F4F3;border:1px solid var(--linha);padding:7px;text-align:left;
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-2)}
+  td{border:1px solid var(--linha);padding:0}
+  td input{width:100%;border:0;padding:9px 7px;background:transparent}
+  td input:focus-visible{outline:2px solid var(--aco);outline-offset:-2px}
+  td.acao{width:38px;text-align:center}
+  td.acao button{border:0;background:transparent;color:var(--tinta-2);width:100%;padding:8px}
+  .rodape{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--linha);
+    padding:10px 14px;display:flex;gap:10px;align-items:center;justify-content:center}
+  .enviar{background:var(--aco);color:#fff;border:1px solid var(--aco);border-radius:2px;
+    padding:13px 22px;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;flex:1;max-width:420px}
+  .enviar:hover{background:#175a86}
+  .enviar:disabled{opacity:.6}
+  .msg{max-width:720px;margin:0 auto 12px;padding:11px 13px;border-radius:2px;font-size:14px;display:none}
+  .msg.mostrar{display:block}
+  .msg.ruim{background:#FFF1EC;border:1px solid #F3C4AF;color:#7C2D12}
+  .msg.bom{background:#EDF7F2;border:1px solid #A8D5C2;color:#0F6E4F}
+  .msg.aviso{background:#FFF8ED;border:1px solid #F0D9B5;color:#7A4A0B}
+  .fim{background:#fff;border:1px solid var(--linha);border-radius:2px;padding:30px 20px;text-align:center}
+  .fim-selo{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    background:#0F6E4F;color:#fff;padding:5px 12px;border-radius:2px;margin-bottom:14px}
+  .fim h2{margin:0 0 6px;font-size:18px}
+  .fim p{margin:0 0 6px;color:var(--tinta-2);font-size:14px}
+  .fim-caminho{font-family:var(--mono);font-size:11px;word-break:break-all;margin-bottom:18px !important}
+  .lupa{position:fixed;inset:0;background:rgba(26,35,41,.9);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .lupa.aberta{display:flex}
+  .lupa img{max-width:100%;max-height:100%}
+</style>
+</head>
+<body>
+<div class="topo"><h1 id="tTitulo"></h1><p id="tSub"></p></div>
+<div class="folha">
+  <div class="msg" id="msg"></div>
+  <form id="form" novalidate></form>
+</div>
+<div class="rodape"><button type="button" class="enviar" id="btPdf">Gerar PDF</button></div>
+<div class="lupa" id="lupa"><img id="lupaImg" alt=""></div>
+
+<script>
+const SCHEMA = {"titulo":"CHECK LIST DE VEÍCULOS","subtitulo":"Extreme Wind Blade Services — Inspeção semanal","destino":{"url":"","pasta":"/EW - CHECKLIST FROTAS/VEICULOS","sub":"{MM-AAAA}","arquivo":"CHECKLIST_VEICULO_{campo:Placa}_{DD}-{MM}-{AAAA}_{ID}","sheet":true,"sheetUrl":"","sheetId":""},"campos":[{"uid":17,"tipo":"texto","rotulo":"Modelo","ajuda":"Veículo — modelo.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":false},{"uid":18,"tipo":"texto","rotulo":"Placa","ajuda":"Veículo — placa.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":false},{"uid":19,"tipo":"texto","rotulo":"Nome do Motorista","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":false},{"uid":20,"tipo":"texto","rotulo":"Nome do Parque","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":false},{"uid":21,"tipo":"texto","rotulo":"Cidade - Estado","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":false},{"uid":22,"tipo":"data","rotulo":"Data","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":false},{"uid":23,"tipo":"numero","rotulo":"Quilometragem do veículo","ajuda":"Atual no momento do checklist","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":false},{"uid":1,"tipo":"radio","rotulo":"Quanto ao funcionamento do motor","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":2,"tipo":"radio","rotulo":"Quanto ao nível de óleo, radiador e freios","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":3,"tipo":"radio","rotulo":"Quanto aos sistemas elétricos existentes no carro (alarme, sensor de ré, freios e faróis, setas, lanternas, pisca alerta)","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":4,"tipo":"radio","rotulo":"Quanto a buzina","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":5,"tipo":"radio","rotulo":"Quanto aos freios","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":6,"tipo":"radio","rotulo":"Quanto aos limpadores de para-brisa","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":7,"tipo":"radio","rotulo":"Quantos aos pedais","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":8,"tipo":"radio","rotulo":"Quanto aos cintos de segurança","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":9,"tipo":"radio","rotulo":"Quanto aos pneus","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":10,"tipo":"radio","rotulo":"Quanto ao sistema hidráulico","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":11,"tipo":"radio","rotulo":"As placas estão visiveis","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":12,"tipo":"radio","rotulo":"Quanto aos itens macaco, chave de roda e triangulos","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":13,"tipo":"radio","rotulo":"Quanto a lataria do veículo","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":14,"tipo":"radio","rotulo":"As capas dos bancos estão sendo utilizados","ajuda":"Pontos de inspeção","obrigatorio":false,"exemplo":"","opcoes":["conforme","não conforme","não aplicado"],"colunas":[],"varias":false},{"uid":24,"tipo":"foto","rotulo":"Frente do veículo","ajuda":"Quase lá! 📸 Agora precisamos de algumas fotos do veículo para completar o checklist. Certifique-se de capturar imagens claras e que mostrem os detalhes solicitados. ATENÇÃO! Siga os exemplos de fotos mostradas acima de cada solicitação.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":25,"tipo":"foto","rotulo":"Para-choque Frontal Esquerdo","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":26,"tipo":"foto","rotulo":"Lateral Esquerda","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":27,"tipo":"foto","rotulo":"Para-choque Traseiro Esquerdo","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":28,"tipo":"foto","rotulo":"Traseira do Veículo","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":29,"tipo":"foto","rotulo":"Para-choque Traseiro Direito","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":30,"tipo":"foto","rotulo":"Lateral Direita","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":31,"tipo":"foto","rotulo":"Para-choque Frontal Direito","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":32,"tipo":"foto","rotulo":"Para-brisa","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":33,"tipo":"foto","rotulo":"Pneu dianteiro esquerdo + DOT","ajuda":"2 FOTOS VISÍVEIS.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":34,"tipo":"radio","rotulo":"Qual é a altura do pneu dianteiro esquerdo ?","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":["entre 6,7mm até 4,7mm","entre 4,7mm até 3,7mm","entre 3,7mm até 2,7mm","abaixo de 2,7mm"],"colunas":[],"varias":false},{"uid":35,"tipo":"foto","rotulo":"Pneu dianteiro direito + DOT","ajuda":"2 FOTOS VISÍVEIS.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":36,"tipo":"radio","rotulo":"Qual é a altura do pneu dianteiro direito ?","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":["entre 6,7mm até 4,7mm","entre 4,7mm até 3,7mm","entre 3,7mm até 2,7mm","abaixo de 2,7mm"],"colunas":[],"varias":false},{"uid":37,"tipo":"foto","rotulo":"Pneu traseiro esquerdo + DOT","ajuda":"2 FOTOS VISÍVEIS.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":38,"tipo":"radio","rotulo":"Qual é a altura do pneu traseiro esquerdo ?","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":["entre 6,7mm até 4,7mm","entre 4,7mm até 3,7mm","entre 3,7mm até 2,7mm","abaixo de 2,7mm"],"colunas":[],"varias":false},{"uid":39,"tipo":"foto","rotulo":"Pneu traseiro direito + DOT","ajuda":"2 FOTOS VISÍVEIS.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":40,"tipo":"radio","rotulo":"Qual é a altura do pneu traseiro direito ?","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":["entre 6,7mm até 4,7mm","entre 4,7mm até 3,7mm","entre 3,7mm até 2,7mm","abaixo de 2,7mm"],"colunas":[],"varias":false},{"uid":41,"tipo":"foto","rotulo":"Pneu estepe + DOT","ajuda":"2 FOTOS VISÍVEIS.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":42,"tipo":"radio","rotulo":"Qual é a altura do pneu STEP ?","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":["entre 6,7mm até 4,7mm","entre 4,7mm até 3,7mm","entre 3,7mm até 2,7mm","abaixo de 2,7mm"],"colunas":[],"varias":false},{"uid":43,"tipo":"foto","rotulo":"Pneu estepe extra + DOT","ajuda":"2 FOTOS VISÍVEIS.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":44,"tipo":"radio","rotulo":"Qual é a altura do pneu STEP EXTRA ?","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":["entre 6,7mm até 4,7mm","entre 4,7mm até 3,7mm","entre 3,7mm até 2,7mm","abaixo de 2,7mm"],"colunas":[],"varias":false},{"uid":45,"tipo":"foto","rotulo":"Calotas dos Pneus","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":46,"tipo":"foto","rotulo":"Integridade do macaco do veículo","ajuda":"Fotografe as condições de uso do objeto.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":47,"tipo":"foto","rotulo":"Integridade da chave de boca","ajuda":"Fotografe as condições de uso do objeto.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":48,"tipo":"foto","rotulo":"Integridade do triângulo de segurança do veículo","ajuda":"Fotografe as condições de uso do objeto.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":15,"tipo":"radio","rotulo":"Veículo transporta carrocinha ?","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":["SIM","NÃO"],"colunas":[],"varias":false},{"uid":49,"tipo":"foto","rotulo":"Foto do reboque (mostrando tomada).","ajuda":"Engate do veículo.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":15,"op":"igual","valor":"SIM"}},{"uid":50,"tipo":"foto","rotulo":"Foto da tomada da carrocinha.","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":15,"op":"igual","valor":"SIM"}},{"uid":51,"tipo":"foto","rotulo":"Carrocinha — Lateral direita.","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":15,"op":"igual","valor":"SIM"}},{"uid":52,"tipo":"foto","rotulo":"Carrocinha — Lateral esquerda.","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":15,"op":"igual","valor":"SIM"}},{"uid":53,"tipo":"foto","rotulo":"Carrocinha — Feixe de molas.","ajuda":"Ambos os lados.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":15,"op":"igual","valor":"SIM"}},{"uid":54,"tipo":"foto","rotulo":"Carrocinha — Eixos.","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":15,"op":"igual","valor":"SIM"}},{"uid":55,"tipo":"foto","rotulo":"Carrocinha — Pneus.","ajuda":"Ambos os lados.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":15,"op":"igual","valor":"SIM"}},{"uid":56,"tipo":"foto","rotulo":"Carrocinha — Estepe.","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":15,"op":"igual","valor":"SIM"}},{"uid":57,"tipo":"foto","rotulo":"Carrocinha — DOT dos pneus.","ajuda":"Pneus + estepe.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":15,"op":"igual","valor":"SIM"}},{"uid":16,"tipo":"radio","rotulo":"Houve alguma avaria após o último check list ?","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":["sim","não"],"colunas":[],"varias":false},{"uid":58,"tipo":"foto","rotulo":"Foto da avaria citada anteriormente.","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":16,"op":"igual","valor":"sim"}},{"uid":59,"tipo":"textao","rotulo":"Descreva as condições atuais do veículo.","ajuda":"Descreva as condições a qual se encontra o veículo para que sejam tomadas as tratativas.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":false},{"uid":60,"tipo":"foto","rotulo":"CONDIÇÃO VEICULAR — REGISTRO FOTOGRÁFICO SEQUENCIAL","ajuda":"No formulário original este item é um vídeo. Este app gera PDF e só aceita imagens — registre uma sequência de fotos cobrindo a volta completa no veículo.","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":true},{"uid":61,"tipo":"assinatura","rotulo":"Assinatura do motorista responsável.","ajuda":"","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":false}]};
+const $ = (s,r)=> (r||document).querySelector(s);
+const form = $('#form'), msg = $('#msg');
+document.getElementById('tTitulo').textContent = SCHEMA.titulo || 'Formulário';
+document.getElementById('tSub').textContent = SCHEMA.subtitulo || '';
+document.title = SCHEMA.titulo || 'Formulário';
+
+const assinaturas = {}, fotos = {};
+document.getElementById('btPdf').textContent =
+  (SCHEMA.destino && SCHEMA.destino.url) ? 'Gerar PDF e enviar' : 'Gerar PDF';
+
+function el(tag, attrs, txt){
+  const n = document.createElement(tag);
+  if(attrs) for(const k in attrs) n.setAttribute(k, attrs[k]);
+  if(txt != null) n.textContent = txt;
+  return n;
+}
+
+function comprimir(file, maxLado, qual){
+  return new Promise((ok, err)=>{
+    const fr = new FileReader();
+    fr.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let {width:w, height:h} = img;
+        const f = Math.min(1, maxLado/Math.max(w,h));
+        w = Math.round(w*f); h = Math.round(h*f);
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const cx = c.getContext('2d');
+        cx.fillStyle = '#fff'; cx.fillRect(0,0,w,h);
+        cx.drawImage(img,0,0,w,h);
+        ok(c.toDataURL('image/jpeg', qual));
+      };
+      img.onerror = ()=> err(new Error('imagem inválida'));
+      img.src = fr.result;
+    };
+    fr.onerror = ()=> err(new Error('falha ao ler arquivo'));
+    fr.readAsDataURL(file);
+  });
+}
+
+setTimeout(function(){ atualizarCondicoes(); }, 30);
+
+function abrirLupa(src){ $('#lupaImg').src = src; $('#lupa').classList.add('aberta'); }
+$('#lupa').addEventListener('click', ()=> $('#lupa').classList.remove('aberta'));
+
+SCHEMA.campos.forEach((c, i)=>{
+  const b = el('div', {class:'bloco', 'data-bloco':i});
+  const rot = el('label', {class:'rot'}, c.rotulo || 'Campo ' + (i+1));
+  if(c.obrigatorio) rot.appendChild(el('span', {class:'obr'}, ' *'));
+  b.appendChild(rot);
+  if(c.ajuda) b.appendChild(el('p', {class:'ajuda'}, c.ajuda));
+  if(c.exemplo){
+    const im = el('img', {class:'ex', src:c.exemplo, alt:'Exemplo'});
+    im.addEventListener('click', ()=> abrirLupa(c.exemplo));
+    b.appendChild(im);
+  }
+  b.appendChild(montar(c, i));
+  form.appendChild(b);
+});
+
+function montar(c, i){
+  const id = 'c'+i;
+  if(c.tipo === 'texto')   return el('input', {class:'entrada', id, type:'text'});
+  if(c.tipo === 'textao')  return el('textarea', {class:'entrada', id});
+  if(c.tipo === 'numero')  return el('input', {class:'entrada', id, type:'number', inputmode:'decimal', step:'any'});
+  if(c.tipo === 'data')    return el('input', {class:'entrada', id, type:'date'});
+  if(c.tipo === 'hora')    return el('input', {class:'entrada', id, type:'time'});
+  if(c.tipo === 'select'){
+    const s = el('select', {class:'entrada', id});
+    s.appendChild(el('option', {value:''}, 'Selecione...'));
+    (c.opcoes||[]).forEach(o=> s.appendChild(el('option', {value:o}, o)));
+    return s;
+  }
+  if(c.tipo === 'radio' || c.tipo === 'checkbox'){
+    const w = el('div', {id});
+    (c.opcoes||[]).forEach((o, k)=>{
+      const l = el('label', {class:'opc'});
+      const inp = el('input', {type: c.tipo === 'radio' ? 'radio' : 'checkbox', value:o, name: id});
+      l.appendChild(inp); l.appendChild(el('span', null, o));
+      w.appendChild(l);
+    });
+    return w;
+  }
+  if(c.tipo === 'foto'){
+    const w = el('div', {id});
+    fotos[i] = [];
+    const grade = el('div', {class:'fotos'});
+
+    // Dois inputs separados: com "multiple" o Android costuma abrir SÓ a galeria,
+    // e com "capture" abre SÓ a câmera. Um botão para cada caminho resolve os dois.
+    const inpCam = el('input', {type:'file', accept:'image/*', capture:'environment', style:'display:none'});
+    const inpGal = el('input', {type:'file', accept:'image/*', style:'display:none'});
+    if(c.varias) inpGal.setAttribute('multiple','multiple');
+
+    async function receber(inp){
+      for(const f of Array.from(inp.files || [])){
+        try{
+          fotos[i].push(await comprimir(f, 1400, 0.72));
+        }catch(e){ alerta('ruim', 'Não foi possível ler uma das imagens.'); }
+      }
+      inp.value = '';
+      desenharFotos(i, grade);
+      atualizarCondicoes();
+    }
+    inpCam.addEventListener('change', ()=> receber(inpCam));
+    inpGal.addEventListener('change', ()=> receber(inpGal));
+
+    const linha = el('div', {class:'btn-linha'});
+    const btCam = el('button', {type:'button', class:'btn'}, 'Tirar foto');
+    btCam.addEventListener('click', ()=> inpCam.click());
+    const btGal = el('button', {type:'button', class:'btn'}, 'Escolher da galeria');
+    btGal.addEventListener('click', ()=> inpGal.click());
+    linha.appendChild(btCam); linha.appendChild(btGal);
+
+    w.appendChild(inpCam); w.appendChild(inpGal); w.appendChild(linha); w.appendChild(grade);
+    return w;
+  }
+  if(c.tipo === 'assinatura'){
+    const w = el('div', {id});
+    const cv = el('canvas', {class:'assin'});
+    w.appendChild(cv);
+    const bt = el('button', {type:'button', class:'btn', style:'margin-top:8px'}, 'Limpar assinatura');
+    w.appendChild(bt);
+    setTimeout(()=> prepararAssinatura(cv, bt, i), 0);
+    return w;
+  }
+  if(c.tipo === 'tabela'){
+    const w = el('div', {id});
+    const cx = el('div', {class:'tab-caixa'});
+    const t = el('table');
+    const thead = el('thead'), tr = el('tr');
+    (c.colunas||[]).forEach(col=> tr.appendChild(el('th', null, col.rotulo)));
+    tr.appendChild(el('th', {class:'acao'}, ''));
+    thead.appendChild(tr); t.appendChild(thead);
+    const tb = el('tbody'); t.appendChild(tb);
+    cx.appendChild(t); w.appendChild(cx);
+    const bt = el('button', {type:'button', class:'btn', style:'margin-top:8px'}, 'Adicionar linha');
+    bt.addEventListener('click', ()=> novaLinha(tb, c));
+    w.appendChild(bt);
+    novaLinha(tb, c);
+    return w;
+  }
+  return el('div');
+}
+
+function novaLinha(tb, c){
+  const tr = el('tr');
+  (c.colunas||[]).forEach(col=>{
+    const td = el('td');
+    const tipo = col.tipo === 'numero' ? 'number' : (col.tipo === 'data' ? 'date' : (col.tipo === 'hora' ? 'time' : 'text'));
+    td.appendChild(el('input', {type:tipo}));
+    tr.appendChild(td);
+  });
+  const td = el('td', {class:'acao'});
+  const rm = el('button', {type:'button', title:'Remover linha'}, '×');
+  rm.addEventListener('click', ()=> tr.remove());
+  td.appendChild(rm); tr.appendChild(td);
+  tb.appendChild(tr);
+}
+
+/* ---------- lógica condicional ---------- */
+const porUid = {};
+SCHEMA.campos.forEach(function(c, i){ if(c.uid != null) porUid[String(c.uid)] = i; });
+
+function condicaoAtendida(i, pilha){
+  const c = SCHEMA.campos[i];
+  if(!c.cond || c.cond.uid == null) return true;
+  const j = porUid[String(c.cond.uid)];
+  if(j == null || j === i) return true;
+  pilha = pilha || {};
+  if(pilha[i]) return true;
+  pilha[i] = 1;
+  if(!condicaoAtendida(j, pilha)) return false;
+
+  const v = ler(SCHEMA.campos[j], j);
+  const lista = Array.isArray(v) ? v.map(String) : [String(v)];
+  const alvo = String(c.cond.valor == null ? '' : c.cond.valor);
+  const op = c.cond.op || 'igual';
+  if(op === 'preenchido') return !vazioValor(v);
+  if(op === 'vazio') return vazioValor(v);
+  if(op === 'diferente') return lista.indexOf(alvo) < 0;
+  return lista.indexOf(alvo) >= 0;
+}
+
+function atualizarCondicoes(){
+  SCHEMA.campos.forEach(function(c, i){
+    const b = document.querySelector('[data-bloco="' + i + '"]');
+    if(!b) return;
+    const mostrar = condicaoAtendida(i);
+    b.style.display = mostrar ? '' : 'none';
+    b.setAttribute('data-oculto', mostrar ? '0' : '1');
+  });
+}
+
+function estaOculto(i){
+  const b = document.querySelector('[data-bloco="' + i + '"]');
+  return !!(b && b.getAttribute('data-oculto') === '1');
+}
+
+form.addEventListener('input', atualizarCondicoes);
+form.addEventListener('change', atualizarCondicoes);
+
+function desenharFotos(i, grade){
+  grade.innerHTML = '';
+  fotos[i].forEach((d, k)=>{
+    const m = el('div', {class:'miniat'});
+    m.appendChild(el('img', {src:d, alt:'Foto ' + (k+1)}));
+    const x = el('button', {type:'button', title:'Remover'}, '×');
+    x.addEventListener('click', ()=>{ fotos[i].splice(k,1); desenharFotos(i, grade); });
+    m.appendChild(x);
+    grade.appendChild(m);
+  });
+}
+
+function prepararAssinatura(cv, bt, i){
+  const escala = window.devicePixelRatio || 1;
+  const r = cv.getBoundingClientRect();
+  cv.width = Math.round(r.width * escala);
+  cv.height = Math.round(r.height * escala);
+  const cx = cv.getContext('2d');
+  cx.scale(escala, escala);
+  cx.fillStyle = '#fff'; cx.fillRect(0,0,r.width,r.height);
+  cx.lineWidth = 2; cx.lineCap = 'round'; cx.lineJoin = 'round'; cx.strokeStyle = '#1A2329';
+  let desenhando = false, vazio = true;
+  const ponto = ev=>{
+    const b = cv.getBoundingClientRect();
+    return {x: ev.clientX - b.left, y: ev.clientY - b.top};
+  };
+  cv.addEventListener('pointerdown', ev=>{
+    desenhando = true; vazio = false; cv.setPointerCapture(ev.pointerId);
+    const p = ponto(ev); cx.beginPath(); cx.moveTo(p.x, p.y);
+  });
+  cv.addEventListener('pointermove', ev=>{
+    if(!desenhando) return;
+    const p = ponto(ev); cx.lineTo(p.x, p.y); cx.stroke();
+  });
+  const parar = ()=>{ desenhando = false; assinaturas[i] = vazio ? null : cv.toDataURL('image/png'); };
+  cv.addEventListener('pointerup', parar);
+  cv.addEventListener('pointercancel', parar);
+  cv.addEventListener('pointerleave', parar);
+  bt.addEventListener('click', ()=>{
+    const b = cv.getBoundingClientRect();
+    cx.fillStyle = '#fff'; cx.fillRect(0,0,b.width,b.height);
+    vazio = true; assinaturas[i] = null;
+    atualizarCondicoes();
+  });
+  assinaturas[i] = null;
+}
+
+function ler(c, i){
+  const id = 'c'+i, n = document.getElementById(id);
+  if(['texto','textao','numero','data','hora','select'].indexOf(c.tipo) >= 0) return (n.value||'').trim();
+  if(c.tipo === 'radio'){ const m = n.querySelector('input:checked'); return m ? m.value : ''; }
+  if(c.tipo === 'checkbox') return Array.from(n.querySelectorAll('input:checked')).map(x=> x.value);
+  if(c.tipo === 'foto') return fotos[i] || [];
+  if(c.tipo === 'assinatura') return assinaturas[i] || '';
+  if(c.tipo === 'tabela'){
+    const linhas = [];
+    n.querySelectorAll('tbody tr').forEach(tr=>{
+      const vals = Array.from(tr.querySelectorAll('input')).map(x=> (x.value||'').trim());
+      if(vals.some(v=> v !== '')) linhas.push(vals);
+    });
+    return linhas;
+  }
+  return '';
+}
+
+function vazioValor(v){
+  if(Array.isArray(v)) return v.length === 0;
+  return !v;
+}
+
+function alerta(tipo, texto){
+  msg.className = 'msg mostrar ' + tipo;
+  msg.textContent = texto;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function dataHoje(){
+  const d = new Date(), p = n=> String(n).padStart(2,'0');
+  return p(d.getDate()) + '/' + p(d.getMonth()+1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+document.getElementById('btPdf').addEventListener('click', async function(){
+  const bt = this;
+  document.querySelectorAll('.bloco').forEach(b=> b.classList.remove('erro'));
+  const dados = [];
+  let faltando = null;
+  SCHEMA.campos.forEach((c, i)=>{
+    if(estaOculto(i)) return;          // campo escondido por condição não é exigido nem entra no PDF
+    const v = ler(c, i);
+    if(c.obrigatorio && vazioValor(v)){
+      document.querySelector('[data-bloco="'+i+'"]').classList.add('erro');
+      if(faltando === null) faltando = c.rotulo;
+    }
+    dados.push({campo:c, valor:v});
+  });
+  if(faltando !== null){
+    alerta('ruim', 'Preencha os campos marcados. O primeiro é: ' + faltando);
+    return;
+  }
+  if(!window.jspdf){
+    alerta('ruim', 'A biblioteca de PDF não carregou. Conecte à internet e recarregue a página.');
+    return;
+  }
+  const D = SCHEMA.destino || {};
+  bt.disabled = true; bt.textContent = 'Gerando PDF...';
+  let doc, nomeLocal;
+  try{
+    doc = await montarPDF(dados);
+    nomeLocal = resolver(D.arquivo, dados).replace(/\{ID\}/g,'').replace(/[_-]+$/,'') || 'formulario';
+    doc.save(nomeLocal + '.pdf');
+  }catch(e){
+    console.error(e);
+    alerta('ruim', 'Falha ao gerar o PDF: ' + e.message);
+    bt.disabled = false; bt.textContent = rotuloBotao();
+    return;
+  }
+
+  if(!D.url){
+    alerta('bom', 'PDF gerado. Verifique os downloads do aparelho.');
+    bt.disabled = false; bt.textContent = rotuloBotao();
+    return;
+  }
+
+  bt.textContent = 'Enviando...';
+  alerta('aviso', 'PDF salvo no aparelho. Enviando para o Dropbox — não feche a página.');
+  try{
+    const r = await enviar(doc, dados, D);
+    if(r && r.ok){
+      sucesso(r);
+    }else{
+      alerta('ruim', 'O servidor recusou o envio: ' + ((r && r.erro) || 'motivo não informado') +
+                     '. O PDF já está salvo no aparelho — reenvie depois.');
+      bt.disabled = false; bt.textContent = rotuloBotao();
+    }
+  }catch(e){
+    console.error(e);
+    alerta('aviso', 'Não recebi confirmação do servidor. Isso às vezes acontece mesmo quando o envio deu certo — ' +
+                    'confira a pasta no Dropbox antes de reenviar. O PDF está salvo no aparelho.');
+    bt.disabled = false; bt.textContent = rotuloBotao();
+  }
+});
+
+function rotuloBotao(){
+  return (SCHEMA.destino && SCHEMA.destino.url) ? 'Gerar PDF e enviar' : 'Gerar PDF';
+}
+
+function limpar(t){
+  return String(t == null ? '' : t)
+    .replace(/[\\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function resolver(padrao, dados){
+  const d = new Date(), p = n=> String(n).padStart(2,'0');
+  const mapa = {
+    '{AAAA}': String(d.getFullYear()),
+    '{MM}': p(d.getMonth()+1),
+    '{DD}': p(d.getDate()),
+    '{MM-AAAA}': p(d.getMonth()+1) + '-' + d.getFullYear(),
+    '{HH}': p(d.getHours()),
+    '{mm}': p(d.getMinutes())
+  };
+  return String(padrao || '')
+    .replace(/\{(AAAA|MM-AAAA|MM|DD|HH|mm)\}/g, m=> mapa[m])
+    .replace(/\{campo:([^}]+)\}/g, function(m, rot){
+      const alvo = rot.trim();
+      for(const item of dados){
+        if((item.campo.rotulo||'').trim() === alvo){
+          const v = item.valor;
+          return limpar(Array.isArray(v) ? v.join('-') : v);
+        }
+      }
+      return '';
+    });
+}
+
+function paraTexto(item){
+  const c = item.campo, v = item.valor;
+  if(c.tipo === 'tabela') return v.map(l=> l.join(' | ')).join(' ;; ');
+  if(c.tipo === 'checkbox') return v.join(', ');
+  if(c.tipo === 'foto') return v.length + ' foto(s)';
+  if(c.tipo === 'assinatura') return v ? 'assinado' : 'em branco';
+  return String(v);
+}
+
+async function enviar(doc, dados, D){
+  const b64 = doc.output('datauristring').split(',')[1];
+  const base = String(D.pasta || '/').replace(/\/+$/,'');
+  const sub = resolver(D.sub, dados).replace(/^\/+|\/+$/g,'');
+  const corpo = {
+    formulario: SCHEMA.titulo || 'Formulário',
+    pasta: base + (sub ? '/' + sub : ''),
+    arquivo: (resolver(D.arquivo, dados) || 'arquivo') + '.pdf',
+    planilha: D.sheet !== false,
+    planilhaId: D.sheetId || '',
+    pdf: b64,
+    campos: dados.map(function(item){
+      return {rotulo: item.campo.rotulo || '', valor: paraTexto(item)};
+    })
+  };
+  const resp = await fetch(D.url, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify(corpo),
+    redirect: 'follow'
+  });
+  const bruto = await resp.text();
+  try{
+    return JSON.parse(bruto);
+  }catch(e){
+    // Quase sempre é a tela de login do Google: implantação não está como "Qualquer pessoa".
+    return {ok:false, erro:'resposta ' + resp.status + ' fora do formato esperado — verifique se a implantação está como "Qualquer pessoa". Início: ' + bruto.substring(0,100)};
+  }
+}
+
+function sucesso(r){
+  document.querySelector('.folha').innerHTML =
+    '<div class="fim">' +
+      '<div class="fim-selo">Enviado</div>' +
+      '<h2>' + (SCHEMA.titulo || 'Formulário') + '</h2>' +
+      '<p>Protocolo <b>' + (r.id || '—') + '</b></p>' +
+      '<p class="fim-caminho">' + (r.caminho || '') + '</p>' +
+      '<button type="button" class="btn" onclick="location.reload()">Preencher outro</button>' +
+    '</div>';
+  document.querySelector('.rodape').style.display = 'none';
+  window.scrollTo(0,0);
+}
+
+async function montarPDF(dados){
+  const doc = new window.jspdf.jsPDF({unit:'mm', format:'a4'});
+  const M = 15, LARG = 210, UTIL = LARG - M*2, FIM = 297 - M;
+  let y = M;
+
+  function espaco(h){ if(y + h > FIM){ doc.addPage(); y = M; } }
+  function texto(t, tam, estilo){
+    doc.setFont('helvetica', estilo || 'normal');
+    doc.setFontSize(tam);
+    doc.setTextColor(26, 35, 41);
+    const linhas = doc.splitTextToSize(String(t), UTIL);
+    linhas.forEach(l=>{ espaco(tam*0.45); doc.text(l, M, y); y += tam*0.45 + 1.2; });
+  }
+
+  doc.setFillColor(26,35,41); doc.rect(0,0,LARG,22,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text(String(SCHEMA.titulo || 'Formulário').substring(0,60), M, 11);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+  doc.text(String(SCHEMA.subtitulo || ''), M, 17);
+  doc.text('Emitido em ' + dataHoje(), LARG - M, 17, {align:'right'});
+  y = 32;
+
+  for(const d of dados){
+    const c = d.campo, v = d.valor;
+    espaco(14);
+    doc.setDrawColor(214,219,216); doc.setLineWidth(0.2);
+    doc.line(M, y-3.5, LARG-M, y-3.5);
+    doc.setTextColor(92,106,115); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    const rl = doc.splitTextToSize(String(c.rotulo||'').toUpperCase(), UTIL);
+    rl.forEach(l=>{ espaco(5); doc.text(l, M, y); y += 4; });
+    y += 0.5;
+
+    if(c.tipo === 'assinatura'){
+      if(v){ espaco(28); doc.addImage(v, 'PNG', M, y, 70, 25); y += 28; }
+      else { texto('(sem assinatura)', 10, 'italic'); }
+    }
+    else if(c.tipo === 'foto'){
+      if(!v.length){ texto('(sem fotos)', 10, 'italic'); }
+      else {
+        const lg = (UTIL - 4) / 2, al = lg * 0.75;
+        for(let k=0; k<v.length; k+=2){
+          espaco(al + 4);
+          doc.addImage(v[k], 'JPEG', M, y, lg, al);
+          if(v[k+1]) doc.addImage(v[k+1], 'JPEG', M + lg + 4, y, lg, al);
+          y += al + 4;
+        }
+      }
+    }
+    else if(c.tipo === 'tabela'){
+      const cols = c.colunas || [];
+      const lc = UTIL / Math.max(cols.length, 1);
+      espaco(9);
+      doc.setFillColor(242,244,243); doc.rect(M, y-3.5, UTIL, 6, 'F');
+      doc.setFontSize(7.5); doc.setTextColor(92,106,115);
+      cols.forEach((col, k)=> doc.text(String(col.rotulo).substring(0,22), M + k*lc + 1.5, y));
+      y += 4;
+      doc.setTextColor(26,35,41); doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+      if(!v.length){ y += 1; texto('(nenhuma linha preenchida)', 9, 'italic'); }
+      v.forEach(linha=>{
+        espaco(7);
+        linha.forEach((cel, k)=>{
+          const t = doc.splitTextToSize(String(cel), lc - 3)[0] || '';
+          doc.text(t, M + k*lc + 1.5, y + 1);
+        });
+        y += 5;
+        doc.setDrawColor(230,233,231); doc.line(M, y-2, LARG-M, y-2);
+      });
+      y += 2;
+    }
+    else {
+      const t = Array.isArray(v) ? v.join(' • ') : v;
+      texto(t || '—', 10.5, 'normal');
+      y += 1.5;
+    }
+    y += 3;
+  }
+
+  const tot = doc.internal.getNumberOfPages();
+  for(let p=1; p<=tot; p++){
+    doc.setPage(p);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(140,150,156);
+    doc.text('Página ' + p + ' de ' + tot, LARG - M, 292, {align:'right'});
+  }
+
+  return doc;
+}
+</script>
+</body>
+</html>
