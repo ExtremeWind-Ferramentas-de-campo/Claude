@@ -350,13 +350,11 @@
 
     <div class="idgrid">
       <!-- A lista vem do "Banco de Inputs" da planilha, filtrada pelo cliente
-           escolhido. datalist (e não select) de propósito: parque novo precisa
-           ter como entrar, senão o primeiro registro de um parque seria
-           impossível. Quem digita fora da lista é avisado antes de enviar. -->
+           escolhido, e o Banco de Inputs vem da planilha de origem "Banco de
+           inputs" (IMPORTRANGE). É um SELECT de propósito: o app só SELECIONA,
+           nunca cadastra parque. Parque novo entra pela planilha de origem. -->
       <div class="full"><label class="lbl">Parque / Projeto</label>
-        <input id="i-parque" type="text" list="lista-parques" autocomplete="off"
-               placeholder="Escolha na lista" oninput="onParque()">
-        <datalist id="lista-parques"></datalist>
+        <select id="i-parque" onchange="onParque()"><option value="">Selecione o parque…</option></select>
         <div class="parque-dica" id="parqueDica"></div>
       </div>
       <div><label class="lbl">Responsável</label><input id="i-resp" type="text" placeholder="Nome" oninput="salvarEstado()"></div>
@@ -1692,13 +1690,22 @@ function parquesDoCliente(){
 
 /* Monta via DOM, não via innerHTML: nome de parque vem da planilha e não pode
    virar HTML executável dentro do app. */
+function normParque(s){ return String(s||'').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' '); }
 function popularParques(){
-  const dl = document.getElementById('lista-parques');
-  if(!dl) return;
-  dl.textContent = '';
-  parquesDoCliente().slice(0,3000).forEach(function(n){
-    const o = document.createElement('option'); o.value = String(n); dl.appendChild(o);
+  const sel = document.getElementById('i-parque');
+  if(!sel) return;
+  /* escolha anterior: a que está na tela ou, na abertura do app, a guardada */
+  const antes = (sel.value || safeParseObj(IDKEY).parque || '').trim();
+  const lista = parquesDoCliente().slice(0,3000);
+  sel.textContent = '';
+  const o0 = document.createElement('option'); o0.value = ''; o0.textContent = 'Selecione o parque…'; sel.appendChild(o0);
+  lista.forEach(function(n){
+    const o = document.createElement('option'); o.value = String(n); o.textContent = String(n); sel.appendChild(o);
   });
+  /* só mantém a escolha se ela existe na lista DESTE cliente — trocar de cliente zera */
+  const achou = lista.find(function(p){ return normParque(p) === normParque(antes); });
+  sel.value = achou ? String(achou) : '';
+  if((achou ? String(achou) : '') !== antes){ salvarEstado(); }
   dicaParque();
 }
 
@@ -1710,8 +1717,8 @@ function parqueForaDaLista(){
   if(!v) return false;
   const lista = parquesDoCliente();
   if(!lista.length) return false;            // sem lista ainda: não há o que conferir
-  const n = s => String(s).trim().toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ');
-  return !lista.some(p => n(p) === n(v));
+  /* normalização em normParque() */
+  return !lista.some(p => normParque(p) === normParque(v));
 }
 
 function dicaParque(){
@@ -1722,13 +1729,14 @@ function dicaParque(){
   const fora = parqueForaDaLista();
   inp.classList.toggle('novo', fora);
   cx.classList.toggle('novo', fora);
-  if(fora){
-    cx.textContent = 'Parque não cadastrado para ' + NOME_CLI[clienteAtual]
-      + ' — confira a grafia. Se for parque novo, ele será cadastrado no envio.';
-  }else if(lista.length){
-    cx.textContent = lista.length + ' parque(s) cadastrado(s) para ' + NOME_CLI[clienteAtual];
+  if(!lista.length){
+    cx.classList.add('novo');
+    cx.textContent = 'Lista de parques ainda não carregada — conecte à internet uma vez para baixá-la.';
+  }else if(fora){
+    cx.textContent = 'Parque fora da lista de ' + NOME_CLI[clienteAtual] + ' — selecione na lista.';
   }else{
-    cx.textContent = 'Lista ainda não sincronizada — o nome digitado será cadastrado.';
+    cx.textContent = lista.length + ' parque(s) na lista de ' + NOME_CLI[clienteAtual]
+      + '. Parque novo: peça o cadastro na planilha Banco de inputs.';
   }
 }
 
@@ -1779,27 +1787,18 @@ function enviarPlanilha(){
     setTimeout(()=>{campo.style.borderColor='';},2500);
     return false;
   }
-  /* Parque fora da lista do cliente: NÃO trava, mas exige um "sim" explícito.
-     Travar impediria o primeiro registro de um parque novo — a lista é
-     alimentada pelos próprios envios. Confirmar é o que faz a diferença entre
-     cadastrar um parque de propósito e deixar um erro de digitação virar um
-     segundo parque na planilha, que é o que acontecia antes. */
+  /* O app só envia parque que está na lista (Banco de Inputs, vindo da planilha
+     de origem). Não existe mais "cadastrar parque novo" por aqui. O servidor
+     também recusa; esta checagem avisa na hora, com a lista na tela. */
+  if(!parquesDoCliente().length){
+    toast('Lista de parques não carregada. Conecte à internet e reabra o app.','error');
+    return false;
+  }
   if(parqueForaDaLista()){
-    const lista = parquesDoCliente();
-    const proximos = lista.slice(0,6).map(n=>'• '+n).join('\n')
-      + (lista.length>6 ? '\n… e mais '+(lista.length-6) : '');
-    const segue = confirm(
-      '"' + (id.parque||'').trim() + '" não está cadastrado para '
-      + NOME_CLI[clienteAtual] + '.\n\n'
-      + 'Cadastrados:\n' + proximos + '\n\n'
-      + 'Se for o mesmo parque com outra grafia, CANCELE e escolha na lista — '
-      + 'grafias diferentes viram dois parques na planilha.\n\n'
-      + 'Cadastrar "' + (id.parque||'').trim() + '" como parque novo?');
-    if(!segue){
-      const campo = document.getElementById('i-parque');
-      campo.focus(); campo.select(); campo.scrollIntoView({block:'center'});
-      return false;
-    }
+    toast('Selecione um parque da lista de ' + NOME_CLI[clienteAtual],'error');
+    const campo = document.getElementById('i-parque');
+    campo.focus(); campo.scrollIntoView({block:'center'});
+    return false;
   }
 
   /* Entrada de perecível SEM lote/validade não sai daqui.
@@ -1869,10 +1868,28 @@ function tentarSincronizarPlanilha(){
   const item = fila[0];
   fetch(API+'/sheets',{method:'POST',body:JSON.stringify(item),headers:{'Content-Type':'text/plain;charset=utf-8'}})
     .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json().catch(function(){ return {ok:true}; });   // resposta sem JSON: segue como antes
+    })
+    .then(d=>{
       const restante = filaSyncAll().slice(1); filaSyncSave(restante);
       sincronizandoPlanilha = false;
-      atualizarStatusSync();
-      toast('☁️✓ Enviado para a planilha','success');
+      if(d && d.ok === false){
+        /* O servidor RECUSOU (ex.: parque fora do Banco de Inputs). Não é falha de
+           rede, então não adianta reenviar: tira da fila e guarda à parte, para
+           ninguém achar que foi para a planilha. */
+        try{
+          const rec = JSON.parse(localStorage.getItem('ew_checklist_recusados') || '[]');
+          rec.push({ quando: new Date().toISOString(), erro: d.erro || 'recusado', envio: item });
+          localStorage.setItem('ew_checklist_recusados', JSON.stringify(rec.slice(-20)));
+        }catch(e){}
+        atualizarStatusSync('⚠️ Envio RECUSADO: ' + (d.erro === 'parque_nao_cadastrado'
+          ? 'o parque não está no Banco de Inputs. Escolha o parque na lista e envie de novo.'
+          : (d.erro || 'recusado pelo servidor')));
+        toast('⚠️ Envio recusado — parque fora da lista','error');
+      }else{
+        atualizarStatusSync();
+        toast('☁️✓ Enviado para a planilha','success');
+      }
       if(restante.length) tentarSincronizarPlanilha();
     })
     .catch(e=>{ sincronizandoPlanilha=false; atualizarStatusSync('☁️✗ Falha no envio ('+e.message+') — tentando de novo automaticamente'); });
