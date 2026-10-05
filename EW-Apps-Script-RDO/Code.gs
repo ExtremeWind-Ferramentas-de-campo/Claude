@@ -68,6 +68,12 @@
  *   em W<nn>/<data>/<parque> e registra na aba Abastecimentos. Depois de colar:
  *   rodar testarAbastecimento() e instalarGatilhoAbastecimento() uma vez.
  *
+ * Disponibilidade (out/2026): ações 'disponibilidade' e 'salvarDisponibilidade'.
+ *   Código no arquivo Disponibilidade.gs (mesmo projeto). Grava na aba
+ *   Disponibilidade da planilha da Propriedade DISP_SHEET (não a do RDO) e regenera o CONTROLE DISPONIBILIDADE.xlsx no
+ *   Dropbox. Depois de colar: rodar testarDisponibilidade() e
+ *   instalarGatilhoDisponibilidade() uma vez.
+ *
  * Propriedades do Script necessárias (Configurações do projeto):
  *   SHEET_ID, DROPBOX_APP_KEY, DROPBOX_APP_SECRET,
  *   DROPBOX_REFRESH_TOKEN, DROPBOX_FOLDER,
@@ -131,6 +137,10 @@ function doPost(e) {
     /* --- Meus Dados: Meus Equipamentos (valida o token lá dentro) --- */
     if (dados.acao === 'meusEquipamentos') return resposta(meusEquipamentos(dados));
     if (dados.acao === 'relatorioDevolucao') return resposta(relatorioDevolucao(dados));
+
+    /* --- Meus Dados: Disponibilidade (Disponibilidade.gs; valida o token lá dentro) --- */
+    if (dados.acao === 'disponibilidade') return resposta(disponibilidade(dados));
+    if (dados.acao === 'salvarDisponibilidade') return resposta(salvarDisponibilidade(dados));
 
     /* --- checklist semanal da equipe: valida o token lá dentro --- */
     if (dados.acao === 'checklistStatus') return resposta(checklistStatus(dados));
@@ -229,6 +239,20 @@ function doGet(e) {
     try { rd = relatorioDevolucao({ token: p.token, id: p.id }); }
     catch (e6) { rd = { ok: false, erro: String(e6) }; }
     return saida(rd, p.callback);
+  }
+
+  /* plano B da Disponibilidade: o mapa de semanas cabe na URL (~400 caracteres) */
+  if (p.acao === 'disponibilidade') {
+    var rdi;
+    try { rdi = disponibilidade({ token: p.token }); }
+    catch (e8) { rdi = { ok: false, erro: String(e8) }; }
+    return saida(rdi, p.callback);
+  }
+  if (p.acao === 'salvarDisponibilidade') {
+    var rds;
+    try { rds = salvarDisponibilidade({ token: p.token, valores: p.v }); }
+    catch (e9) { rds = { ok: false, erro: String(e9) }; }
+    return saida(rds, p.callback);
   }
 
   if (p.acao === 'meusEquipamentos') {

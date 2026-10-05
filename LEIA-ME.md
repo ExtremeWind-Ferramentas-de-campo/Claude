@@ -1,5 +1,32 @@
 # Extreme Wind — Ferramentas de Campo
 
+## Atualização de 05/10/2026 — Meus Dados: Disponibilidade
+
+- **Card novo `meus-dados/disponibilidade.html`.** O técnico marca, por mês,
+  se **pode** ou **não pode** ser convocado; abrindo o mês, escolhe semana a
+  semana (W ISO, segunda a domingo). Tocar de novo na opção marcada desmarca.
+  Janela: da semana atual até completar 6 meses (`DISP_MESES`). A semana
+  pertence ao mês da sua **quinta-feira** — nenhuma semana aparece em dois meses.
+- **Backend em `EW-Apps-Script-RDO/Disponibilidade.gs`** (3º arquivo do mesmo
+  projeto). Ações `disponibilidade` e `salvarDisponibilidade`, com plano B por
+  GET/JSONP como as outras telas. O servidor só aceita semanas da janela atual.
+- **Fonte da verdade = aba `Disponibilidade` de uma planilha Google própria**,
+  apontada pela Propriedade do Script **`DISP_SHEET`** (link ou ID). Não usa a
+  planilha do RDO; sem `DISP_SHEET` a tela mostra erro.
+  O `CONTROLE DISPONIBILIDADE.xlsx` do Dropbox (RH & DP/8 - VAGAS/CONTROLES
+  DIVERSOS) é **regerado inteiro** pelo gatilho `dispGatilho` (5 min) quando
+  alguém salva ou a semana vira. **Não editar o Excel à mão** — é sobrescrito.
+  Layout: A = matrícula, B = nome, uma coluna por semana (cabeçalho em 2 linhas:
+  mês mesclado + W/datas), SIM verde / NÃO vermelho / vazio = não respondeu,
+  última coluna = data da última atualização do técnico. Só aparece quem já
+  salvou pelo menos uma vez. Semanas passadas saem do Excel, mas ficam no Sheets.
+- **Para ligar:** criar a propriedade `DISP_SHEET` → colar `Code.gs` + `Disponibilidade.gs` → rodar
+  `testarDisponibilidade()` (gera o Excel e mostra o resultado no log) →
+  rodar `instalarGatilhoDisponibilidade()` uma vez → publicar **nova versão da
+  implantação existente**. A conta do Dropbox do app precisa enxergar a pasta
+  do RH; se o teste der 409, é permissão de pasta.
+- `CACHE` do `sw.js` subiu para v51.
+
 ## Atualização de 01/10/2026
 
 - **RDO — Almoço/Janta com exatamente 1 h.** Cada bloco de Almoço/Janta com
