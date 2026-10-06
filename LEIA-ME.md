@@ -1,5 +1,19 @@
 # Extreme Wind — Ferramentas de Campo
 
+## Atualização de 06/10/2026 — RDO: horários da WTG (SIEMENS)
+
+- Com cliente SIEMENS, **Parada da WTG, WTG posto em marcha, Fibra-on e
+  Fibra-off** ficam **vazios e bloqueados** (e deixam de ser obrigatórios)
+  quando o técnico marca **Solo** em Local de atividade, ou **Stand by** /
+  **Feriado (folga)** em Atividade realizada. Aparece o aviso "Não se aplica".
+- "Stand by" pega qualquer opção com *stand by* no nome (inclui STAND BY
+  CLIENTE). "Feriado" segue a mesma regra do modo feriado (opção ou tipo de
+  reparo com *feriado* no nome).
+- Se o técnico desmarcar Solo/Stand by/Feriado, o que ele tinha digitado volta.
+- No PDF e no Sheets esses campos saem vazios ("—" no PDF).
+- **Só mudou o `rdo/index.html`.** O Apps Script não confere esses campos.
+- `CACHE` do `sw.js` subiu para v52.
+
 ## Atualização de 05/10/2026 — Meus Dados: Disponibilidade
 
 - **Card novo `meus-dados/disponibilidade.html`.** O técnico marca, por mês,

@@ -78,6 +78,9 @@
   .card h2::before{content:"";width:4px;height:16px;background:var(--azul-medio);border-radius:2px;display:inline-block;}
   label{display:block;font-size:13px;font-weight:600;color:var(--azul-escuro);margin:0 0 6px;}
   .req::after{content:" *";color:var(--erro);}
+  /* Solo / Stand by / Feriado: horários da WTG não se aplicam */
+  #camposSiemens.na .req::after{content:""}
+  #camposSiemens.na label,#camposSiemens.na input{opacity:.5}
   input,select,textarea{
     width:100%;
     font-size:16px;
@@ -355,6 +358,7 @@
         </div>
       </div>
       <div id="camposSiemens" style="display:none;">
+        <div class="hint" id="hintSemParada" hidden style="margin-bottom:8px;"></div>
         <div class="row">
           <div class="field">
             <label class="req">Parada da WTG</label>
@@ -757,6 +761,7 @@ function atualizarCamposSiemens(){
       document.getElementById(id).value='';
     });
   }
+  atualizarParadaWtg();
 }
 
 selCliente.addEventListener('change',()=>{
@@ -1106,6 +1111,7 @@ async function aplicarUltimoRdo(){
   if(document.querySelectorAll('.tecnico-row').length<2){ addTecnico(); addTecnico(); }
 
   Object.keys(TRAVAS).forEach(k=>{ travarGrupo(k,true); botaoNoTitulo(k,u); });
+  atualizarParadaWtg();
 
   barraRascunho('Campos repetidos do último RDO'
     +(u.finalizado?' (reparo finalizado — pode trocar de reparo).'
@@ -1623,6 +1629,44 @@ document.getElementById('addAtividade').onclick=addAtividade;
   document.getElementById('tipo_reparo').addEventListener('change',aplicar);
 })();
 
+/* ---------- SIEMENS: Solo, Stand by ou Feriado (folga) = WTG não é parada ----------
+   Parada da WTG / Posto em marcha / Fibra-on / Fibra-off ficam vazios e
+   bloqueados, e deixam de ser obrigatórios. Se o técnico voltar para outra
+   opção, o que ele tinha digitado volta. */
+function motivoSemParada(){
+  const loc=document.querySelector('input[name="local"]:checked');
+  if(loc && normTxt(loc.value)==='solo') return 'atividade em solo';
+  const r=document.querySelector('input[name="resumo"]:checked');
+  if(r && ehStandBy(r.value)) return 'stand by';
+  if(modoFeriado()) return 'feriado (folga)';
+  return '';
+}
+function atualizarParadaWtg(){
+  const box=document.getElementById('camposSiemens');
+  const hint=document.getElementById('hintSemParada');
+  if(!box || !hint) return;
+  const siemens=ehSiemens();
+  const motivo=siemens?motivoSemParada():'';
+  ['parada','marcha','fibraon','fibraoff'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!siemens){ el.disabled=false; delete el.dataset.bak; return; }   /* campos ocultos e vazios */
+    if(motivo){
+      if(el.value) el.dataset.bak=el.value;
+      el.value='';
+      el.disabled=true;
+    }else{
+      el.disabled=false;
+      if(!el.value && el.dataset.bak) el.value=el.dataset.bak;
+      delete el.dataset.bak;
+    }
+  });
+  box.classList.toggle('na',!!motivo);
+  hint.hidden=!motivo;
+  hint.textContent=motivo?('N\u00e3o se aplica \u2014 '+motivo+': a WTG n\u00e3o \u00e9 parada. Hor\u00e1rios bloqueados.'):'';
+}
+['local','resumo'].forEach(id=>document.getElementById(id).addEventListener('change',atualizarParadaWtg));
+document.getElementById('tipo_reparo').addEventListener('change',atualizarParadaWtg);
+
 /* ---------- trava de minutos (múltiplos de 5) + gatilhos ---------- */
 function snapTime(input){
   if(!input.value)return;
@@ -1869,6 +1913,7 @@ function aplicarRascunho(d){
 
     if(d.local) marcarChip('local',d.local);
     if(d.resumo && d.resumo.length) marcarChip('resumo',d.resumo[0]);
+    atualizarParadaWtg();
 
     const fin=document.getElementById('finalizado');
     fin.checked=!!d.finalizado;
@@ -2178,7 +2223,7 @@ btnEnviar.onclick=async ()=>{
   if(!d.local) erros.push('Local de atividade');
   if(!d.turbina) erros.push('Turbina (WTG)');
   if(!d.blade) erros.push('Blade');
-  if(ehSiemens()){
+  if(ehSiemens() && !motivoSemParada()){
     if(!d.parada) erros.push('Parada da WTG');
     if(!d.marcha) erros.push('WTG posto em marcha');
     /* Fibra-on e Fibra-off são opcionais */
