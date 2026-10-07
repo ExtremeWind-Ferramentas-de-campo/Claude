@@ -4,7 +4,7 @@ App PWA para registro fotográfico de inspeção e reparo de pás eólicas.
 
 ## Versão
 
-**v44 · 07/10/2026** — o número aparece na tela do app, embaixo do título, ao
+**v45 · 07/10/2026** — o número aparece na tela do app, embaixo do título, ao
 lado do aviso de modo offline. É por ele que se sabe, olhando o celular, se o
 aparelho já carregou o código novo.
 
@@ -26,6 +26,7 @@ versão em campo; sem o `CACHE` o arquivo novo nem chega ao aparelho.
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| v45 | 07/10/2026 | **Caixa "Foto em paisagem" para voltar ao jeito antigo.** Marcar **Interno** continua levando direto à paisagem (a caixa liga sozinha), mas agora aparece, logo abaixo de Lado / Localização, a caixa **↔ Foto em paisagem**: desmarcá-la devolve o jeito antigo mesmo com Interno marcado. A escolha fica guardada no aparelho e só religa sozinha quando Interno é marcado de novo. |
 | v44 | 07/10/2026 | **Interno marcado → foto sempre em paisagem, com o card na horizontal.** Desfaz a v42/v43 (foto horizontal para todas as fotos, e a chave ↔): a regra passa a valer **só com a caixa Interno marcada**, na câmera e na galeria. Sem Interno marcado volta o comportamento de antes: foto como o celular estava e card/carimbo acompanhando o sensor de orientação. Sem chave e sem botão novo. |
 | v43 | 07/10/2026 | *(desfeita na v44)* **Chave "Foto sempre na horizontal" (ligar/desligar).** Ligada (padrão), vale o comportamento da v42. Desligada, a foto sai do jeito que o celular está (em pé sai em pé), e o card e o carimbo continuam sempre na horizontal. Botão **↔** na câmera e caixa na tela principal (vale também para a galeria); a escolha fica guardada no aparelho. |
 | v42 | 07/10/2026 | *(desfeita na v44)* **Foto sempre na horizontal.** O arquivo sai sempre deitado (largura ≥ altura), mesmo com o celular em pé — o quadro é girado 90° para a esquerda ao gravar. Card e carimbo saem **sempre na horizontal da foto**: deixaram de acompanhar o sensor de orientação (com o celular deitado saíam girados 90°). Vale para a câmera e para a foto da galeria. A posição guardada passa a ser a da foto final. |
@@ -333,15 +334,15 @@ overlay ao vivo e na foto gravada — é literalmente a mesma linha de código
 Na galeria o ângulo é absoluto: a imagem já vem na orientação final e não há
 tela girando.
 
-**Com Interno marcado** o giro base deixa de ser o do celular e passa a ser o do
+**No modo paisagem** o giro base deixa de ser o do celular e passa a ser o do
 quadro (`giroBase`) — ver a seção seguinte.
 
 ## Interno marcado: foto sempre em paisagem
 
-Com a caixa **Interno** (Lado / Localização) **marcada**, o arquivo sai **sempre
-deitado** (paisagem, largura ≥ altura) e com o fotocard e o carimbo **sempre na
-horizontal da foto**, como no alerta de qualidade — não importa como o celular
-estava na hora do disparo:
+Marcar a caixa **Interno** (Lado / Localização) leva o app **direto ao modo
+paisagem**: o arquivo sai **sempre deitado** (paisagem, largura ≥ altura) e com o
+fotocard e o carimbo **sempre na horizontal da foto**, como no alerta de
+qualidade — não importa como o celular estava na hora do disparo:
 
 | Celular | Quadro da câmera | Arquivo |
 |---|---|---|
@@ -352,35 +353,55 @@ O sentido é anti-horário (o topo do quadro vai para a esquerda), o mesmo das
 fotos de referência de campo. A foto trazida da **galeria** passa pela mesma
 regra: se veio em pé, é girada ao ser aberta (`paraHorizontal`).
 
-**Sem Interno marcado nada disso vale** — é o comportamento de sempre: a foto
-sai do jeito que o celular estava (em pé sai em pé) e o card e o carimbo
-acompanham o sensor de orientação.
+**Fora do modo paisagem** nada disso vale — é o "jeito antigo", o comportamento
+de sempre: a foto sai do jeito que o celular estava (em pé sai em pé) e o card e
+o carimbo acompanham o sensor de orientação.
 
-| | Interno **marcado** | Interno **desmarcado** |
-|---|---|---|
-| Foto, celular em pé | girada → **paisagem** | sai em pé |
-| Foto, celular deitado | paisagem | paisagem |
-| Card e carimbo | **sempre na horizontal** da foto | acompanham o celular (−orientação) |
+### A caixa "Foto em paisagem" — voltar ao jeito antigo
 
-Não há chave nem botão: a regra olha a caixa **na hora do disparo** (e na hora
-de escolher a foto da galeria). Marcar ou desmarcar Interno vale para a próxima
-foto; como a caixa fica gravada com os demais campos, a regra continua valendo
-no dia seguinte, sem internet.
+Logo abaixo de **Lado / Localização**, **só quando Interno está marcado**, aparece
+a caixa **↔ Foto em paisagem (card na horizontal)**, com uma linha explicando o
+estado atual:
+
+- **Marcar Interno liga essa caixa sozinha** — vai direto para a paisagem, sem o
+  técnico precisar fazer mais nada;
+- **desmarcar a caixa** devolve o jeito antigo **mesmo com Interno marcado**;
+- **desmarcar Interno** esconde a caixa (e vale o jeito antigo);
+- marcar Interno **de novo** religa a caixa.
+
+| Interno | Caixa "Foto em paisagem" | Foto, celular em pé | Card e carimbo |
+|---|---|---|---|
+| marcado | **ligada** (padrão) | girada → **paisagem** | **sempre na horizontal** da foto |
+| marcado | desligada | sai em pé | acompanham o celular (−orientação) |
+| desmarcado | *(escondida)* | sai em pé | acompanham o celular (−orientação) |
+
+Com o celular deitado a foto sai em paisagem nos três casos; o que muda é o card.
+
+Detalhes:
+
+- A caixa fica **fora** do campo "Lado" de propósito: aquele campo trava depois
+  de gravado (🔒), e esta tem de estar sempre ao alcance do dedo.
+- A escolha fica guardada no aparelho (`ew_foto_paisagem`): se o técnico a
+  desligou, ela continua desligada no dia seguinte e sem internet. Só volta a
+  ligar sozinha quando Interno for marcado de novo.
+- A regra olha as duas caixas **na hora do disparo** (e na hora de escolher a foto
+  da galeria): mude **antes** de tocar em "Carregar foto da galeria".
+- "Limpar campos" desmarca Interno e a caixa some.
 
 > Com Interno **e** Externo marcados, vale Interno.
 
 Na pré-visualização com o celular em pé o card aparece deitado na tela: é
 assim que ele vai sair na foto em paisagem. O giro na tela é `giroBase()` mais o
-ângulo escolhido (−90° ou 0° com Interno; −orientação do celular sem ele).
+ângulo escolhido (−90° ou 0° no modo paisagem; −orientação do celular fora dele).
 
-### Posição guardada com Interno marcado
+### Posição guardada no modo paisagem
 
 `posX/posY` e `stampX/stampY` são a posição na **foto final** (fração do espaço
 livre; 1/0 = canto superior direito). Com o celular em pé a tela mostra o quadro
 antes de girar, então o app converte de/para a tela (`fracParaTela` /
 `fracDaTela`): o canto superior direito da foto aparece no canto inferior
 direito da tela, e assim por diante. Arrastar na tela guarda a posição na foto.
-Sem Interno marcado tela e foto coincidem e a conta não muda nada.
+Fora do modo paisagem tela e foto coincidem e a conta não muda nada.
 
 > O lado direito da foto cai embaixo na tela em pé, onde ficam os botões. Se o
 > card ficar escondido atrás deles, arraste-o ou recolha o painel pelo ⚙.
@@ -506,8 +527,9 @@ enquadramento — não perde definição nem em foto de 12 MP.
 1. Abra o app → preencha os dados do fotocard
 2. Toque **📷 Abrir Câmera com Fotocard**
 3. Posicione a câmera → o fotocard aparece no canto superior direito. Com
-   **Interno marcado** a foto sai sempre em paisagem: com o celular em pé a tela
-   mostra o card deitado, porque a foto vai ser girada ao gravar
+   **Interno marcado** (e a caixa **Foto em paisagem** ligada, que é o padrão) a
+   foto sai sempre em paisagem: com o celular em pé a tela mostra o card
+   deitado, porque a foto vai ser girada ao gravar
 4. Escolha o enquadramento: **0,5× · 1× · 2×**
 5. Se precisar, ajuste: **arraste com o dedo** para mudar de lugar, **pinça ou
    slider `Tam`** para o tamanho, **`Âng` ou ↻** para girar. As abas escolhem
