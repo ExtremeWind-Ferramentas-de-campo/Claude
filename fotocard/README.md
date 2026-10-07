@@ -4,7 +4,7 @@ App PWA para registro fotográfico de inspeção e reparo de pás eólicas.
 
 ## Versão
 
-**v41 · 27/08/2026** — o número aparece na tela do app, embaixo do título, ao
+**v44 · 07/10/2026** — o número aparece na tela do app, embaixo do título, ao
 lado do aviso de modo offline. É por ele que se sabe, olhando o celular, se o
 aparelho já carregou o código novo.
 
@@ -19,10 +19,16 @@ aparelho já carregou o código novo.
 Os três andam juntos. Sem o `APP_VERSAO` o técnico não tem como conferir a
 versão em campo; sem o `CACHE` o arquivo novo nem chega ao aparelho.
 
+> Hoje o `sw.js` da raiz é a versão **aposentada** (não guarda cache e não tem
+> `CACHE`), então o passo do meio não se aplica enquanto for assim.
+
 ### Histórico
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| v44 | 07/10/2026 | **Interno marcado → foto sempre em paisagem, com o card na horizontal.** Desfaz a v42/v43 (foto horizontal para todas as fotos, e a chave ↔): a regra passa a valer **só com a caixa Interno marcada**, na câmera e na galeria. Sem Interno marcado volta o comportamento de antes: foto como o celular estava e card/carimbo acompanhando o sensor de orientação. Sem chave e sem botão novo. |
+| v43 | 07/10/2026 | *(desfeita na v44)* **Chave "Foto sempre na horizontal" (ligar/desligar).** Ligada (padrão), vale o comportamento da v42. Desligada, a foto sai do jeito que o celular está (em pé sai em pé), e o card e o carimbo continuam sempre na horizontal. Botão **↔** na câmera e caixa na tela principal (vale também para a galeria); a escolha fica guardada no aparelho. |
+| v42 | 07/10/2026 | *(desfeita na v44)* **Foto sempre na horizontal.** O arquivo sai sempre deitado (largura ≥ altura), mesmo com o celular em pé — o quadro é girado 90° para a esquerda ao gravar. Card e carimbo saem **sempre na horizontal da foto**: deixaram de acompanhar o sensor de orientação (com o celular deitado saíam girados 90°). Vale para a câmera e para a foto da galeria. A posição guardada passa a ser a da foto final. |
 | v41 | 27/08/2026 | Correção: o carimbo não podia ser arrastado da posição padrão na câmera — o rodapé reorganizado na v40 engolia o toque. Área de toque mínima de 44 px para o carimbo, e a aba desempata quando card e carimbo se sobrepõem. |
 | v40 | 27/08/2026 | Os ajustes da tela da galeria passam a valer também **na câmera**: abas Fotocard / Carimbo, tamanho e ângulo dos dois, ↻ e ↺, painel recolhível pelo ⚙. Rodapé da câmera reorganizado em coluna. |
 | v39 | 25/08/2026 | Zoom da câmera 0,5× / 1× / 2×. Foto da galeria passa por tela de ajuste: lugar, tamanho e ângulo do fotocard e do carimbo. Carimbo passa a ser arrastável também na câmera. |
@@ -256,7 +262,9 @@ ser arrastado para outro canto), no mesmo formato das câmeras de campo:
 
 Branco com contorno escuro — lê sobre céu estourado e sobre o interior escuro da
 pá, sem precisar de tarja de fundo. Gira junto com o celular, pelo mesmo ângulo
-do fotocard, então nunca sai deitado numa foto tirada na horizontal.
+do fotocard, então nunca sai deitado numa foto tirada na horizontal. Com
+**Interno marcado** sai sempre na horizontal da foto em paisagem (ver "Interno
+marcado: foto sempre em paisagem").
 
 O carimbo aparece **ao vivo na tela da câmera**, no mesmo canto e no mesmo
 tamanho que vai ter na foto — a conversão usa a escala do `object-fit:cover` do
@@ -324,6 +332,58 @@ overlay ao vivo e na foto gravada — é literalmente a mesma linha de código
 
 Na galeria o ângulo é absoluto: a imagem já vem na orientação final e não há
 tela girando.
+
+**Com Interno marcado** o giro base deixa de ser o do celular e passa a ser o do
+quadro (`giroBase`) — ver a seção seguinte.
+
+## Interno marcado: foto sempre em paisagem
+
+Com a caixa **Interno** (Lado / Localização) **marcada**, o arquivo sai **sempre
+deitado** (paisagem, largura ≥ altura) e com o fotocard e o carimbo **sempre na
+horizontal da foto**, como no alerta de qualidade — não importa como o celular
+estava na hora do disparo:
+
+| Celular | Quadro da câmera | Arquivo |
+|---|---|---|
+| deitado | já é horizontal | sai como veio |
+| em pé | vertical (ex.: 2160×3840) | girado **90° para a esquerda** → 3840×2160 |
+
+O sentido é anti-horário (o topo do quadro vai para a esquerda), o mesmo das
+fotos de referência de campo. A foto trazida da **galeria** passa pela mesma
+regra: se veio em pé, é girada ao ser aberta (`paraHorizontal`).
+
+**Sem Interno marcado nada disso vale** — é o comportamento de sempre: a foto
+sai do jeito que o celular estava (em pé sai em pé) e o card e o carimbo
+acompanham o sensor de orientação.
+
+| | Interno **marcado** | Interno **desmarcado** |
+|---|---|---|
+| Foto, celular em pé | girada → **paisagem** | sai em pé |
+| Foto, celular deitado | paisagem | paisagem |
+| Card e carimbo | **sempre na horizontal** da foto | acompanham o celular (−orientação) |
+
+Não há chave nem botão: a regra olha a caixa **na hora do disparo** (e na hora
+de escolher a foto da galeria). Marcar ou desmarcar Interno vale para a próxima
+foto; como a caixa fica gravada com os demais campos, a regra continua valendo
+no dia seguinte, sem internet.
+
+> Com Interno **e** Externo marcados, vale Interno.
+
+Na pré-visualização com o celular em pé o card aparece deitado na tela: é
+assim que ele vai sair na foto em paisagem. O giro na tela é `giroBase()` mais o
+ângulo escolhido (−90° ou 0° com Interno; −orientação do celular sem ele).
+
+### Posição guardada com Interno marcado
+
+`posX/posY` e `stampX/stampY` são a posição na **foto final** (fração do espaço
+livre; 1/0 = canto superior direito). Com o celular em pé a tela mostra o quadro
+antes de girar, então o app converte de/para a tela (`fracParaTela` /
+`fracDaTela`): o canto superior direito da foto aparece no canto inferior
+direito da tela, e assim por diante. Arrastar na tela guarda a posição na foto.
+Sem Interno marcado tela e foto coincidem e a conta não muda nada.
+
+> O lado direito da foto cai embaixo na tela em pé, onde ficam os botões. Se o
+> card ficar escondido atrás deles, arraste-o ou recolha o painel pelo ⚙.
 
 ### Rodapé em coluna
 
@@ -445,7 +505,9 @@ enquadramento — não perde definição nem em foto de 12 MP.
 
 1. Abra o app → preencha os dados do fotocard
 2. Toque **📷 Abrir Câmera com Fotocard**
-3. Posicione a câmera → o fotocard aparece no canto superior direito
+3. Posicione a câmera → o fotocard aparece no canto superior direito. Com
+   **Interno marcado** a foto sai sempre em paisagem: com o celular em pé a tela
+   mostra o card deitado, porque a foto vai ser girada ao gravar
 4. Escolha o enquadramento: **0,5× · 1× · 2×**
 5. Se precisar, ajuste: **arraste com o dedo** para mudar de lugar, **pinça ou
    slider `Tam`** para o tamanho, **`Âng` ou ↻** para girar. As abas escolhem

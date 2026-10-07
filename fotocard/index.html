@@ -520,10 +520,12 @@ var curState={}, camStream=null, facingMode='environment', isOnline=navigator.on
    três têm de andar juntos:
      1. APP_VERSAO aqui  → sobe o número e põe a data do dia
      2. CACHE em ../sw.js → sobe o número, senão o celular serve o cache velho
+        (hoje o sw.js da raiz é o APOSENTADO, que não guarda cache nem tem
+        CACHE — este passo só volta a valer se ele voltar a cachear)
      3. o histórico no README.md
    Sem o passo 1 o técnico não tem como saber, olhando a tela, qual versão o
    aparelho carregou. */
-var APP_VERSAO = 'v41 · 27/08/2026';
+var APP_VERSAO = 'v44 · 07/10/2026';
 
 /* ─── Service Worker ─── */
 (function(){
@@ -1413,12 +1415,74 @@ function anguloOrientacao(){
   return window.innerWidth>window.innerHeight ? 90 : 0;  // fallback
 }
 
+/* ═══ "INTERNO" MARCADO → FOTO SEMPRE EM PAISAGEM ═══
+   Com a caixa Interno (Lado / Localização) marcada, o arquivo sai SEMPRE
+   deitado (largura ≥ altura, paisagem) e com o card e o carimbo SEMPRE na
+   horizontal da foto — legíveis sem virar a tela — não importa como o celular
+   estava na hora do disparo:
+
+     • celular deitado → o quadro já é horizontal: sai como veio;
+     • celular em pé   → o quadro é vertical: é girado 90° para a ESQUERDA
+       (anti-horário) ao gravar, o mesmo sentido das fotos de referência de
+       campo (marcas de régua da pá legíveis).
+
+   Sem Interno marcado nada disso vale: a foto sai do jeito que o celular
+   estava e o card e o carimbo acompanham o sensor de orientação, como sempre
+   foi (anguloOrientacao).
+
+   Na pré-visualização com o celular em pé o card aparece deitado na tela: é
+   assim que ele vai sair na foto horizontal. A posição guardada (posX/posY,
+   stampX/stampY) é a da FOTO FINAL — fracParaTela / fracDaTela convertem de e
+   para a tela. Com o celular deitado, e fora do Interno, tela e foto coincidem. */
+
+/* A caixa "Interno" está marcada? Lida na hora, direto da caixa — é o que a
+   pessoa está vendo —, então vale para o próximo disparo sem mais nada. */
+function internoMarcado(){
+  var c=document.getElementById('c-int');
+  return !!(c&&c.checked);
+}
+
+/* O quadro que a câmera entrega está em pé (altura > largura)? Antes de o
+   vídeo abrir, vale a orientação da tela. */
+function quadroEmPe(){
+  var v=document.getElementById('cam-video');
+  if(v&&v.videoWidth) return v.videoHeight>v.videoWidth;
+  return window.innerHeight>window.innerWidth;
+}
+
+/* O quadro vai ser girado para virar foto deitada? Só com Interno marcado E o
+   quadro em pé. É isto, e não quadroEmPe, que manda no giro, na conversão de
+   posição e no tamanho do arquivo. */
+function giraParaHorizontal(){ return internoMarcado() && quadroEmPe(); }
+
+/* Giro base (graus, horário) do card e do carimbo NA TELA, sem o ajuste manual
+   de ângulo:
+     • Interno: o do quadro da câmera (−90° com o celular em pé, 0° deitado) —
+       é o que os faz saírem de pé na foto horizontal;
+     • senão  : o oposto do giro do celular, como sempre foi. */
+function giroBase(){
+  if(internoMarcado()) return giraParaHorizontal() ? -90 : 0;
+  return -anguloOrientacao();
+}
+
+/* Posição na FOTO (fração do espaço livre) → posição na TELA. Girar o quadro
+   90° anti-horário leva o canto superior direito da tela para o superior
+   esquerdo da foto; a conta é exata porque a caixa girada só troca w por h. */
+function fracParaTela(px,py){
+  return giraParaHorizontal() ? {x:1-py, y:px} : {x:px, y:py};
+}
+/* e a volta: o que foi arrastado na tela vira posição na foto */
+function fracDaTela(sx,sy){
+  return giraParaHorizontal() ? {x:sy, y:1-sx} : {x:sx, y:sy};
+}
+
 /* Tamanho do overlay ao vivo = o tamanho REAL que o card vai ter na foto,
    convertido para pixels de tela pela escala do object-fit:cover do vídeo.
    É isso que faz o slider de ajuste valer: o que se vê é o que grava.
-   O card também GIRA junto com o celular: quando a tela vira, ele vira no sentido
-   contrário ao giro do conteúdo, ficando alinhado com a câmera (deitado se o
-   celular estiver deitado). A proporção nunca muda — só a rotação. */
+   O card também GIRA: fora do Interno acompanha o celular (quando a tela vira,
+   ele vira no sentido contrário ao giro do conteúdo, ficando alinhado com a
+   câmera); com Interno marcado acompanha o quadro da câmera (giroBase), para
+   sair sempre de pé na foto em paisagem. A proporção nunca muda — só a rotação. */
 function scaleCamOverlay(){
   var wrap=document.getElementById('cam-overlay-wrap');
   var card=document.getElementById('fc-cam');
@@ -1441,9 +1505,9 @@ function scaleCamOverlay(){
   targetW=Math.min(targetW, ladoMenor*0.70);
   var s=targetW/CARD_W;
 
-  /* Giro na tela = o do celular (o card acompanha a câmera) MAIS o ajuste
-     manual. Com cardAng = 0 dá exatamente o comportamento de sempre. */
-  var R=-anguloOrientacao()+cardAng;
+  /* Giro na tela = o base (giroBase: o do celular, ou o do quadro com Interno
+     marcado) MAIS o ajuste manual. Com cardAng = 0 não há giro extra. */
+  var R=giroBase()+cardAng;
 
   /* Altura vem do layout do card (FC), não do DOM: vale mesmo antes de o
      overlay ficar visível, quando offsetHeight ainda seria 0. */
@@ -1452,11 +1516,13 @@ function scaleCamOverlay(){
   var bb=bboxGirada(w,h,R);               // tamanho ocupado DEPOIS de girar
 
   /* Posição = fração do espaço livre (posX/posY, mexidos pelo arraste).
-     1 / 0 = canto superior direito, o padrão. Guarda a caixa na tela para o
-     arraste saber se o dedo pegou no card — e guarda o retângulo REAL
+     1 / 0 = canto superior direito da FOTO, o padrão — na tela, com o celular
+     em pé, esse canto cai noutro lugar (fracParaTela). Guarda a caixa na tela
+     para o arraste saber se o dedo pegou no card — e guarda o retângulo REAL
      (w/h + ângulo), não a caixa girada, senão a 45° o dedo pegaria no vazio. */
-  var cx=centroNoLivre(window.innerWidth ,MG_TELA,bb.w,posX);
-  var cy=centroNoLivre(window.innerHeight,MG_TELA,bb.h,posY);
+  var fp=fracParaTela(posX,posY);
+  var cx=centroNoLivre(window.innerWidth ,MG_TELA,bb.w,fp.x);
+  var cy=centroNoLivre(window.innerHeight,MG_TELA,bb.h,fp.y);
   camCardBox={cx:cx, cy:cy, w:bb.w, h:bb.h, pw:w, ph:h, ang:R,
               lw:Math.max(0,window.innerWidth -2*MG_TELA-bb.w),
               lh:Math.max(0,window.innerHeight-2*MG_TELA-bb.h)};
@@ -1546,9 +1612,9 @@ function iniciaArraste(x,y){
   if(!alvo) return false;
   selecionaAlvo(alvo);     /* pegar no elemento já aponta os sliders para ele */
   var b=(alvo==='card'?camCardBox:camStampBox);
-  drag={alvo:alvo, x0:x, y0:y,
-        px:(alvo==='card'?posX:stampX), py:(alvo==='card'?posY:stampY),
-        lw:b.lw, lh:b.lh};
+  /* o arraste conta em fração da TELA; a posição guardada é a da foto */
+  var f0=(alvo==='card'?fracParaTela(posX,posY):fracParaTela(stampX,stampY));
+  drag={alvo:alvo, x0:x, y0:y, px:f0.x, py:f0.y, lw:b.lw, lh:b.lh};
   var wrap=document.getElementById(alvo==='card'?'cam-overlay-wrap':'cam-stamp');
   if(wrap){ wrap.classList.add('sem-transicao','arrastando'); }
   clearTimeout(tTransicao);
@@ -1558,8 +1624,9 @@ function moveArraste(x,y){
   if(!drag) return;
   var nx=Math.min(1,Math.max(0, drag.px+(x-drag.x0)/Math.max(1,drag.lw)));
   var ny=Math.min(1,Math.max(0, drag.py+(y-drag.y0)/Math.max(1,drag.lh)));
-  if(drag.alvo==='carimbo'){ stampX=nx; stampY=ny; pintaCarimboCam(); }
-  else { posX=nx; posY=ny; scaleCamOverlay(); }
+  var p=fracDaTela(nx,ny);              /* volta para a posição na foto */
+  if(drag.alvo==='carimbo'){ stampX=p.x; stampY=p.y; pintaCarimboCam(); }
+  else { posX=p.x; posY=p.y; scaleCamOverlay(); }
   gravaAjustes();
 }
 function fimArraste(){
@@ -1866,7 +1933,11 @@ async function startStream(){
 function mostraResolucao(video){
   if(!video.videoWidth) return;
   var mp=(video.videoWidth*video.videoHeight/1e6).toFixed(1);
-  toast('📷 '+video.videoWidth+'×'+video.videoHeight+' — '+mp+' MP',2200);
+  /* com Interno marcado a foto sai em paisagem: mostra o tamanho do ARQUIVO,
+     não o do quadro */
+  var emPe=internoMarcado() && video.videoHeight>video.videoWidth;
+  var w=emPe?video.videoHeight:video.videoWidth, h=emPe?video.videoWidth:video.videoHeight;
+  toast('📷 '+w+'×'+h+' — '+mp+' MP'+(emPe?' · sai na horizontal':''),2200);
 }
 
 function stopStream(){
@@ -2099,8 +2170,8 @@ function pintaCarimboCam(){
   var ctx=cv.getContext('2d');
   var m=medeCarimbo(ctx,size,txt);
 
-  /* Giro na tela = o do celular MAIS o ajuste manual, igual ao card */
-  var R=-anguloOrientacao()+stampAng;
+  /* Giro na tela = o base (giroBase) MAIS o ajuste manual, igual ao card */
+  var R=giroBase()+stampAng;
 
   /* Teto de tela. Ao girar o celular, alguns aparelhos demoram para a câmera
      renegociar a orientação — nesse intervalo o vídeo ainda vem em pé, a
@@ -2125,9 +2196,11 @@ function pintaCarimboCam(){
   /* Posição pelo bloco de TEXTO (sem a folga), senão o carimbo sairia do canto
      deslocado do tanto do pad. O giro é em torno do centro do elemento, que
      coincide com o centro do texto. A mesma conta de fração do espaço livre
-     que o card usa: stampX/stampY 1 / 1 = canto inferior direito. */
-  var cx=centroNoLivre(window.innerWidth ,mg,bb.w,stampX);
-  var cy=centroNoLivre(window.innerHeight,mg,bb.h,stampY);
+     que o card usa: stampX/stampY 1 / 1 = canto inferior direito da FOTO
+     (na tela, com o celular em pé, é outro canto — fracParaTela). */
+  var fs=fracParaTela(stampX,stampY);
+  var cx=centroNoLivre(window.innerWidth ,mg,bb.w,fs.x);
+  var cy=centroNoLivre(window.innerHeight,mg,bb.h,fs.y);
   camStampBox={cx:cx, cy:cy, w:bb.w, h:bb.h, pw:m.w, ph:m.h, ang:R, mg:mg,
                lw:Math.max(0,window.innerWidth -2*mg-bb.w),
                lh:Math.max(0,window.innerHeight-2*mg-bb.h)};
@@ -2161,11 +2234,23 @@ async function capturePhoto(){
   var sw=Math.round(video.videoWidth/zd), sh=Math.round(video.videoHeight/zd);
   var sx=Math.round((video.videoWidth -sw)/2), sy=Math.round((video.videoHeight-sh)/2);
   var vw=sw, vh=sh;
+
+  // INTERNO MARCADO → FOTO SEMPRE EM PAISAGEM: quadro em pé (celular em pé) é
+  // girado 90° para a esquerda e vira um arquivo deitado — ow × oh. Quadro
+  // deitado sai como veio. Sem Interno marcado nada é girado (ow × oh = vw × vh).
+  // Daqui para baixo tudo é medido na FOTO FINAL (ow × oh).
+  var interno=internoMarcado();
+  var emPe=interno && vh>vw;
+  var ow=emPe?vh:vw, oh=emPe?vw:vh;
   var main=document.createElement('canvas');
-  main.width=vw; main.height=vh;
+  main.width=ow; main.height=oh;
   var ctx=main.getContext('2d');
+  ctx.save();
+  // (x,y) do quadro → (y, vw−x) na foto: gira 90° anti-horário
+  if(emPe){ ctx.translate(0,vw); ctx.rotate(-Math.PI/2); }
   if(facingMode==='user'){ctx.save();ctx.scale(-1,1);ctx.drawImage(video,sx,sy,sw,sh,-vw,0,vw,vh);ctx.restore()}
   else{ctx.drawImage(video,sx,sy,sw,sh,0,0,vw,vh)}
+  ctx.restore();
 
   // Card VETORIZADO direto no tamanho final: o texto é rasterizado só agora,
   // já com os pixels da foto, então sai nítido em qualquer resolução.
@@ -2173,7 +2258,7 @@ async function capturePhoto(){
   // (fica com a mesma presença em foto em pé ou deitada) e 1% de folga até o
   // canto. Opacidade FC.OPACITY (0,85).
   try{
-    var lado=Math.min(vw,vh);
+    var lado=Math.min(ow,oh);
     var mg=Math.round(lado*FC.MARGIN);
     var cw=FC.larguraNaFoto(lado);
     var cardCv=FC.toCanvas(curState, cw/FC.W, FC.OPACITY);
@@ -2181,23 +2266,28 @@ async function capturePhoto(){
     var ch=cardCv.height;
 
     // Posição: a mesma fração do espaço livre que o técnico deixou na tela
-    // (posX/posY) — canto na tela = canto na foto. O card sai GIRADO junto com
-    // o celular MAIS o ajuste manual de ângulo, exatamente como no overlay:
-    // é a mesma conta de R, bbox girada e centroNoLivre que scaleCamOverlay
-    // usa, então o que se vê na tela é o que grava.
+    // (posX/posY) — canto na tela = canto na foto. Com Interno marcado a fração
+    // é a da foto FINAL, e na tela com o celular em pé ela é convertida por
+    // fracParaTela. O giro é o MESMO base do overlay (giroBase) MAIS o ajuste
+    // manual de ângulo: com Interno o card sai na horizontal da foto (base 0,
+    // já que o quadro foi girado por baixo); sem Interno ele acompanha o celular
+    // (−orientação), como sempre foi. É a mesma conta de R, bbox girada e
+    // centroNoLivre que scaleCamOverlay usa, então o que se vê na tela é o que
+    // grava.
     var orient=anguloOrientacao();
-    var R=-orient+cardAng;
+    var base=interno ? 0 : -orient;
+    var R=base+cardAng;
     var bb=bboxGirada(cw,ch,R);
     ctx.save();
-    ctx.translate(centroNoLivre(vw,mg,bb.w,posX), centroNoLivre(vh,mg,bb.h,posY));
+    ctx.translate(centroNoLivre(ow,mg,bb.w,posX), centroNoLivre(oh,mg,bb.h,posY));
     ctx.rotate(R*Math.PI/180);
     ctx.drawImage(cardCv, -cw/2, -ch/2, cw, ch);
     ctx.restore();
 
     // Carimbo de data/hora, no tamanho e no ângulo escolhidos.
-    // desenhaCarimbo gira -ang, e aqui o giro tem de ser -orient+stampAng:
-    // daí passar (orient - stampAng).
-    desenhaCarimbo(ctx, vw, vh, orient-stampAng, null, stampEsc);
+    // desenhaCarimbo gira -ang, e aqui o giro tem de ser base+stampAng:
+    // daí passar -(base+stampAng) — sem Interno isso dá (orient - stampAng).
+    desenhaCarimbo(ctx, ow, oh, -(base+stampAng), null, stampEsc);
 
     // Nome do arquivo. Com o Pitch fora, quem identifica a pá é o N/S — que é
     // o número da própria pá, não da posição no rotor. Pedaço vazio some do
@@ -2300,11 +2390,13 @@ var galCardBox={w:0,h:0}, galStampBox={w:0,h:0,cw:0,ch:0}, galStampMg=0;
    Valem para os DOIS caminhos: a câmera e a foto trazida da galeria.
 
    Na galeria o ângulo é absoluto: a imagem já vem na orientação final, não há
-   tela girando. Na câmera ele é um ACRÉSCIMO ao giro do celular — o card
-   continua acompanhando o sensor de orientação, e 0° é exatamente o
-   comportamento de sempre (alinhado com a câmera). Serve para acompanhar uma
-   pá deitada no quadro, ou para deitar a marcação numa faixa estreita de céu
-   em vez de cobrir o dano.
+   tela girando. Na câmera ele é um ACRÉSCIMO ao giro base (giroBase): fora do
+   Interno é o giro do celular — o card continua acompanhando o sensor de
+   orientação, e 0° é exatamente o comportamento de sempre (alinhado com a
+   câmera); com Interno marcado o base é o do quadro, e 0° deixa o card na
+   horizontal da foto em paisagem. Serve para acompanhar uma pá deitada no
+   quadro, ou para deitar a marcação numa faixa estreita de céu em vez de
+   cobrir o dano.
 
    O tamanho do CARD é o FC.frac() que o app já guardava. O do CARIMBO
    multiplica o corpo automático da fonte (3,8 % do lado menor da foto). */
@@ -2315,6 +2407,19 @@ var stampAng=0;
 var stampEsc=1;     /* 0,4 a 2,0 do corpo automático */
 var alvoSel='card'; /* em quem os sliders de tamanho e ângulo mexem */
 var ferramentasAbertas=true;   /* painel de ajustes da câmera visível */
+
+/* Gira uma imagem em pé 90° anti-horário e devolve um <canvas> deitado (serve
+   no lugar do bitmap em drawImage/width/height). Libera o bitmap original. */
+function paraHorizontal(src){
+  var cv=document.createElement('canvas');
+  cv.width=src.height; cv.height=src.width;
+  var c=cv.getContext('2d');
+  c.translate(0,src.width);      /* (x,y) → (y, largura−x), igual à câmera */
+  c.rotate(-Math.PI/2);
+  c.drawImage(src,0,0);
+  if(src.close){ try{ src.close(); }catch(e){} }
+  return cv;
+}
 
 async function importarDaGaleria(input){
   var file=input.files && input.files[0];
@@ -2327,6 +2432,12 @@ async function importarDaGaleria(input){
     var bmp;
     try{ bmp=await createImageBitmap(file,{imageOrientation:'from-image'}); }
     catch(e){ bmp=await createImageBitmap(file); }
+
+    /* Interno marcado → foto em paisagem: a que veio em pé é girada 90° para a
+       esquerda, igual ao que a câmera do app faz. Daqui para a frente palco,
+       card e carimbo só veem a foto já na orientação final, então não
+       precisam saber disso. Sem Interno marcado, a foto segue como veio. */
+    if(internoMarcado() && bmp.height>bmp.width) bmp=paraHorizontal(bmp);
 
     liberaGaleria();
     galBmp=bmp; galVW=bmp.width; galVH=bmp.height;
@@ -2454,11 +2565,10 @@ function posicionaGaleria(){
    stampAng) e têm painéis com os mesmos botões — o que muda é só o prefixo
    dos elementos ('cam-' ou 'gal-') e o que precisa ser redesenhado depois.
 
-   Na câmera o ângulo é um ACRÉSCIMO ao giro do celular: o card continua
-   acompanhando o sensor de orientação (0° = alinhado com a câmera, como
-   sempre foi) e o ajuste manual soma a isso. Assim quem não mexe não perde o
-   comportamento antigo, e quem precisa deitar a marcação numa foto de pá
-   consegue.
+   Na câmera o ângulo é um ACRÉSCIMO ao giro base (giroBase): fora do Interno o
+   card acompanha o sensor de orientação (0° = alinhado com a câmera, como
+   sempre foi); com Interno marcado o base é o do quadro, e 0° deixa o card na
+   horizontal da foto em paisagem. Na galeria o ângulo é absoluto.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* Qual painel está em uso agora */
@@ -2692,10 +2802,11 @@ function aplicarGaleria(){
     var ctx=main.getContext('2d');
     ctx.drawImage(galBmp,0,0,vw,vh);
 
-    /* A foto já vem na orientação final (não há tela girando): o giro do card
-       e do carimbo é o que o técnico escolheu na tela de ajuste. Mesma conta
-       da câmera — centro na fração do espaço livre, rotação em torno dele —
-       só que com a caixa girada de ângulo qualquer, não só de 90 em 90. */
+    /* A foto já vem na orientação final (não há tela girando; com Interno
+       marcado, a que veio em pé já foi girada por paraHorizontal): o giro do
+       card e do carimbo é o que o técnico escolheu na tela de ajuste. Mesma
+       conta da câmera — centro na fração do espaço livre, rotação em torno
+       dele — só que com a caixa girada de ângulo qualquer, não só de 90 em 90. */
     var lado=Math.min(vw,vh);
     var mg=Math.round(lado*FC.MARGIN);
     var cw=FC.larguraNaFoto(lado);
