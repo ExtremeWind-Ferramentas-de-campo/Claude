@@ -17,7 +17,7 @@
    IMPORTANTE: ao atualizar arquivos do app, incremente o número do CACHE
    abaixo — é o que descarta o cache antigo e força a atualização.
    ───────────────────────────────────────────────────────────── */
-const CACHE = 'ew-site-v52';
+const CACHE = 'ew-site-v53';
 
 const CORE = [
   './',
@@ -63,7 +63,8 @@ const FROTAS = [
   'Checklist Frotas/veiculo.html',
   'Checklist Frotas/abastecimento.html',     // não vem do construtor (busca placa + login)
   'ehs/index.html',                          // menu EHS
-  'ehs/report-diario/index.html'             // Report Diário de EHS
+  'ehs/report-diario/index.html',            // Report Diário de EHS
+  'manual-reparador/index.html'              // Manual do Reparador (a lista abre offline; o vídeo exige rede)
 ];
 const EXTRA = [
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
