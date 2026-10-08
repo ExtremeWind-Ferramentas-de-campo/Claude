@@ -115,14 +115,6 @@
 <body>
 <div class="topo"><a class="voltar" href="../index.html" title="Voltar" aria-label="Voltar">&#8592;</a><img class="ew-logo" src="../../logo-ew.png" alt="Extreme Wind Blade Services"><div><h1 id="tTitulo"></h1><p id="tSub"></p></div><div class="ew-acoes"><button type="button" class="ew-tema" id="ewTema" title="Alternar tema">&#127769;</button></div></div>
 <div class="folha">
-  <div class="correcao" id="correcao" style="display:none">
-    <b>Corrigindo um relatório já enviado</b>
-    <div>Informe o protocolo que apareceu no envio original. O PDF e a linha da planilha serão substituídos.</div>
-    <div class="correcao-linha">
-      <input id="protocolo" placeholder="Ex.: K3M9A2" maxlength="12" autocomplete="off">
-      <button type="button" class="btn" id="btCancelarCorr">Cancelar</button>
-    </div>
-  </div>
   <div class="msg ruim" id="semLista" style="display:none">
     <b>A lista de técnicos não carregou.</b>
     Os campos de nome dependem dela, então o envio fica bloqueado até resolver.
@@ -133,7 +125,6 @@
   <form id="form" novalidate></form>
 </div>
 <div class="rodape">
-  <button type="button" class="btn" id="btCorrigir" style="display:none;flex:0 0 auto">Corrigir</button>
   <button type="button" class="enviar" id="btPdf">Gerar PDF</button>
 </div>
 <div class="lupa" id="lupa"><img id="lupaImg" alt=""></div>
@@ -147,7 +138,7 @@
 </div>
 
 <script>
-const SCHEMA = {"titulo":"REPORT DIÁRIO DE EHS - EXTREME WIND","subtitulo":"Extreme Wind Blade Services","fotoQualidade":"economica","destino":{"url":"https://script.google.com/macros/s/AKfycbxONWrvy-OrmsWlcDICaPRb8mRBPnXYuU8lqQyRJg_vzym160uVSO_qnITq6jzjFzHUkA/exec","pasta":"\\02 - EXTREME WIND\\5 - SEGURANCA E MEIO AMBIENTE\\16 - CONTROLE DE DOCUMENTAÇÃO DIÁRIA\\teste","sub":"{campo:PARQUE/LOCAL}/{MM-AAAA}","arquivo":"EHS_{campo:PARQUE/LOCAL}_{DD}-{MM}-{AAAA}_{ID}","sheet":true,"sheetUrl":"https://docs.google.com/spreadsheets/d/11RV7zuwuyHg3DyB0Bia1_RetrpV8gHhGNn1wHeuECmo/edit?gid=0#gid=0","sheetId":"11RV7zuwuyHg3DyB0Bia1_RetrpV8gHhGNn1wHeuECmo","correcao":true},"campos":[{"uid":51,"tipo":"texto","rotulo":"PARQUE/LOCAL","ajuda":"Informe o nome do projeto que esta atuando.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false},{"tipo":"select","rotulo":"EMPRESA","ajuda":"Informe o nome da empresa que você trabalha.","obrigatorio":true,"exemplo":"","opcoes":["EXTREME WIND"],"colunas":[],"varias":false,"uid":2},{"tipo":"texto","rotulo":"N° DE IDENTIFICAÇÃO DA WTG","ajuda":"Informe o número da WTG que esta trabalhando atualmente.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":3},{"tipo":"data","rotulo":"Data","ajuda":"Data do dia","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":4},{"tipo":"radio","rotulo":"Supervisor","ajuda":"Nome do supervisor responsável","obrigatorio":true,"exemplo":"","opcoes":["Evair","Magalhães","Wilder"],"colunas":[],"varias":false,"uid":9},{"tipo":"pessoa","rotulo":"TECNICO 01","ajuda":"Nome do líder de equipe","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":6},{"tipo":"pessoa","rotulo":"TECNICO 02","ajuda":"Nome do Técnico","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":7},{"tipo":"pessoa","rotulo":"TECNICO 03","ajuda":"Nome do Técnico","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":8},{"tipo":"radio","rotulo":"HOUVE DDS?","ajuda":"Se sua resposta for não, justifique o motivo.","obrigatorio":true,"exemplo":"","opcoes":["Sim","Não"],"colunas":[],"varias":false,"uid":53},{"tipo":"foto","rotulo":"FOTO DA EQUIPE EM DDS","ajuda":"Anexar fotos da equipe reunida no DDS e outra foto da ata do DDS. (com timestamp)","obrigatorio":true,"exemplo":"ex/01.jpg","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":9,"op":"igual","valor":"Evair"},"uid":10},{"tipo":"texto","rotulo":"JUSTIFICAR O DDS","ajuda":"Descreva o motivo pelo qual o DDS não foi realizado.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":9,"op":"igual","valor":"Evair"},"uid":11},{"tipo":"foto","rotulo":"FOTO DA EQUIPE PORTANDO OS EPIS BASICOS (Capacete, óculos de segurança, bota de proteção e uniforme) — todos certificados com CA","ajuda":"Anexe, no mínimo, duas fotos que evidenciem a equipe utilizando corretamente todos os EPIs obrigatórios. (timestamp)","obrigatorio":true,"exemplo":"ex/02.jpg","opcoes":[],"colunas":[],"varias":true,"uid":12},{"tipo":"radio","rotulo":"FOI FEITO BLOQUEIO DE MÁQUINA?","ajuda":"Seguir conforme Ex.","obrigatorio":true,"exemplo":"ex/03.jpg","opcoes":["Sim","Não"],"colunas":[],"varias":false,"uid":13},{"tipo":"foto","rotulo":"REGISTRO DO LOTO - GROUND","ajuda":"Foto do loto com os cadeados e cartão com data e horário preenchido. (timestamp)","obrigatorio":true,"exemplo":"ex/04.jpg","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":13,"op":"igual","valor":"Sim"},"uid":14},{"tipo":"foto","rotulo":"REGISTRO DO LOTO - ROTOR HUB","ajuda":"Foto do loto com os cadeados e cartão com data e horário preenchido. (timestamp)","obrigatorio":true,"exemplo":"ex/05.jpg","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":13,"op":"igual","valor":"Sim"},"uid":15},{"tipo":"foto","rotulo":"REGISTRO DO LOTO - BULLON","ajuda":"Foto do loto com os cadeados e cartão com data e horário preenchido. (timestamp)","obrigatorio":true,"exemplo":"ex/06.jpg","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":13,"op":"igual","valor":"Sim"},"uid":16},{"tipo":"texto","rotulo":"JUSTIFICAR — BLOQUEIO DE MÁQUINA","ajuda":"Descrever qual foi o motivo, com o máximo de informação, pelo qual não teve loto.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":13,"op":"igual","valor":"Não"},"uid":17},{"tipo":"foto","rotulo":"SINALIZAÇÃO DE SEGURANÇA EXTERNO EM CAMPO","ajuda":"Realizar 03 registros (área externa com o veículo estacionado, cones posicionados e sinalização da entrada da torre) - Foto no timestamp","obrigatorio":true,"exemplo":"ex/07.jpg","opcoes":[],"colunas":[],"varias":true,"uid":18},{"tipo":"foto","rotulo":"PERMISSÃO DE TRABALHO EM ALTURA (PTA)","ajuda":"Anexe fotos de todas as páginas da PTA, devidamente preenchidas e com validade para o dia da atividade (timestamp)","obrigatorio":true,"exemplo":"ex/08.jpg","opcoes":[],"colunas":[],"varias":true,"uid":19},{"tipo":"radio","rotulo":"PERMISSÃO DE TRABALHO EM ESPAÇO CONFINADO PET","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["SIM","NÃO FEZ","NÃO APLICAVEL"],"colunas":[],"varias":false,"uid":20},{"tipo":"foto","rotulo":"FOTO DA PET - PERMISSÃO DE ENTRADA DE TRABALHO","ajuda":"Anexe fotos de todas as páginas da PET, devidamente preenchidas e com validade para o dia da atividade. Obs.: a PET só é válida por um dia. (timestamp)","obrigatorio":true,"exemplo":"ex/09.jpg","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":20,"op":"igual","valor":"SIM"},"uid":21},{"tipo":"textao","rotulo":"JUSTIFIQUE — PET","ajuda":"Justifique o motivo pelo qual a Permissão de Entrada e Trabalho (PET) não se aplica à atividade ou não foi emitida.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":20,"op":"diferente","valor":"SIM"},"uid":22},{"tipo":"radio","rotulo":"EQUIPAMENTO MULTGAS FUNCIONANDO?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["SIM","NÃO","NÃO SE APLICA"],"colunas":[],"varias":false,"uid":23},{"tipo":"foto","rotulo":"FOTO DO MULTGAS","ajuda":"Registro do equipamento funcionando (ligado) - Foto no timestamp","obrigatorio":true,"exemplo":"ex/10.jpg","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":23,"op":"igual","valor":"SIM"},"uid":24},{"tipo":"texto","rotulo":"JUSTIFIQUE — MULTGAS","ajuda":"Justifique o motivo pelo qual o multgas não se aplica ou não teve registro.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":23,"op":"diferente","valor":"SIM"},"uid":25},{"tipo":"foto","rotulo":"ANALISE PRELIMINAR DE RISCO DA EXTREME WIND","ajuda":"Anexe fotos de todas as páginas da APR, devidamente preenchidas, assinadas e datadas no dia da execução da atividade. (timestamp)","obrigatorio":true,"exemplo":"ex/11.jpg","opcoes":[],"colunas":[],"varias":true,"uid":26},{"tipo":"radio","rotulo":"FOI FEITA ANALISE PRELIMINAR DE RISCO DO CLIENTE?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["Sim","Não"],"colunas":[],"varias":false,"uid":27},{"tipo":"foto","rotulo":"ANALISE PRELIMINAR DE RISCO DO CLIENTE","ajuda":"Anexe fotos de todas as páginas da APR, devidamente preenchidas, assinadas e datadas no dia da execução da atividade. (timestamp)","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":27,"op":"igual","valor":"Sim"},"uid":28},{"tipo":"textao","rotulo":"JUSTIFIQUE — APR DO CLIENTE","ajuda":"Justifique o motivo pelo qual a ANALISE PRELIMINAR DE RISCO DO CLIENTE não se aplica à atividade ou não foi emitida.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":27,"op":"igual","valor":"Não"},"uid":29},{"tipo":"foto","rotulo":"REGISTRO DE FDS (FICHA DE SEGURANÇA) PRODUTOS QUIMICOS","ajuda":"Anexe o registro de todas as FDS dos produtos químicos utilizados na frente de trabalho. (timestamp)","obrigatorio":true,"exemplo":"ex/12.jpg","opcoes":[],"colunas":[],"varias":true,"uid":30},{"tipo":"foto","rotulo":"REGISTRO DO KIT DE PRIMEIRO SOCORROS E DEA","ajuda":"Registro do kit junto com o DEA, se for aplicável - Foto no timestamp","obrigatorio":true,"exemplo":"ex/13.jpg","opcoes":[],"colunas":[],"varias":true,"uid":31},{"tipo":"foto","rotulo":"REGISTRO DO EXTINTOR DE INCÊNDIO","ajuda":"Registro do extintor com lacre e pressurizado - Foto no timestamp","obrigatorio":true,"exemplo":"ex/14.jpg","opcoes":[],"colunas":[],"varias":false,"uid":32},{"tipo":"radio","rotulo":"FOI FEITO INSP. DE ELEVADOR","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["SIM","NÃO FEZ","NÃO SE APLICA"],"colunas":[],"varias":false,"uid":33},{"tipo":"foto","rotulo":"REGISTRO DE INSP. DE ELEVADOR","ajuda":"Registrar foto do checklist de inspeção do elevador com data do dia - Foto no timestamp","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":33,"op":"igual","valor":"SIM"},"uid":34},{"tipo":"texto","rotulo":"JUSTIFICAR — INSP. DE ELEVADOR","ajuda":"Justifique o motivo pelo qual a inspeção do elevador não foi realizada.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":33,"op":"diferente","valor":"SIM"},"uid":35},{"tipo":"radio","rotulo":"INSPE. DA TALHA","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["SIM","NÃO FEZ","NÃO SE APLICA"],"colunas":[],"varias":false,"uid":36},{"tipo":"foto","rotulo":"REGISTRO DE INSP. DA TALHA","ajuda":"Registrar foto do checklist de inspeção da talha - Foto no timestamp","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":36,"op":"igual","valor":"SIM"},"uid":37},{"tipo":"texto","rotulo":"JUSTIFICAR — INSPE. DA TALHA","ajuda":"Justifique o motivo pelo qual a inspeção da talha não foi realizada.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":36,"op":"diferente","valor":"SIM"},"uid":38},{"tipo":"foto","rotulo":"5S DO LOCAL DE TRABALHO","ajuda":"Anexe, no mínimo, três fotos do ambiente de trabalho, evidenciando que a área se encontra limpa, organizada e livre de materiais desnecessários. (timestamp)","obrigatorio":true,"exemplo":"ex/15.jpg","opcoes":[],"colunas":[],"varias":true,"uid":39},{"tipo":"radio","rotulo":"VISÃO GERAL — Equipe está com o Kit de Bloqueio Loto corretamente?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":40},{"tipo":"radio","rotulo":"VISÃO GERAL — Analise preliminar de risco está devidamente assinada e próxima à equipe?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":41},{"tipo":"radio","rotulo":"VISÃO GERAL — Equipe se sente bem para trabalhar?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":42},{"tipo":"radio","rotulo":"VISÃO GERAL — Estão com água potável para hidratação?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":43},{"tipo":"radio","rotulo":"VISÃO GERAL — A bag de içamento está em condições de trabalho?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":44},{"tipo":"radio","rotulo":"VISÃO GERAL — Os materiais químicos estão devidamente etiquetados e armazenados corretamente?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":45},{"tipo":"radio","rotulo":"VISÃO GERAL — Os produtos químicos estão sendo portados com FDS?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":46},{"tipo":"assinatura","rotulo":"ASSINATURA TÉC 01","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":47},{"tipo":"assinatura","rotulo":"ASSINATURA TÉC 02","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":48},{"tipo":"assinatura","rotulo":"ASSINATURA TÉC 03","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":49}]};
+const SCHEMA = {"titulo":"REPORT DIÁRIO DE EHS - EXTREME WIND","subtitulo":"Extreme Wind Blade Services","fotoQualidade":"economica","destino":{"url":"https://script.google.com/macros/s/AKfycbxoOpV339g76UpYa7sO28C6lS99TAz7po2c0dNAk0i1X1HgsyKC_KXIuuBAS7qbBzLG/exec","arquivo":"{campo:PARQUE/LOCAL} {DD}-{MM}-{AAAA}"},"campos":[{"tipo":"select","rotulo":"CLIENTE","ajuda":"Cliente do projeto (preenchido automaticamente).","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":2},{"uid":51,"tipo":"texto","rotulo":"PARQUE/LOCAL","ajuda":"Parque do projeto em que você está (preenchido automaticamente). Sem projeto, escolha na lista ou digite.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false},{"tipo":"texto","rotulo":"N° DE IDENTIFICAÇÃO DA WTG","ajuda":"Informe o número da WTG que esta trabalhando atualmente.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":3},{"tipo":"data","rotulo":"Data","ajuda":"Data do dia","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":4},{"tipo":"select","rotulo":"Supervisor","ajuda":"Supervisor do projeto (preenchido automaticamente).","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":9},{"tipo":"pessoa","rotulo":"TECNICO 01","ajuda":"Nome do líder de equipe","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":6},{"tipo":"pessoa","rotulo":"TECNICO 02","ajuda":"Nome do Técnico","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":7},{"tipo":"pessoa","rotulo":"TECNICO 03","ajuda":"Nome do Técnico","obrigatorio":false,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":8},{"tipo":"radio","rotulo":"HOUVE DDS?","ajuda":"Se sua resposta for não, justifique o motivo.","obrigatorio":true,"exemplo":"","opcoes":["Sim","Não"],"colunas":[],"varias":false,"uid":53},{"tipo":"foto","rotulo":"FOTO DA EQUIPE EM DDS","ajuda":"Anexar fotos da equipe reunida no DDS e outra foto da ata do DDS. (com timestamp)","obrigatorio":true,"exemplo":"ex/01.jpg","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":53,"op":"igual","valor":"Sim"},"uid":10},{"tipo":"texto","rotulo":"JUSTIFICAR O DDS","ajuda":"Descreva o motivo pelo qual o DDS não foi realizado.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":53,"op":"igual","valor":"Não"},"uid":11},{"tipo":"foto","rotulo":"FOTO DA EQUIPE PORTANDO OS EPIS BASICOS (Capacete, óculos de segurança, bota de proteção e uniforme) — todos certificados com CA","ajuda":"Anexe, no mínimo, duas fotos que evidenciem a equipe utilizando corretamente todos os EPIs obrigatórios. (timestamp)","obrigatorio":true,"exemplo":"ex/02.jpg","opcoes":[],"colunas":[],"varias":true,"uid":12},{"tipo":"radio","rotulo":"FOI FEITO BLOQUEIO DE MÁQUINA?","ajuda":"Seguir conforme Ex.","obrigatorio":true,"exemplo":"ex/03.jpg","opcoes":["Sim","Não"],"colunas":[],"varias":false,"uid":13},{"tipo":"foto","rotulo":"REGISTRO DO LOTO - GROUND","ajuda":"Foto do loto com os cadeados e cartão com data e horário preenchido. (timestamp)","obrigatorio":true,"exemplo":"ex/04.jpg","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":13,"op":"igual","valor":"Sim"},"uid":14},{"tipo":"foto","rotulo":"REGISTRO DO LOTO - ROTOR HUB","ajuda":"Foto do loto com os cadeados e cartão com data e horário preenchido. (timestamp)","obrigatorio":true,"exemplo":"ex/05.jpg","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":13,"op":"igual","valor":"Sim"},"uid":15},{"tipo":"foto","rotulo":"REGISTRO DO LOTO - BULLON","ajuda":"Foto do loto com os cadeados e cartão com data e horário preenchido. (timestamp)","obrigatorio":true,"exemplo":"ex/06.jpg","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":13,"op":"igual","valor":"Sim"},"uid":16},{"tipo":"texto","rotulo":"JUSTIFICAR — BLOQUEIO DE MÁQUINA","ajuda":"Descrever qual foi o motivo, com o máximo de informação, pelo qual não teve loto.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":13,"op":"igual","valor":"Não"},"uid":17},{"tipo":"foto","rotulo":"SINALIZAÇÃO DE SEGURANÇA EXTERNO EM CAMPO","ajuda":"Realizar 03 registros (área externa com o veículo estacionado, cones posicionados e sinalização da entrada da torre) - Foto no timestamp","obrigatorio":true,"exemplo":"ex/07.jpg","opcoes":[],"colunas":[],"varias":true,"uid":18},{"tipo":"foto","rotulo":"PERMISSÃO DE TRABALHO EM ALTURA (PTA)","ajuda":"Anexe fotos de todas as páginas da PTA, devidamente preenchidas e com validade para o dia da atividade (timestamp)","obrigatorio":true,"exemplo":"ex/08.jpg","opcoes":[],"colunas":[],"varias":true,"uid":19},{"tipo":"radio","rotulo":"PERMISSÃO DE TRABALHO EM ESPAÇO CONFINADO PET","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["SIM","NÃO FEZ","NÃO APLICAVEL"],"colunas":[],"varias":false,"uid":20},{"tipo":"foto","rotulo":"FOTO DA PET - PERMISSÃO DE ENTRADA DE TRABALHO","ajuda":"Anexe fotos de todas as páginas da PET, devidamente preenchidas e com validade para o dia da atividade. Obs.: a PET só é válida por um dia. (timestamp)","obrigatorio":true,"exemplo":"ex/09.jpg","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":20,"op":"igual","valor":"SIM"},"uid":21},{"tipo":"textao","rotulo":"JUSTIFIQUE — PET","ajuda":"Justifique o motivo pelo qual a Permissão de Entrada e Trabalho (PET) não se aplica à atividade ou não foi emitida.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":20,"op":"diferente","valor":"SIM"},"uid":22},{"tipo":"radio","rotulo":"EQUIPAMENTO MULTGAS FUNCIONANDO?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["SIM","NÃO","NÃO SE APLICA"],"colunas":[],"varias":false,"uid":23},{"tipo":"foto","rotulo":"FOTO DO MULTGAS","ajuda":"Registro do equipamento funcionando (ligado) - Foto no timestamp","obrigatorio":true,"exemplo":"ex/10.jpg","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":23,"op":"igual","valor":"SIM"},"uid":24},{"tipo":"texto","rotulo":"JUSTIFIQUE — MULTGAS","ajuda":"Justifique o motivo pelo qual o multgas não se aplica ou não teve registro.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":23,"op":"diferente","valor":"SIM"},"uid":25},{"tipo":"foto","rotulo":"ANALISE PRELIMINAR DE RISCO DA EXTREME WIND","ajuda":"Anexe fotos de todas as páginas da APR, devidamente preenchidas, assinadas e datadas no dia da execução da atividade. (timestamp)","obrigatorio":true,"exemplo":"ex/11.jpg","opcoes":[],"colunas":[],"varias":true,"uid":26},{"tipo":"radio","rotulo":"FOI FEITA ANALISE PRELIMINAR DE RISCO DO CLIENTE?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["Sim","Não"],"colunas":[],"varias":false,"uid":27},{"tipo":"foto","rotulo":"ANALISE PRELIMINAR DE RISCO DO CLIENTE","ajuda":"Anexe fotos de todas as páginas da APR, devidamente preenchidas, assinadas e datadas no dia da execução da atividade. (timestamp)","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":true,"cond":{"uid":27,"op":"igual","valor":"Sim"},"uid":28},{"tipo":"textao","rotulo":"JUSTIFIQUE — APR DO CLIENTE","ajuda":"Justifique o motivo pelo qual a ANALISE PRELIMINAR DE RISCO DO CLIENTE não se aplica à atividade ou não foi emitida.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":27,"op":"igual","valor":"Não"},"uid":29},{"tipo":"foto","rotulo":"REGISTRO DE FDS (FICHA DE SEGURANÇA) PRODUTOS QUIMICOS","ajuda":"Anexe o registro de todas as FDS dos produtos químicos utilizados na frente de trabalho. (timestamp)","obrigatorio":true,"exemplo":"ex/12.jpg","opcoes":[],"colunas":[],"varias":true,"uid":30},{"tipo":"foto","rotulo":"REGISTRO DO KIT DE PRIMEIRO SOCORROS E DEA","ajuda":"Registro do kit junto com o DEA, se for aplicável - Foto no timestamp","obrigatorio":true,"exemplo":"ex/13.jpg","opcoes":[],"colunas":[],"varias":true,"uid":31},{"tipo":"foto","rotulo":"REGISTRO DO EXTINTOR DE INCÊNDIO","ajuda":"Registro do extintor com lacre e pressurizado - Foto no timestamp","obrigatorio":true,"exemplo":"ex/14.jpg","opcoes":[],"colunas":[],"varias":false,"uid":32},{"tipo":"radio","rotulo":"FOI FEITO INSP. DE ELEVADOR","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["SIM","NÃO FEZ","NÃO SE APLICA"],"colunas":[],"varias":false,"uid":33},{"tipo":"foto","rotulo":"REGISTRO DE INSP. DE ELEVADOR","ajuda":"Registrar foto do checklist de inspeção do elevador com data do dia - Foto no timestamp","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":33,"op":"igual","valor":"SIM"},"uid":34},{"tipo":"texto","rotulo":"JUSTIFICAR — INSP. DE ELEVADOR","ajuda":"Justifique o motivo pelo qual a inspeção do elevador não foi realizada.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":33,"op":"diferente","valor":"SIM"},"uid":35},{"tipo":"radio","rotulo":"INSPE. DA TALHA","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["SIM","NÃO FEZ","NÃO SE APLICA"],"colunas":[],"varias":false,"uid":36},{"tipo":"foto","rotulo":"REGISTRO DE INSP. DA TALHA","ajuda":"Registrar foto do checklist de inspeção da talha - Foto no timestamp","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":36,"op":"igual","valor":"SIM"},"uid":37},{"tipo":"texto","rotulo":"JUSTIFICAR — INSPE. DA TALHA","ajuda":"Justifique o motivo pelo qual a inspeção da talha não foi realizada.","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"cond":{"uid":36,"op":"diferente","valor":"SIM"},"uid":38},{"tipo":"foto","rotulo":"5S DO LOCAL DE TRABALHO","ajuda":"Anexe, no mínimo, três fotos do ambiente de trabalho, evidenciando que a área se encontra limpa, organizada e livre de materiais desnecessários. (timestamp)","obrigatorio":true,"exemplo":"ex/15.jpg","opcoes":[],"colunas":[],"varias":true,"uid":39},{"tipo":"radio","rotulo":"VISÃO GERAL — Equipe está com o Kit de Bloqueio Loto corretamente?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":40},{"tipo":"radio","rotulo":"VISÃO GERAL — Analise preliminar de risco está devidamente assinada e próxima à equipe?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":41},{"tipo":"radio","rotulo":"VISÃO GERAL — Equipe se sente bem para trabalhar?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":42},{"tipo":"radio","rotulo":"VISÃO GERAL — Estão com água potável para hidratação?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":43},{"tipo":"radio","rotulo":"VISÃO GERAL — A bag de içamento está em condições de trabalho?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":44},{"tipo":"radio","rotulo":"VISÃO GERAL — Os materiais químicos estão devidamente etiquetados e armazenados corretamente?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":45},{"tipo":"radio","rotulo":"VISÃO GERAL — Os produtos químicos estão sendo portados com FDS?","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":["CONFORME","NÃO CONFORME"],"colunas":[],"varias":false,"uid":46},{"tipo":"assinatura","rotulo":"ASSINATURA TÉC 01","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":47},{"tipo":"assinatura","rotulo":"ASSINATURA TÉC 02","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":48},{"tipo":"assinatura","rotulo":"ASSINATURA TÉC 03","ajuda":"","obrigatorio":true,"exemplo":"","opcoes":[],"colunas":[],"varias":false,"uid":49}]};
 const $ = (s,r)=> (r||document).querySelector(s);
 const form = $('#form'), msg = $('#msg');
 document.getElementById('tTitulo').textContent = SCHEMA.titulo || 'Formulário';
@@ -389,6 +380,9 @@ function aplicarRascunho(estado){
     const n = document.getElementById('c' + i);
     if(!n) return;
     if(['texto','textao','numero','data','hora','select'].indexOf(c.tipo) >= 0){
+      if(c.tipo === 'select' && v && !Array.prototype.some.call(n.options, function(o){ return o.value === v; })){
+        n.appendChild(el('option', {value:v}, v));
+      }
       n.value = v;
     }else if(c.tipo === 'radio' || c.tipo === 'checkbox'){
       const alvos = Array.isArray(v) ? v.map(String) : [String(v)];
@@ -440,6 +434,7 @@ lerRascunho().then(function(estado){
   const btNao = el('button', {type:'button', class:'btn'}, 'Começar do zero');
   btSim.addEventListener('click', function(){
     aplicarRascunho(estado);
+    if(window.ehsReaplicarProjeto) window.ehsReaplicarProjeto();   // projeto de hoje vale mais que o rascunho
     barra.remove();
   });
   btNao.addEventListener('click', function(){
@@ -495,6 +490,39 @@ function avisarListaVazia(motivo){
   if(det) det.textContent = motivo || '';
 }
 
+/* GET no backend do RDO; se o navegador barrar a leitura (CORS), vai por JSONP */
+function ehsJsonp(url){
+  return new Promise(function(ok){
+    const cb = '__ehsCb' + Date.now() + Math.floor(Math.random()*1000);
+    let pronto = false;
+    window[cb] = function(j){ pronto = true; ok(j); try{ delete window[cb]; }catch(e){ window[cb] = null; } };
+    const sc = document.createElement('script');
+    sc.src = url + '&callback=' + cb;
+    sc.onerror = function(){ if(!pronto) ok(null); };
+    document.head.appendChild(sc);
+    setTimeout(function(){ if(!pronto) ok(null); }, 20000);
+  });
+}
+async function ehsGet(params){
+  const base = (SCHEMA.destino || {}).url;
+  if(!base) return null;
+  const qs = Object.keys(params).map(function(k){ return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
+  const url = base + (base.indexOf('?') >= 0 ? '&' : '?') + qs;
+  try{
+    const r = await fetch(url, {method:'GET'});
+    return JSON.parse(await r.text());
+  }catch(e){
+    return await ehsJsonp(url);
+  }
+}
+function ehsSessao(){
+  try{
+    const x = JSON.parse(localStorage.getItem('ew_sessao') || 'null');
+    if(x && x.token && x.exp > Date.now()) return x;
+  }catch(e){}
+  return null;
+}
+
 async function carregarTecnicos(){
   if(!camposPessoa.length) return;
   const guardado = await lerEstado('tecnicos');
@@ -506,22 +534,18 @@ async function carregarTecnicos(){
   if(fresco) return;
 
   try{
-    // A planilha de técnicos é definida nas propriedades do Apps Script.
-    const r = await fetch(url, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({listar:'tecnicos'})
-    });
-    const bruto = await r.text();
-    let j = null;
-    try{ j = JSON.parse(bruto); }catch(e){}
+    // Backend do RDO: a lista sai da MINI MASTER, no formato {nome, mat}.
+    const j = await ehsGet({lista:'tecnicos'});
+    if(j && j.tecnicos) j.tecnicos = j.tecnicos.map(function(t){ return {n: t.nome, m: String(t.mat || '')}; })
+      .filter(function(t){ return t.n && t.m; });
+    const r = {status: j ? 200 : 0};
     if(j && j.ok && j.tecnicos && j.tecnicos.length){
       aplicarTecnicos(j.tecnicos);
       await guardarEstado('tecnicos', {quando: Date.now(), lista: j.tecnicos});
     }else if(!TECNICOS.length){
       // Sem cache e sem resposta útil: diz o porquê em vez de deixar o campo mudo.
       let motivo;
-      if(!j) motivo = 'O servidor respondeu ' + r.status + ' fora do formato esperado.';
+      if(!j) motivo = 'Sem resposta do servidor (sem internet ou Apps Script fora do ar).';
       else if(j.erro) motivo = j.erro;
       else if(!j.tecnicos) motivo = 'O Apps Script publicado é de uma versão antiga e ainda não sabe listar técnicos. '
                                   + 'Publique uma nova versão do Codigo.gs.';
@@ -552,26 +576,6 @@ function limparEstadoTecnicos(){
     t.objectStore('estado').delete('tecnicos');
     t.oncomplete = function(){ ok(true); };
     t.onerror = function(){ ok(null); };
-  });
-}
-
-/* ---------------- correção de relatório enviado ---------------- */
-let protocoloCorrecao = '';
-if((SCHEMA.destino || {}).correcao && (SCHEMA.destino || {}).url){
-  const btC = document.getElementById('btCorrigir');
-  const cx = document.getElementById('correcao');
-  const inp = document.getElementById('protocolo');
-  btC.style.display = '';
-  btC.addEventListener('click', function(){
-    cx.style.display = ''; btC.style.display = 'none'; inp.focus();
-  });
-  document.getElementById('btCancelarCorr').addEventListener('click', function(){
-    cx.style.display = 'none'; btC.style.display = ''; inp.value = '';
-    protocoloCorrecao = ''; ajustarBotao();
-  });
-  inp.addEventListener('input', function(){
-    protocoloCorrecao = inp.value.trim().toUpperCase();
-    ajustarBotao();
   });
 }
 
@@ -922,6 +926,7 @@ document.getElementById('btPdf').addEventListener('click', async function(){
   let doc, nomeLocal, pdfBlob;
   try{
     doc = await montarPDF(dados);
+    idEnvioAtual = '';   // PDF novo = envio novo (o reenvio do mesmo PDF reaproveita o id)
     nomeLocal = resolver(D.arquivo, dados).replace(/\{ID\}/g,'').replace(/[_-]+$/,'') || 'formulario';
     // blob em vez de doc.save(): evita uma segunda cópia do PDF inteiro em base64
     pdfBlob = doc.output('blob');
@@ -952,6 +957,9 @@ document.getElementById('btPdf').addEventListener('click', async function(){
       await limparRascunho();
       await apagarBlobs(usadas);
       sucesso(r, identificadores(dados, D));
+    }else if(r && r.sessao === false){
+      alerta('ruim', (r.erro || 'Sessão expirada.') + ' O preenchimento ficou salvo — entre de novo pelo menu e reenvie.');
+      bt.disabled = false; bt.textContent = rotuloBotao();
     }else{
       alerta('ruim', 'O servidor recusou o envio: ' + ((r && r.erro) || 'motivo não informado') +
                      '. O PDF já está salvo no aparelho — reenvie depois.');
@@ -962,7 +970,7 @@ document.getElementById('btPdf').addEventListener('click', async function(){
     let dica = '';
     if(ultimoTamanhoMB >= 7){
       dica = ' O envio tem ' + ultimoTamanhoMB + ' MB, o que é grande demais para a conexão ou para o limite do '
-           + 'Apps Script. Reduza a qualidade das fotos no construtor ou anexe menos imagens.';
+           + 'Apps Script. Anexe menos imagens ou tente com sinal melhor.';
     }else if(ultimoTamanhoMB > 0){
       dica = ' Tamanho do envio: ' + ultimoTamanhoMB + ' MB.';
     }
@@ -1000,7 +1008,7 @@ function mostrarReenviar(pdfBlob, dados, D){
 
 function rotuloBotao(){
   if(!(SCHEMA.destino && SCHEMA.destino.url)) return 'Gerar PDF';
-  return protocoloCorrecao ? 'Substituir relatório ' + protocoloCorrecao : 'Gerar PDF e enviar';
+  return 'Gerar PDF e enviar';
 }
 
 function limpar(t){
@@ -1047,19 +1055,31 @@ function paraTexto(item){
 
 let ultimoTamanhoMB = 0;
 
+/* id do envio: o mesmo PDF reenviado (sem resposta no 4G) não grava duas vezes */
+let idEnvioAtual = '';
+
+function valorDoUid(dados, uid){
+  for(const item of dados){ if(String(item.campo.uid) === String(uid)) return item.valor; }
+  return '';
+}
+
 async function enviar(pdfBlob, dados, D){
+  const sess = ehsSessao();
+  if(!sess){
+    throw new Error('sua sessão expirou — volte ao menu e entre de novo (o preenchimento fica salvo)');
+  }
   const b64 = (await blobParaDataURL(pdfBlob)).split(',')[1];
   ultimoTamanhoMB = Math.round(b64.length / 1024 / 1024 * 10) / 10;
-  const base = String(D.pasta || '/').replace(/\/+$/,'');
-  const sub = resolver(D.sub, dados).replace(/^\/+|\/+$/g,'');
+  if(!idEnvioAtual) idEnvioAtual = 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const corpo = {
-    formulario: SCHEMA.titulo || 'Formulário',
-    pasta: base + (sub ? '/' + sub : ''),
-    arquivo: (resolver(D.arquivo, dados) || 'arquivo') + '.pdf',
-    planilha: D.sheet !== false,
-    planilhaId: D.sheetId || '',
+    acao: 'reportEhs',
+    token: sess.token,
+    idEnvio: idEnvioAtual,
+    data: valorDoUid(dados, 4),
+    cliente: valorDoUid(dados, 2),
+    parque: valorDoUid(dados, 51),
+    supervisor: valorDoUid(dados, 9),
     pdf: b64,
-    protocolo: protocoloCorrecao || '',
     campos: (function(){
       const saida = [];
       dados.forEach(function(item){
@@ -1080,7 +1100,6 @@ async function enviar(pdfBlob, dados, D){
     try{
       resp = await fetch(D.url, {
         method: 'POST',
-        headers: {'Content-Type': 'text/plain;charset=utf-8'},
         body: texto,
         redirect: 'follow'
       });
@@ -1151,7 +1170,7 @@ function sucesso(r, ident){
       '<div class="fim-selo">Enviado</div>' +
       '<h2>' + (SCHEMA.titulo || 'Formulário') + '</h2>' +
       (linhas ? '<div class="fim-lista">' + linhas + '</div>' : '') +
-      '<p>' + (r.corrigido ? 'Relatório substituído. ' : 'Registro concluído. ') +
+      '<p>' + (r.substituiu ? 'O report deste dia foi substituído (PDF e planilha). ' : 'Registro concluído. ') +
         'Uma cópia do PDF ficou salva neste aparelho.</p>' +
       '<p class="fim-prot">Protocolo <b>' + (r.id || '—') + '</b></p>' +
       '<button type="button" class="btn" onclick="location.reload()">Preencher outro</button>' +
@@ -1165,7 +1184,8 @@ async function montarPDF(dados){
   const M = 15, LARG = 210, UTIL = LARG - M*2, FIM = 297 - M;
   let y = M;
 
-  function espaco(h){ if(y + h > FIM){ doc.addPage(); y = M; } }
+  function espaco(h){ if(y + h > FIM){ doc.addPage(); y = M; fotosPag = 0; } }
+  let fotosPag = 0;   // máximo 4 fotos por página (zoom do analista)
   function texto(t, tam, estilo){
     doc.setFont('helvetica', estilo || 'normal');
     doc.setFontSize(tam);
@@ -1208,7 +1228,7 @@ async function montarPDF(dados){
         // Em nenhum caso a imagem é deformada: a escala é a mesma nos dois eixos.
         const porLinha = v.length === 1 ? 1 : 2;
         const caixaL = porLinha === 1 ? UTIL : (UTIL - 4) / 2;
-        const caixaA = porLinha === 1 ? 115 : 78;
+        const caixaA = porLinha === 1 ? 120 : 112;
         for(let k=0; k<v.length; k+=porLinha){
           const grupo = v.slice(k, k + porLinha).map(function(f){
             const e = Math.min(caixaL / f.w, caixaA / f.h);
@@ -1216,6 +1236,7 @@ async function montarPDF(dados){
           });
           let alturaLinha = 0;
           grupo.forEach(function(g){ if(g.al > alturaLinha) alturaLinha = g.al; });
+          if(fotosPag + grupo.length > 4){ doc.addPage(); y = M; fotosPag = 0; }
           espaco(alturaLinha + 4);
           for(let idx=0; idx<grupo.length; idx++){
             const g = grupo[idx];
@@ -1228,6 +1249,7 @@ async function montarPDF(dados){
             }
           }
           y += alturaLinha + 4;
+          fotosPag += grupo.length;
         }
       }
     }
@@ -1272,13 +1294,22 @@ async function montarPDF(dados){
   return doc;
 }
 
-/* ================= EHS: campos repetidos do dia anterior =================
-   PARQUE/LOCAL, N DA WTG e os tres tecnicos voltam preenchidos e TRAVADOS.
-   Para mudar, o tecnico toca em "Editar" ao lado do campo. Guardado so
-   neste aparelho e separado do RDO (chave propria). */
+/* ================= EHS: projeto (aba SUPERVISORES) + último report =================
+   1) Projeto da matrícula de quem logou (backend do RDO, ação 'projeto'):
+      CLIENTE, PARQUE/LOCAL e Supervisor vêm preenchidos e TRAVADOS. Os técnicos
+      vêm preenchidos (TÉCNICO 01 = quem logou, depois a equipe do projeto) e
+      travados, com "Editar" ao lado — alguém da equipe pode estar de folga.
+   2) Sem projeto: listas dos projetos em andamento para escolher, e os campos
+      do último report enviado voltam preenchidos (como antes).
+   O último projeto recebido fica guardado no aparelho para abrir sem sinal. */
 (function(){
-  var CHAVE = 'ehs_ultimo_v1';
-  var UIDS  = [51, 3, 6, 7, 8];   /* PARQUE/LOCAL, WTG, TEC 01, TEC 02, TEC 03 */
+  var UID_CLI = 2, UID_PQ = 51, UID_WTG = 3, UID_SUP = 9, UID_TEC = [6, 7, 8];
+  var CHAVE_ULT = 'ehs_ultimo_v1';
+  var sess = ehsSessao();
+  var CHAVE_PROJ = 'ehs_projeto_' + (sess ? sess.mat : 'x');
+  /* listas de reserva: só entram se a aba SUPERVISORES não respondeu nunca */
+  var RESERVA = {clientes:['GE','NORDEX','NORDEX MX','SIEMENS'], supervisores:['Evair','Magalhães','Wilder']};
+  var PROJ = null, OPC = {clientes:[], parques:{}, supervisores:[]};
 
   function indiceDe(uid){
     for(var i = 0; i < SCHEMA.campos.length; i++){
@@ -1286,43 +1317,56 @@ async function montarPDF(dados){
     }
     return -1;
   }
+  function campo(uid){ var i = indiceDe(uid); return i < 0 ? null : document.getElementById('c' + i); }
 
-  function lerGuardado(){
-    try{ return JSON.parse(localStorage.getItem(CHAVE) || '{}'); }
-    catch(e){ return {}; }
+  /* datalist do PARQUE/LOCAL: sugere sem impedir de digitar */
+  var dl = document.createElement('datalist');
+  dl.id = 'ehsParques';
+  document.body.appendChild(dl);
+  (function(){ var p = campo(UID_PQ); if(p) p.setAttribute('list', 'ehsParques'); })();
+
+  function preencherSelect(sel, lista, valor){
+    if(!sel) return;
+    var v = valor != null ? valor : sel.value;
+    sel.innerHTML = '';
+    sel.appendChild(el('option', {value:''}, 'Selecione...'));
+    lista.forEach(function(o){ sel.appendChild(el('option', {value:o}, o)); });
+    if(v && lista.indexOf(v) < 0) sel.appendChild(el('option', {value:v}, v));
+    sel.value = v || '';
   }
+  function preencherParques(){
+    var c = campo(UID_CLI);
+    var lista = (c && OPC.parques[c.value]) || [];
+    if(!lista.length) Object.keys(OPC.parques).forEach(function(k){ lista = lista.concat(OPC.parques[k]); });
+    dl.innerHTML = '';
+    lista.forEach(function(p){ dl.appendChild(el('option', {value:p})); });
+  }
+  function aplicarListas(){
+    var cli = OPC.clientes.length ? OPC.clientes : RESERVA.clientes;
+    var sup = OPC.supervisores.length ? OPC.supervisores : RESERVA.supervisores;
+    preencherSelect(campo(UID_CLI), cli);
+    preencherSelect(campo(UID_SUP), sup);
+    preencherParques();
+  }
+  (function(){
+    var c = campo(UID_CLI);
+    if(c) c.addEventListener('change', preencherParques);
+  })();
 
-  /* chamado pela tela de sucesso, depois do envio confirmado */
-  window.ehsGravarUltimo = function(){
-    var guardar = {};
-    UIDS.forEach(function(uid){
-      var i = indiceDe(uid);
-      if(i < 0) return;
-      var c = SCHEMA.campos[i];
-      if(c.tipo === 'pessoa'){
-        if(pessoas[i]) guardar[uid] = {nome: pessoas[i].nome, matricula: pessoas[i].matricula};
-      }else{
-        var el = document.getElementById('c' + i);
-        if(el && el.value) guardar[uid] = el.value;
-      }
-    });
-    try{ localStorage.setItem(CHAVE, JSON.stringify(guardar)); }catch(e){}
-  };
-
-  function travar(i, travado){
-    var c = SCHEMA.campos[i];
-    if(c.tipo === 'pessoa'){
-      var cx = document.getElementById('c' + i);
-      if(!cx) return;
-      var nome = cx.querySelector('.nome');
+  function travar(uid, travado){
+    var i = indiceDe(uid);
+    if(i < 0) return;
+    var n = document.getElementById('c' + i);
+    if(!n) return;
+    if(SCHEMA.campos[i].tipo === 'pessoa'){
+      var nome = n.querySelector('.nome');
       if(nome) nome.disabled = !!travado;
       return;
     }
-    var el = document.getElementById('c' + i);
-    if(el) el.disabled = !!travado;
+    n.disabled = !!travado;
   }
-
-  function botaoEditar(i){
+  function botaoEditar(uid){
+    var i = indiceDe(uid);
     var bloco = document.querySelector('[data-bloco="' + i + '"]');
     if(!bloco || bloco.querySelector('.ehs-edit')) return;
     var b = document.createElement('button');
@@ -1330,46 +1374,158 @@ async function montarPDF(dados){
     b.className = 'btn ehs-edit';
     b.style.cssText = 'margin-top:8px;font-size:12px;padding:4px 12px';
     b.textContent = 'Editar';
-    b.onclick = function(){ travar(i, false); b.remove(); };
+    b.onclick = function(){ travar(uid, false); b.remove(); };
     bloco.appendChild(b);
   }
-
-  function aplicar(){
-    var guardado = lerGuardado();
-    var algum = false;
-
-    UIDS.forEach(function(uid){
-      if(!(uid in guardado)) return;
-      var i = indiceDe(uid);
-      if(i < 0) return;
-      var c = SCHEMA.campos[i], v = guardado[uid];
-
-      if(c.tipo === 'pessoa'){
-        var cx = document.getElementById('c' + i);
-        if(!cx) return;
-        var nome = cx.querySelector('.nome'), mat = cx.querySelector('.mat');
-        if(nome && nome.value) return;          /* rascunho ja preencheu */
-        pessoas[i] = {nome: v.nome, matricula: v.matricula};
-        if(nome) nome.value = v.nome;
-        if(mat) mat.value = v.matricula;
-      }else{
-        var el = document.getElementById('c' + i);
-        if(!el || el.value) return;             /* rascunho ja preencheu */
-        el.value = v;
-      }
-
-      travar(i, true);
-      botaoEditar(i);
-      algum = true;
-    });
-
-    if(algum){
-      try{ atualizarCondicoes(); }catch(e){}
-    }
+  function tirarEditar(uid){
+    var bloco = document.querySelector('[data-bloco="' + indiceDe(uid) + '"]');
+    var b = bloco && bloco.querySelector('.ehs-edit');
+    if(b) b.remove();
+  }
+  function porPessoa(uid, t){
+    var i = indiceDe(uid);
+    var cx = i < 0 ? null : document.getElementById('c' + i);
+    if(!cx) return;
+    pessoas[i] = {nome: t.nome, matricula: String(t.mat)};
+    var nome = cx.querySelector('.nome'), mat = cx.querySelector('.mat');
+    if(nome) nome.value = t.nome;
+    if(mat) mat.value = String(t.mat);
+  }
+  function pessoaVazia(uid){
+    var i = indiceDe(uid);
+    return i >= 0 && !pessoas[i];
   }
 
-  /* espera o rascunho (se houver) terminar de aplicar */
-  setTimeout(aplicar, 400);
+  var avisos = [];
+  function avisar(t){
+    if(avisos.indexOf(t) >= 0) return;
+    avisos.push(t);
+    var cx = document.getElementById('ehsAvisoProjeto');
+    if(!cx){
+      cx = el('div', {id:'ehsAvisoProjeto', class:'msg aviso mostrar'});
+      var folha = document.querySelector('.folha');
+      if(folha) folha.insertBefore(cx, folha.firstChild);
+    }
+    cx.textContent = avisos.join(' ');
+  }
+
+  /* comTecnicos=false: só cliente/parque/supervisor (depois de um rascunho) */
+  function aplicarProjeto(comTecnicos){
+    if(!PROJ) return false;
+    var c = campo(UID_CLI), p = campo(UID_PQ), s = campo(UID_SUP);
+    if(c){ preencherSelect(c, OPC.clientes.length ? OPC.clientes : RESERVA.clientes, PROJ.cliente); }
+    preencherParques();
+    if(p) p.value = PROJ.parque || '';
+    if(s){ preencherSelect(s, OPC.supervisores.length ? OPC.supervisores : RESERVA.supervisores, PROJ.supervisor); }
+    [UID_CLI, UID_PQ, UID_SUP].forEach(function(u){ tirarEditar(u); travar(u, true); });
+
+    if(comTecnicos){
+      var equipe = [];
+      if(sess) equipe.push({nome: sess.nome, mat: sess.mat});
+      var semNome = [];
+      (PROJ.equipe || []).forEach(function(t){
+        if(sess && String(t.mat) === String(sess.mat)) return;
+        if(!t.nome){ semNome.push(t.mat); return; }
+        equipe.push(t);
+      });
+      UID_TEC.forEach(function(u, k){
+        if(!equipe[k]) return;
+        porPessoa(u, equipe[k]);
+        travar(u, true);
+        botaoEditar(u);
+      });
+      if(semNome.length) avisar('Matrícula(s) ' + semNome.join(', ') + ' do projeto não estão no cadastro (mini master) e ficaram de fora.');
+      if(equipe.length > UID_TEC.length) avisar('O projeto tem ' + equipe.length + ' técnicos e o report tem ' + UID_TEC.length + ' campos — confira quem está na frente de trabalho.');
+    }
+    if(PROJ.outros && PROJ.outros.length){
+      avisar('Você aparece em mais de um projeto em andamento. Usando ' + PROJ.cliente + ' / ' + PROJ.parque
+        + ' (início mais recente). Os outros: ' + PROJ.outros.join('; ') + '. Se estiver errado, avise o supervisor.');
+    }
+    try{ atualizarCondicoes(); }catch(e){}
+    return true;
+  }
+  window.ehsReaplicarProjeto = function(){ aplicarProjeto(false); };
+
+  function lerGuardado(){
+    try{ return JSON.parse(localStorage.getItem(CHAVE_ULT) || '{}'); }
+    catch(e){ return {}; }
+  }
+
+  /* chamado pela tela de sucesso, depois do envio confirmado */
+  window.ehsGravarUltimo = function(){
+    var guardar = {};
+    [UID_CLI, UID_PQ, UID_WTG].concat(UID_TEC).forEach(function(uid){
+      var i = indiceDe(uid);
+      if(i < 0) return;
+      if(SCHEMA.campos[i].tipo === 'pessoa'){
+        if(pessoas[i]) guardar[uid] = {nome: pessoas[i].nome, matricula: pessoas[i].matricula};
+      }else{
+        var n = document.getElementById('c' + i);
+        if(n && n.value) guardar[uid] = n.value;
+      }
+    });
+    try{ localStorage.setItem(CHAVE_ULT, JSON.stringify(guardar)); }catch(e){}
+  };
+
+  /* último report: com projeto, só a WTG; sem projeto, tudo como antes */
+  function aplicarUltimo(){
+    var g = lerGuardado();
+    var uids = PROJ ? [UID_WTG] : [UID_CLI, UID_PQ, UID_WTG].concat(UID_TEC);
+    var algum = false;
+    uids.forEach(function(uid){
+      if(!(uid in g)) return;
+      var i = indiceDe(uid);
+      if(i < 0) return;
+      var c = SCHEMA.campos[i], v = g[uid];
+      if(c.tipo === 'pessoa'){
+        if(!pessoaVazia(uid)) return;
+        porPessoa(uid, {nome: v.nome, mat: v.matricula});
+      }else{
+        var n = document.getElementById('c' + i);
+        if(!n || n.value) return;
+        if(c.tipo === 'select') preencherSelect(n, Array.prototype.slice.call(n.options).map(function(o){ return o.value; }).filter(Boolean), v);
+        else n.value = v;
+        if(uid === UID_CLI) preencherParques();
+      }
+      travar(uid, true);
+      botaoEditar(uid);
+      algum = true;
+    });
+    if(algum){ try{ atualizarCondicoes(); }catch(e){} }
+  }
+
+  function guardarProjeto(r){
+    try{ localStorage.setItem(CHAVE_PROJ, JSON.stringify({quando: Date.now(), projeto: r.projeto, opcoes: r.opcoes})); }catch(e){}
+  }
+  function projetoGuardado(){
+    try{ return JSON.parse(localStorage.getItem(CHAVE_PROJ) || 'null'); }catch(e){ return null; }
+  }
+
+  async function iniciar(){
+    var g = projetoGuardado();
+    if(g){ PROJ = g.projeto || null; OPC = g.opcoes || OPC; }
+    aplicarListas();
+
+    var r = sess ? await ehsGet({acao:'projeto', token: sess.token}) : null;
+    if(r && r.ok){
+      PROJ = r.projeto || null;
+      OPC = r.opcoes || OPC;
+      guardarProjeto(r);
+      aplicarListas();
+    }else if(r && r.sessao === false){
+      avisar('Sua sessão expirou: volte ao menu e entre de novo para preencher o projeto automaticamente.');
+    }else if(!g){
+      avisar('Não consegui buscar o seu projeto (sem internet?). Preencha cliente, parque e supervisor.');
+    }
+
+    if(!aplicarProjeto(true) && sess && r && r.ok){
+      avisar('Sua matrícula não está em nenhum projeto em andamento na aba SUPERVISORES — preencha cliente, parque e supervisor.');
+    }
+    aplicarUltimo();
+  }
+
+  /* espera o rascunho (se houver) e a lista de técnicos */
+  setTimeout(iniciar, 400);
 })();
 
 </script>

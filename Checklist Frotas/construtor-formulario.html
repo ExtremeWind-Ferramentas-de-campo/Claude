@@ -883,7 +883,8 @@ async function montarPDF(dados){
   const M = 15, LARG = 210, UTIL = LARG - M*2, FIM = 297 - M;
   let y = M;
 
-  function espaco(h){ if(y + h > FIM){ doc.addPage(); y = M; } }
+  function espaco(h){ if(y + h > FIM){ doc.addPage(); y = M; fotosPag = 0; } }
+  let fotosPag = 0;   // máximo 4 fotos por página (zoom do analista)
   function texto(t, tam, estilo){
     doc.setFont('helvetica', estilo || 'normal');
     doc.setFontSize(tam);
@@ -919,10 +920,12 @@ async function montarPDF(dados){
       else {
         const lg = (UTIL - 4) / 2, al = lg * 0.75;
         for(let k=0; k<v.length; k+=2){
+          if(fotosPag + (v[k+1] ? 2 : 1) > 4){ doc.addPage(); y = M; fotosPag = 0; }
           espaco(al + 4);
           doc.addImage(v[k], 'JPEG', M, y, lg, al);
           if(v[k+1]) doc.addImage(v[k+1], 'JPEG', M + lg + 4, y, lg, al);
           y += al + 4;
+          fotosPag += v[k+1] ? 2 : 1;
         }
       }
     }

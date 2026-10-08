@@ -1114,7 +1114,8 @@ async function montarPDF(dados){
   const M = 15, LARG = 210, UTIL = LARG - M*2, FIM = 297 - M;
   let y = M;
 
-  function espaco(h){ if(y + h > FIM){ doc.addPage(); y = M; } }
+  function espaco(h){ if(y + h > FIM){ doc.addPage(); y = M; fotosPag = 0; } }
+  let fotosPag = 0;   // máximo 4 fotos por página (zoom do analista)
   function texto(t, tam, estilo){
     doc.setFont('helvetica', estilo || 'normal');
     doc.setFontSize(tam);
@@ -1157,7 +1158,7 @@ async function montarPDF(dados){
         // Em nenhum caso a imagem é deformada: a escala é a mesma nos dois eixos.
         const porLinha = v.length === 1 ? 1 : 2;
         const caixaL = porLinha === 1 ? UTIL : (UTIL - 4) / 2;
-        const caixaA = porLinha === 1 ? 115 : 78;
+        const caixaA = porLinha === 1 ? 120 : 112;
         for(let k=0; k<v.length; k+=porLinha){
           const grupo = v.slice(k, k + porLinha).map(function(f){
             const e = Math.min(caixaL / f.w, caixaA / f.h);
@@ -1165,6 +1166,7 @@ async function montarPDF(dados){
           });
           let alturaLinha = 0;
           grupo.forEach(function(g){ if(g.al > alturaLinha) alturaLinha = g.al; });
+          if(fotosPag + grupo.length > 4){ doc.addPage(); y = M; fotosPag = 0; }
           espaco(alturaLinha + 4);
           for(let idx=0; idx<grupo.length; idx++){
             const g = grupo[idx];
@@ -1177,6 +1179,7 @@ async function montarPDF(dados){
             }
           }
           y += alturaLinha + 4;
+          fotosPag += grupo.length;
         }
       }
     }

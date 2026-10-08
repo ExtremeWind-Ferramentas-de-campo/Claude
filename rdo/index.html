@@ -309,21 +309,12 @@
           <option>SIEMENS</option>
         </select>
       </div>
-      <div class="row">
-        <div class="field">
-          <label class="req">Parque</label>
-          <select id="parque" required disabled>
-            <option value="">Escolha o cliente primeiro</option>
-          </select>
-        </div>
-        <div class="field" style="max-width:110px;">
-          <label class="req">Equipe Nº</label>
-          <select id="parque_num" required>
-            <option value="">–</option>
-            <option>1</option><option>2</option><option>3</option>
-            <option>4</option><option>5</option><option>6</option>
-          </select>
-        </div>
+      <div class="field">
+        <label class="req">Parque</label>
+        <select id="parque" required disabled>
+          <option value="">Escolha o cliente primeiro</option>
+        </select>
+        <div class="hint" id="hintProjeto" hidden></div>
       </div>
     </section>
 
@@ -547,8 +538,15 @@ function diaDaSemana(iso){
  * Devolve '' quando o expediente cumpre o mínimo, ou o texto do erro.
  * Vira mensagem de bloqueio no envio.
  */
+/* regra do cliente: nome exato primeiro; senão a 1ª palavra ("NORDEX MX" -> NORDEX).
+   Se o contrato do México tiver outra jornada, é só criar a chave 'NORDEX MX' acima. */
+function regraJornada(cliente){
+  const c=String(cliente||'').trim().toUpperCase();
+  if(MIN_JORNADA[c]) return MIN_JORNADA[c];
+  return MIN_JORNADA[c.split(/\s+/)[0]]||null;
+}
 function checarJornadaMinima(d){
-  const regra=MIN_JORNADA[d.cliente];
+  const regra=regraJornada(d.cliente);
   if(!regra) return '';                       /* cliente sem regra: não bloqueia */
   const dia=diaDaSemana(d.data_exp);
   if(dia===null) return '';
@@ -605,7 +603,22 @@ function atualizarAvisoAlmoco(block){
 }
 
 /* ---------- listas vindas do Banco de inputs ---------- */
-const IN = { ok:false, clientes:[], parques:{}, resumo:[], reparos:[], comuns:[], feriado:[] };
+const IN = { ok:false, clientes:[], parques:{}, resumo:[], reparos:[], comuns:[], feriado:[],
+             projetos:{clientes:[],parques:{},supervisores:[]} };
+/* Clientes = os dos projetos em andamento (aba SUPERVISORES) + os da aba
+   PARQUE E CLIENTE. Parques: os dos projetos têm o número da equipe no nome
+   ("GAMELEIRA 1") e por isso vêm primeiro; sem projeto daquele cliente, vale
+   a lista antiga. */
+function clientesDaLista(){
+  const out=[], visto={};
+  (IN.projetos.clientes||[]).concat(IN.clientes||[]).forEach(c=>{ if(c&&!visto[c]){ visto[c]=1; out.push(c); } });
+  return out.sort((a,b)=>a.localeCompare(b,'pt-BR'));
+}
+function parquesDaLista(cliente){
+  const p=(IN.projetos.parques||{})[cliente];
+  if(p&&p.length) return p;
+  return (IN.parques&&IN.parques[cliente])||[];
+}
 const IN_LS_KEY = 'ew_inputs_v1';
 
 function avisoListas(txt,tipo){
@@ -693,10 +706,11 @@ function aplicarInputs(dados,origem){
   IN.resumo=dados.resumo||[]; IN.reparos=dados.reparos;
   IN.comuns=dados.comuns||[];
   IN.feriado=dados.feriado||[];
+  IN.projetos=dados.projetos||{clientes:[],parques:{},supervisores:[]};
   IN.ok=true;
 
   selCliente.innerHTML='<option value="">Selecione o cliente…</option>'
-    + IN.clientes.map(c=>`<option>${escHtml(c)}</option>`).join('');
+    + clientesDaLista().map(c=>`<option>${escHtml(c)}</option>`).join('');
   selParque.innerHTML='<option value="">Escolha o cliente primeiro</option>';
   selParque.disabled=true;
 
@@ -722,12 +736,115 @@ function aplicarInputs(dados,origem){
 
 let rascunhoJaCarregado=false;
 async function talvezCarregarRascunho(){
-  if(rascunhoJaCarregado||!IN.ok||!SESSAO) return;
+  if(rascunhoJaCarregado||!IN.ok||!SESSAO||!PROJ.pronto) return;
   rascunhoJaCarregado=true;
+  let temRascunho=false;
   try{
-    const temRascunho=await carregarRascunho();
+    temRascunho=await carregarRascunho();
     if(!temRascunho) await aplicarUltimoRdo();
   }catch(_){}
+  /* o projeto de hoje vale mais que rascunho e último RDO para cliente/parque;
+     a equipe do projeto só entra se não houver rascunho (lá estão as edições) */
+  aplicarProjetoRdo(!temRascunho);
+}
+
+/* ===================== PROJETO (aba SUPERVISORES) =====================
+   O backend devolve o projeto em andamento da matrícula de quem logou.
+   Com projeto: cliente e parque preenchidos e travados; equipe preenchida
+   (dá para editar — alguém pode estar de folga). Sem projeto: tudo manual.
+   O último projeto fica guardado no aparelho para abrir sem sinal. */
+const PROJ={ pronto:false, dados:null };
+function chaveProjeto(){ return 'ew_projeto_'+((SESSAO&&SESSAO.mat)||'x'); }
+
+function projetoJsonp(url){
+  return new Promise(ok=>{
+    const cb='__projCb'+Date.now();
+    let feito=false;
+    window[cb]=j=>{ feito=true; ok(j); try{ delete window[cb]; }catch(_){ window[cb]=null; } };
+    const sc=document.createElement('script');
+    sc.src=url+'&callback='+cb;
+    sc.onerror=()=>{ if(!feito) ok(null); };
+    document.head.appendChild(sc);
+    setTimeout(()=>{ if(!feito) ok(null); },15000);
+  });
+}
+
+async function carregarProjeto(){
+  let guardado=null;
+  try{ guardado=JSON.parse(localStorage.getItem(chaveProjeto())||'null'); }catch(_){}
+  let r=null;
+  if(ENDPOINT && SESSAO && navigator.onLine){
+    const url=ENDPOINT+(ENDPOINT.indexOf('?')>=0?'&':'?')+'acao=projeto&token='+encodeURIComponent(SESSAO.token);
+    try{
+      const res=await fetch(url,{method:'GET'});
+      r=JSON.parse(await res.text());
+    }catch(_){ r=await projetoJsonp(url); }
+  }
+  if(r && r.ok){
+    PROJ.dados=r.projeto||null;
+    try{ localStorage.setItem(chaveProjeto(),JSON.stringify({quando:Date.now(),projeto:PROJ.dados})); }catch(_){}
+  }else if(guardado){
+    PROJ.dados=guardado.projeto||null;
+  }
+  PROJ.pronto=true;
+  talvezCarregarRascunho();
+}
+
+function garantirOpcao(sel,valor){
+  if(!valor) return;
+  if(![...sel.options].some(o=>o.value===valor)){
+    const o=document.createElement('option'); o.value=valor; o.textContent=valor; sel.appendChild(o);
+  }
+}
+
+function aplicarProjetoRdo(comEquipe){
+  const p=PROJ.dados;
+  const dica=document.getElementById('hintProjeto');
+  if(!p){
+    if(dica){ dica.hidden=true; }
+    return false;
+  }
+  /* cliente -> change monta a lista de parques e os campos SIEMENS */
+  garantirOpcao(selCliente,p.cliente);
+  if(selCliente.value!==p.cliente){
+    selCliente.value=p.cliente;
+    selCliente.dispatchEvent(new Event('change'));
+  }
+  garantirOpcao(selParque,p.parque);
+  selParque.value=p.parque;
+  selCliente.disabled=true; selParque.disabled=true;
+  const bt=document.getElementById('edit_ident'); if(bt) bt.remove();
+
+  if(dica){
+    let t='Cliente e parque preenchidos pelo seu projeto (aba SUPERVISORES).';
+    if(p.outros&&p.outros.length) t+=' Você também aparece em: '+p.outros.join('; ')+' — vale o de início mais recente. Se estiver errado, avise o supervisor.';
+    dica.textContent=t; dica.hidden=false;
+  }
+
+  if(comEquipe){
+    const meu=String((SESSAO&&SESSAO.mat)||'');
+    const outros=(p.equipe||[]).filter(t=>String(t.mat)!==meu);
+    const semNome=outros.filter(t=>!t.nome).map(t=>t.mat);
+    const comNome=outros.filter(t=>t.nome);
+    if(comNome.length){
+      [...document.querySelectorAll('.tecnico-row')].slice(1).forEach(r=>r.remove());
+      comNome.forEach(t=>{
+        addTecnico();
+        const linhas=[...document.querySelectorAll('.tecnico-row')];
+        const linha=linhas[linhas.length-1];
+        const inp=linha.querySelector('.tecnico');
+        inp.value=t.nome; inp.dataset.ok='1'; inp.classList.add('tec-ok');
+        linha.querySelector('.matricula').value=String(t.mat);
+      });
+      if(document.querySelectorAll('.tecnico-row').length<2) addTecnico();
+      atualizarAddTec();
+    }
+    if(semNome.length){
+      mmStatus('Matrícula(s) '+semNome.join(', ')+' do projeto não estão no cadastro de técnicos e ficaram de fora.','#B45309');
+    }
+  }
+  try{ atualizarParadaWtg(); }catch(_){}
+  return true;
 }
 function inputsDoCache(){
   try{
@@ -765,7 +882,7 @@ function atualizarCamposSiemens(){
 }
 
 selCliente.addEventListener('change',()=>{
-  const lista=(IN.parques&&IN.parques[selCliente.value])||[];
+  const lista=parquesDaLista(selCliente.value);
   selParque.innerHTML = '<option value="">Selecione o parque…</option>'
     + lista.map(p=>`<option>${escHtml(p)}</option>`).join('');
   selParque.disabled = lista.length===0;
@@ -1008,7 +1125,7 @@ function chaveUltimo(){ return 'u_'+((SESSAO&&SESSAO.mat)||'sem-mat'); }
 /* Um grupo por card. Cada card ganha o proprio botao de editar, no titulo.
    avisar:true = pede confirmacao quando o reparo nao foi finalizado. */
 const TRAVAS = {
-  ident:  { sel:'#secIdent',  titulo:'Identificação',       campos:['cliente','parque','parque_num'], avisar:false },
+  ident:  { sel:'#secIdent',  titulo:'Identificação',       campos:['cliente','parque'], avisar:false },
   equipe: { sel:'#secEquipe', titulo:'Equipe',              campos:['email'], equipe:true, avisar:false },
   local:  { sel:'#secLocal',  titulo:'Local e máquina',     campos:['turbina','blade'], chips:['local'], avisar:true },
   ativ:   { sel:'#secAtiv',   titulo:'Atividade realizada', campos:['tipo_reparo'], avisar:true }
@@ -1017,7 +1134,7 @@ const TRAVAS = {
 async function salvarUltimoRdo(d){
   try{
     await idbPut('rascunhos',{ ultimo:{
-      cliente:d.cliente||'', parque:d.parque||'', parque_num:d.parque_num||'',
+      cliente:d.cliente||'', parque:d.parque||'',
       tecnicos:(d.tecnicos||[]).map(t=>({nome:t.nome||'',mat:t.mat||''})),
       email:d.email||'', local:d.local||'',
       turbina:d.turbina||'', blade:d.blade||'', tipo_reparo:d.tipo_reparo||'',
@@ -1078,12 +1195,16 @@ async function aplicarUltimoRdo(){
   const u=reg&&reg.ultimo;
   if(!u||!u.cliente) return false;
 
-  const cli=document.getElementById('cliente');
-  cli.value=u.cliente;
-  cli.dispatchEvent(new Event('change'));          /* popula a lista de parques */
-  const pq=document.getElementById('parque');
-  if(u.parque){ pq.value=u.parque; pq.dispatchEvent(new Event('change')); }
-  if(u.parque_num) document.getElementById('parque_num').value=u.parque_num;
+  const comProjeto=!!PROJ.dados;   /* cliente/parque/equipe vêm do projeto */
+  if(!comProjeto){
+    const cli=document.getElementById('cliente');
+    garantirOpcao(cli,u.cliente);
+    cli.value=u.cliente;
+    cli.dispatchEvent(new Event('change'));          /* popula a lista de parques */
+    const pq=document.getElementById('parque');
+    /* RDO antigo guardava o parque sem o número: só repõe se ainda existir */
+    if(u.parque && [...pq.options].some(o=>o.value===u.parque)){ pq.value=u.parque; pq.dispatchEvent(new Event('change')); }
+  }
   if(u.email) document.getElementById('email').value=u.email;
 
   if(u.local) marcarChip('local',u.local);
@@ -1097,20 +1218,25 @@ async function aplicarUltimoRdo(){
     recarregarOpcoesAtividade();
   }
 
-  const extras=(u.tecnicos||[]).slice(1);
-  [...document.querySelectorAll('.tecnico-row')].slice(1).forEach(r=>r.remove());
-  extras.forEach(t=>{
-    addTecnico();
-    const linhas=[...document.querySelectorAll('.tecnico-row')];
-    const linha=linhas[linhas.length-1];
-    const inp=linha.querySelector('.tecnico');
-    inp.value=t.nome||'';
-    linha.querySelector('.matricula').value=t.mat||'';
-    if(t.mat){ inp.dataset.ok='1'; inp.classList.add('tec-ok'); }
-  });
-  if(document.querySelectorAll('.tecnico-row').length<2){ addTecnico(); addTecnico(); }
+  if(!comProjeto){
+    const extras=(u.tecnicos||[]).slice(1);
+    [...document.querySelectorAll('.tecnico-row')].slice(1).forEach(r=>r.remove());
+    extras.forEach(t=>{
+      addTecnico();
+      const linhas=[...document.querySelectorAll('.tecnico-row')];
+      const linha=linhas[linhas.length-1];
+      const inp=linha.querySelector('.tecnico');
+      inp.value=t.nome||'';
+      linha.querySelector('.matricula').value=t.mat||'';
+      if(t.mat){ inp.dataset.ok='1'; inp.classList.add('tec-ok'); }
+    });
+    if(document.querySelectorAll('.tecnico-row').length<2){ addTecnico(); addTecnico(); }
+  }
 
-  Object.keys(TRAVAS).forEach(k=>{ travarGrupo(k,true); botaoNoTitulo(k,u); });
+  Object.keys(TRAVAS).forEach(k=>{
+    if(comProjeto && (k==='ident'||k==='equipe')) return;   /* o projeto cuida desses */
+    travarGrupo(k,true); botaoNoTitulo(k,u);
+  });
   atualizarParadaWtg();
 
   barraRascunho('Campos repetidos do último RDO'
@@ -1169,6 +1295,7 @@ function abrirFormulario(){
   document.getElementById('headerSub').textContent = SESSAO.nome+' · mat. '+SESSAO.mat;
   travarPrimeiroTecnico(SESSAO.nome, SESSAO.mat);
   carregarListas();
+  carregarProjeto();
   ajustarCanvas();          /* o canvas só tem tamanho depois que o form aparece */
   atualizarBarra();
   /* salva rascunho a cada mexida no formulário */
@@ -1893,16 +2020,17 @@ function aplicarRascunho(d){
   rascunhoCarregando=true;
   try{
     ['registrado','data_exp','hora_ini','hora_fim','email','turbina','blade',
-     'parada','marcha','fibraon','fibraoff','avanco','parque_num'].forEach(id=>{
+     'parada','marcha','fibraon','fibraoff','avanco'].forEach(id=>{
       const el=document.getElementById(id);
       if(el && d[id]!=null) el.value=d[id];
     });
 
     /* cliente antes do parque: o change monta a lista de parques e os campos SIEMENS */
     if(d.cliente){
+      garantirOpcao(selCliente,d.cliente);
       selCliente.value=d.cliente;
       selCliente.dispatchEvent(new Event('change'));
-      if(d.parque) selParque.value=d.parque;
+      if(d.parque){ garantirOpcao(selParque,d.parque); selParque.value=d.parque; }
     }
     /* os campos SIEMENS são limpos pelo change: repõe depois */
     if(ehSiemens()){
@@ -2022,7 +2150,6 @@ function coletar(){
     hora_fim:document.getElementById('hora_fim').value,
     cliente:selCliente.value,
     parque:selParque.value,
-    parque_num:document.getElementById('parque_num').value,
     tecnicos, email:document.getElementById('email').value,
     local:chips('local')[0]||'',
     turbina:document.getElementById('turbina').value,
@@ -2167,7 +2294,7 @@ function mostrarSucesso(d,resp,pendente){
           Sem internet agora. O relatório está guardado com as fotos e a assinatura
           e <b>sobe sozinho</b> quando a conexão voltar — pode fechar o app.</p>
         <div style="text-align:left;background:var(--azul-fundo);border-radius:12px;padding:16px;border:1px solid var(--azul-borda);">
-          <div style="margin-bottom:12px;"><span style="color:var(--muted);font-size:12px;">Parque</span><br><b style="color:var(--azul-escuro);">${escHtml((d.parque||'')+' '+(d.parque_num||''))}</b></div>
+          <div style="margin-bottom:12px;"><span style="color:var(--muted);font-size:12px;">Parque</span><br><b style="color:var(--azul-escuro);">${escHtml(d.parque||'')}</b></div>
           <div style="margin-bottom:12px;"><span style="color:var(--muted);font-size:12px;">Data do expediente</span><br><b style="color:var(--azul-escuro);">${escHtml(d.data_exp||'—')}</b></div>
           <div><span style="color:var(--muted);font-size:12px;">Líder da equipe</span><br><b style="color:var(--azul-escuro);">${escHtml(d.tecnicos[0]?d.tecnicos[0].nome:'—')}</b></div>
         </div>
@@ -2185,7 +2312,7 @@ function mostrarSucesso(d,resp,pendente){
         <h1 style="color:var(--azul-escuro);font-size:22px;margin:0 0 8px;">RDO submetido com sucesso!</h1>
         <p style="color:var(--muted);font-size:15px;margin:0 0 24px;">Obrigado pelo envio. Seu relatório foi registrado e salvo no sistema.</p>
         <div style="text-align:left;background:var(--azul-fundo);border-radius:12px;padding:16px;border:1px solid var(--azul-borda);">
-          <div style="margin-bottom:12px;"><span style="color:var(--muted);font-size:12px;">Parque</span><br><b style="color:var(--azul-escuro);">${(d.parque||'')} ${(d.parque_num||'')}</b></div>
+          <div style="margin-bottom:12px;"><span style="color:var(--muted);font-size:12px;">Parque</span><br><b style="color:var(--azul-escuro);">${escHtml(d.parque||'')}</b></div>
           <div style="margin-bottom:12px;"><span style="color:var(--muted);font-size:12px;">Líder da equipe</span><br><b style="color:var(--azul-escuro);">${d.tecnicos[0]?(d.tecnicos[0].mat?`${d.tecnicos[0].nome} — ${d.tecnicos[0].mat}`:d.tecnicos[0].nome):'—'}</b></div>
           <div><span style="color:var(--muted);font-size:12px;">Preenchido em</span><br><b style="color:var(--azul-escuro);">${d.registrado||'—'}</b></div>
         </div>
@@ -2204,7 +2331,6 @@ btnEnviar.onclick=async ()=>{
   if(!d.hora_fim) erros.push('Hora fim do expediente');
   if(!d.cliente) erros.push('Cliente');
   if(!d.parque) erros.push('Parque');
-  if(!d.parque_num) erros.push('Equipe Nº');
   if(d.tecnicos.length<2) erros.push('Nome de pelo menos 2 técnicos');
   if(!MM.carregado){
     erros.push('Lista de técnicos não carregada — conecte à internet e recarregue a página');
@@ -2323,7 +2449,7 @@ btnEnviar.onclick=async ()=>{
     const payload={
       registrado:d.registrado, data_exp:d.data_exp, hora_ini:d.hora_ini, hora_fim:d.hora_fim,
       token:(SESSAO&&SESSAO.token)||'',
-      cliente:d.cliente, parque:(d.parque+' '+d.parque_num).trim(), tecnicos:d.tecnicos.map(t=>({nome:t.nome, mat:t.mat})), email:d.email,
+      cliente:d.cliente, parque:d.parque, tecnicos:d.tecnicos.map(t=>({nome:t.nome, mat:t.mat})), email:d.email,
       local:d.local, turbina:d.turbina, blade:d.blade, parada:d.parada, marcha:d.marcha,
       fibraon:d.fibraon, fibraoff:d.fibraoff, resumo:d.resumo, avanco:d.avanco, proxima:d.proxima,
       tipo_reparo:d.tipo_reparo, finalizado:d.finalizado,

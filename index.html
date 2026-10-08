@@ -158,6 +158,16 @@
   .btn-entrar:active{filter:brightness(.94)}
   .btn-entrar:disabled{opacity:.6;cursor:default}
   .login-rodape{font-size:.72rem;color:var(--muted);margin-top:18px;line-height:1.5}
+  /* verificar matrícula: link discreto que abre um painel no mesmo cartão */
+  .btn-link{background:none;border:none;color:#2b7fd0;font-family:inherit;font-size:.85rem;font-weight:700;
+    cursor:pointer;margin-top:14px;padding:6px;text-decoration:underline;text-underline-offset:3px}
+  .verif{display:none;text-align:left;margin-top:14px;padding-top:14px;border-top:1px solid var(--card-line)}
+  .verif.ver{display:block}
+  .verif-tit{font-size:.9rem;font-weight:800;margin:0 0 4px}
+  .verif-sub{font-size:.78rem;color:var(--muted);font-weight:600;margin:0 0 12px;line-height:1.4}
+  .btn-verif{width:100%;min-height:46px;border:1px solid #2b7fd0;border-radius:14px;cursor:pointer;
+    font-family:inherit;font-size:.95rem;font-weight:800;color:#2b7fd0;background:transparent}
+  .btn-verif:disabled{opacity:.6;cursor:default}
   /* barra de quem entrou, dentro do menu */
   .sessao{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
     font-size:.82rem;color:var(--muted);font-weight:600;margin-top:-6px}
@@ -192,6 +202,25 @@
     </div>
 
     <button type="button" class="btn-entrar" id="btnEntrar">Entrar</button>
+
+    <button type="button" class="btn-link" id="btnAbrirVerif" aria-expanded="false" aria-controls="verif">
+      Não sabe sua matrícula? Verificar</button>
+
+    <div class="verif" id="verif">
+      <p class="verif-tit">Verificar número de matrícula</p>
+      <p class="verif-sub">Informe seu CPF e sua data de nascimento, como estão no cadastro da empresa.</p>
+      <div id="verifMsg" class="login-msg"></div>
+      <div class="login-campo">
+        <label for="ver_cpf">CPF</label>
+        <input type="text" id="ver_cpf" inputmode="numeric" autocomplete="off"
+               placeholder="000.000.000-00" maxlength="14">
+      </div>
+      <div class="login-campo">
+        <label for="ver_nasc">Data de nascimento</label>
+        <input type="date" id="ver_nasc" autocomplete="off" max="2015-12-31">
+      </div>
+      <button type="button" class="btn-verif" id="btnVerif">Verificar matrícula</button>
+    </div>
 
     <div class="login-rodape">Use a matrícula e o CPF do seu cadastro.<br>
       O acesso vale por 48 h neste aparelho.</div>
@@ -481,6 +510,79 @@ async function entrarClique(){
 }
 
 btnEntrar.addEventListener('click', entrarClique);
+
+/* ---------- verificar matrícula (CPF + data de nascimento) ----------
+   POST com o CPF; se o navegador barrar, JSONP mandando só os 4 últimos
+   dígitos do CPF e um hash — o CPF inteiro não vai aberto na URL. */
+const painelVerif = document.getElementById('verif');
+const inpVerCpf = document.getElementById('ver_cpf');
+const inpVerNasc = document.getElementById('ver_nasc');
+const btnVerif = document.getElementById('btnVerif');
+const btnAbrirVerif = document.getElementById('btnAbrirVerif');
+
+function verifMsg(txt, ok){
+  const el = document.getElementById('verifMsg');
+  el.textContent = txt || '';
+  el.className = 'login-msg' + (txt?' ver':'') + (ok?' ok':'');
+}
+btnAbrirVerif.addEventListener('click', ()=>{
+  const abrir = !painelVerif.classList.contains('ver');
+  painelVerif.classList.toggle('ver', abrir);
+  btnAbrirVerif.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+  if(abrir){
+    if(!inpVerCpf.value && inpCpf.value) inpVerCpf.value = inpCpf.value;
+    setTimeout(()=>(inpVerCpf.value ? inpVerNasc : inpVerCpf).focus(), 50);
+  }
+});
+inpVerCpf.addEventListener('input', ()=>{ inpVerCpf.value = mascaraCpf(inpVerCpf.value); });
+
+function verifJsonp(params){
+  return new Promise(resolve=>{
+    const cb = '__verifCb' + Date.now();
+    let pronto = false;
+    window[cb] = j => { pronto = true; resolve(j); try{ delete window[cb]; }catch(_){ window[cb]=null; } };
+    const qs = Object.keys(params).map(k=>encodeURIComponent(k)+'='+encodeURIComponent(params[k])).join('&');
+    const sc = document.createElement('script');
+    sc.src = ENDPOINT + (ENDPOINT.indexOf('?')>=0?'&':'?') + 'acao=verificarMatricula&' + qs + '&callback=' + cb;
+    sc.onerror = ()=>{ if(!pronto) resolve(null); };
+    document.head.appendChild(sc);
+    setTimeout(()=>{ if(!pronto) resolve(null); }, 20000);
+  });
+}
+
+async function verificarClique(){
+  const cpf = soDig(inpVerCpf.value), nasc = inpVerNasc.value;
+  if(cpf.length !== 11){ verifMsg('CPF incompleto — precisa ter 11 dígitos.'); inpVerCpf.focus(); return; }
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(nasc)){ verifMsg('Informe a data de nascimento.'); inpVerNasc.focus(); return; }
+
+  const label = btnVerif.textContent;
+  btnVerif.disabled = true; btnVerif.textContent = 'Verificando…';
+  verifMsg('');
+
+  let r = null;
+  try{
+    const res = await fetch(ENDPOINT, {method:'POST', body: JSON.stringify({acao:'verificarMatricula', cpf:cpf, nasc:nasc})});
+    r = await res.json();
+  }catch(_){ r = null; }
+  if(!r){
+    const h = await sha256Hex('verif:' + cpf + ':' + nasc);
+    r = h ? await verifJsonp({c4: cpf.slice(-4), hash: h}) : null;
+  }
+
+  btnVerif.disabled = false; btnVerif.textContent = label;
+
+  if(!r){ verifMsg('Não foi possível falar com o servidor. Verifique a internet e tente de novo.'); return; }
+  if(!r.ok){ verifMsg(r.erro || 'CPF ou data de nascimento não conferem com o cadastro.'); return; }
+
+  const mats = (r.mats && r.mats.length > 1) ? r.mats.join(' ou ') : r.mat;
+  verifMsg((r.nome ? r.nome + ', sua' : 'Sua') + ' matrícula é ' + mats + '. Já preenchi o login — toque em Entrar.', true);
+  inpMat.value = soDig(r.mat);
+  inpCpf.value = mascaraCpf(cpf);
+  loginMsg('');
+  btnEntrar.focus();
+}
+btnVerif.addEventListener('click', verificarClique);
+inpVerNasc.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); verificarClique(); }});
 inpMat.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); inpCpf.focus(); }});
 inpCpf.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); entrarClique(); }});
 

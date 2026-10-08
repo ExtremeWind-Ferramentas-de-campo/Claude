@@ -4,8 +4,8 @@
 
    1) Botão de tema claro/escuro do cabeçalho — mesma chave do RDO (ew_tema).
    2) EWPDF: as peças do PDF no layout do RDO (cabeçalho "EXTREME WIND",
-      linha azul, títulos de seção, tabela rótulo/valor, fotos 3 por linha,
-      assinatura com nome embaixo).
+      linha azul, títulos de seção, tabela rótulo/valor, fotos 2 por linha e
+      NO MÁXIMO 4 POR PÁGINA, assinatura com nome embaixo).
    3) Nos formulários que saem do construtor (têm SCHEMA), troca o montarPDF()
       do modelo por um que usa o EWPDF. O resto do formulário — validação,
       envio, Dropbox, rascunho — continua sendo o do construtor.
@@ -43,6 +43,12 @@ function aplicarTema(t){
 
 /* ---------------- 2) EWPDF ---------------- */
 /* cores do PDF do RDO (EW-Apps-Script-RDO/Code.gs, montarHtml) */
+/* Fotos por página no PDF. Com 3 por linha chegavam 12 numa página e o
+   analista não conseguia dar zoom nos detalhes. 4 por página = 2 linhas de 2,
+   cada foto com até ~11 cm de altura. */
+var FOTOS_POR_PAGINA = 4;
+var FOTOS_POR_LINHA = 2;
+
 var COR = {
   escuro:[38,55,79], azul:[59,90,138], borda:[214,224,236], linha:[226,232,240],
   muted:[100,116,139], texto:[30,41,59], vazio:[148,163,184], fundo:[244,247,251]
@@ -57,11 +63,12 @@ function formato(dataUrl){ return /^data:image\/png/i.test(String(dataUrl)) ? 'P
 
 function novo(){
   var doc = new window.jspdf.jsPDF({unit:'mm', format:'a4'});
-  var P = {doc:doc, M:15, W:210, U:180, FIM:282, y:15};
+  var P = {doc:doc, M:15, W:210, U:180, FIM:282, y:15, fotosPag:0};
 
   function cor(c){ doc.setTextColor(c[0], c[1], c[2]); }
   function fonte(estilo, tam){ doc.setFont('helvetica', estilo); doc.setFontSize(tam); }
-  P.espaco = function(h){ if(P.y + h > P.FIM){ doc.addPage(); P.y = P.M + 2; return true; } return false; };
+  P.novaPagina = function(){ doc.addPage(); P.y = P.M + 2; P.fotosPag = 0; };
+  P.espaco = function(h){ if(P.y + h > P.FIM){ P.novaPagina(); return true; } return false; };
 
   /* cabeçalho: marca à esquerda, título embaixo, carimbo de data à direita */
   P.cabecalho = function(titulo, rotDir, valDir){
@@ -185,8 +192,10 @@ function novo(){
 
   /* uma linha de fotos. itens: [{d, w, h, leg}] — mesma escala nos dois eixos */
   P.fotosLinha = function(itens, cols){
-    cols = cols || 3;
-    var gap = 3, cw = (P.U - gap*(cols - 1)) / cols, maxH = cols >= 3 ? 58 : 80;
+    cols = cols || FOTOS_POR_LINHA;
+    /* página já com o limite de fotos: a linha nova começa outra página */
+    if(P.fotosPag + itens.length > FOTOS_POR_PAGINA) P.novaPagina();
+    var gap = 3, cw = (P.U - gap*(cols - 1)) / cols, maxH = cols >= 3 ? 58 : (cols === 2 ? 110 : 120);
     var med = itens.map(function(it){
       var w = it.w || 4, h = it.h || 3, e = Math.min(cw / w, maxH / h);
       return {it:it, lg:w*e, al:h*e};
@@ -208,9 +217,10 @@ function novo(){
       }
     });
     P.y += alt + 10.5;
+    P.fotosPag += itens.length;
   };
   P.fotos = function(itens, cols){
-    cols = cols || 3;
+    cols = cols || FOTOS_POR_LINHA;
     if(!itens.length){ P.vazio('Sem fotos'); return; }
     for(var k = 0; k < itens.length; k += cols) P.fotosLinha(itens.slice(k, k + cols), cols);
   };
@@ -382,10 +392,10 @@ window.montarPDF = async function(dados){
     if(!lista.length) P.vazio('Sem fotos');
     /* carrega uma linha por vez: a foto cheia só fica na memória enquanto
        é desenhada (no celular, todas juntas derrubavam a aba) */
-    for(var r = 0; r < lista.length; r += 3){
-      var linha = lista.slice(r, r + 3);
+    for(var r = 0; r < lista.length; r += FOTOS_POR_LINHA){
+      var linha = lista.slice(r, r + FOTOS_POR_LINHA);
       for(var q = 0; q < linha.length; q++) linha[q].d = await dadoFoto(linha[q].ref);
-      P.fotosLinha(linha, 3);
+      P.fotosLinha(linha, FOTOS_POR_LINHA);
       linha.forEach(function(x){ x.d = null; });
     }
   }
