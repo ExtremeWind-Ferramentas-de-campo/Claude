@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <script src="../guard.js"></script>
+<script src="../prazos.js" defer></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CHECK LIST DE VEÍCULOS</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -93,9 +94,11 @@
     display:grid;place-items:center;text-decoration:none;font-size:18px;line-height:1}
   .topo .voltar:hover{background:rgba(255,255,255,.14)}
 </style>
+<script>try{var t=localStorage.getItem("ew_tema");if(!t&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)t="escuro";document.documentElement.setAttribute("data-tema",t==="escuro"?"escuro":"claro")}catch(e){}</script>
+<link rel="stylesheet" href="../ew-form.css">
 </head>
 <body>
-<div class="topo"><a class="voltar" href="index.html" title="Voltar" aria-label="Voltar">&#8592;</a><div><h1 id="tTitulo"></h1><p id="tSub"></p></div></div>
+<div class="topo"><a class="voltar" href="index.html" title="Voltar" aria-label="Voltar">&#8592;</a><img class="ew-logo" src="../logo-ew.png" alt="Extreme Wind Blade Services"><div><h1 id="tTitulo"></h1><p id="tSub"></p></div><div class="ew-acoes"><button type="button" class="ew-tema" id="ewTema" title="Alternar tema">&#127769;</button></div></div>
 <div class="folha">
   <div class="msg" id="msg"></div>
   <form id="form" novalidate></form>
@@ -674,11 +677,7 @@ document.getElementById('btPdf').addEventListener('click', async function(){
     nomeLocal = resolver(D.arquivo, dados).replace(/\{ID\}/g,'').replace(/[_-]+$/,'') || 'formulario';
     // blob em vez de doc.save(): evita uma segunda cópia do PDF inteiro em base64
     pdfBlob = doc.output('blob');
-    const liga = document.createElement('a');
-    const endereco = URL.createObjectURL(pdfBlob);
-    liga.href = endereco; liga.download = nomeLocal + '.pdf';
-    document.body.appendChild(liga); liga.click(); liga.remove();
-    setTimeout(function(){ URL.revokeObjectURL(endereco); }, 8000);
+    pdfPendente = {blob: pdfBlob, nome: (nomeLocal || 'formulario') + '.pdf'};   // só vira download depois da confirmação
   }catch(e){
     console.error(e);
     alerta('ruim', 'Falha ao gerar o PDF: ' + e.message);
@@ -687,29 +686,32 @@ document.getElementById('btPdf').addEventListener('click', async function(){
   }
 
   if(!D.url){
+    guardarPDF(pdfBlob, nomeLocal); baixarPDF();
     alerta('bom', 'PDF gerado. Verifique os downloads do aparelho.');
     bt.disabled = false; bt.textContent = rotuloBotao();
     return;
   }
 
   bt.textContent = 'Enviando...';
-  alerta('aviso', 'PDF salvo no aparelho. Enviando para o Dropbox — não feche a página.');
+  alerta('aviso', 'Enviando para o Dropbox — não feche nem saia desta tela. O PDF fica disponível para baixar quando aparecer a tela de confirmação.');
   try{
     const r = await enviar(pdfBlob, dados, D);
     if(r && r.ok){
       const usadas = chavesDasFotos();
       await limparRascunho();
       await apagarBlobs(usadas);
+      guardarPDF(pdfBlob, nomeLocal);   // libera o compartilhamento: o Dropbox confirmou
+      if(window.EWPrazo) window.EWPrazo.marcarFeito('veiculo');   // baixa o alerta de prazo do cartão
       sucesso(r);
     }else{
       alerta('ruim', 'O servidor recusou o envio: ' + ((r && r.erro) || 'motivo não informado') +
-                     '. O PDF já está salvo no aparelho — reenvie depois.');
+                     '. O PDF não foi liberado — corrija e envie de novo.');
       bt.disabled = false; bt.textContent = rotuloBotao();
     }
   }catch(e){
     console.error(e);
     alerta('aviso', 'Não recebi confirmação do servidor. Isso às vezes acontece mesmo quando o envio deu certo — ' +
-                    'confira a pasta no Dropbox antes de reenviar. O PDF está salvo no aparelho.');
+                    'confira a pasta no Dropbox antes de reenviar. O PDF só é liberado depois da confirmação.');
     bt.disabled = false; bt.textContent = rotuloBotao();
   }
 });
@@ -788,13 +790,33 @@ async function enviar(pdfBlob, dados, D){
   }
 }
 
+/* ---------------- entrega do PDF ----------------
+   O PDF só pode ser baixado DEPOIS que o servidor confirma que ele chegou na
+   pasta do Dropbox (tela "Enviado"). Antes disso fica só em memória: ninguém
+   sai com um PDF que não está na pasta. */
+let pdfPendente = null, pdfPronto = null;
+
+function guardarPDF(blob, nome){
+  pdfPronto = {blob: blob, nome: (nome || 'formulario') + '.pdf'};
+}
+
+function baixarPDF(){
+  if(!pdfPronto){ alerta('ruim', 'O PDF não está mais na memória desta aba.'); return; }
+  const liga = document.createElement('a');
+  const endereco = URL.createObjectURL(pdfPronto.blob);
+  liga.href = endereco; liga.download = pdfPronto.nome;
+  document.body.appendChild(liga); liga.click(); liga.remove();
+  setTimeout(function(){ URL.revokeObjectURL(endereco); }, 30000);
+}
+
 function sucesso(r){
   document.querySelector('.folha').innerHTML =
     '<div class="fim">' +
       '<div class="fim-selo">Enviado</div>' +
       '<h2>' + (SCHEMA.titulo || 'Formulário') + '</h2>' +
-      '<p>Registro concluído. Uma cópia do PDF ficou salva neste aparelho.</p>' +
+      '<p>Registro concluído. Toque em Baixar PDF para guardar uma cópia no aparelho.</p>' +
       '<p class="fim-prot">Protocolo <b>' + (r.id || '—') + '</b></p>' +
+      '<button type="button" class="btn" style="margin-bottom:10px" onclick="baixarPDF()">Baixar PDF</button>' +
       '<button type="button" class="btn" onclick="location.reload()">Preencher outro</button>' +
     '</div>';
   document.querySelector('.rodape').style.display = 'none';
@@ -914,5 +936,7 @@ async function montarPDF(dados){
   return doc;
 }
 </script>
+<footer class="ew-credito">Extreme Wind Blade Services &copy; 2026 · Uso interno. Realizado por Ryan Neves.</footer>
+<script src="../ew-form.js"></script>
 </body>
 </html>

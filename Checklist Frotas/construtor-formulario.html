@@ -716,7 +716,7 @@ document.getElementById('btPdf').addEventListener('click', async function(){
   }
 
   bt.textContent = 'Enviando...';
-  alerta('aviso', 'Enviando para o Dropbox — não feche a página. O PDF fica disponível para compartilhar assim que o envio for confirmado.');
+  alerta('aviso', 'Enviando para o Dropbox — não feche nem saia desta tela. O PDF fica disponível para baixar quando aparecer a tela de confirmação.');
   try{
     const r = await enviar(doc, dados, D);
     if(r && r.ok){
@@ -730,10 +730,8 @@ document.getElementById('btPdf').addEventListener('click', async function(){
   }catch(e){
     console.error(e);
     alerta('aviso', 'Não recebi confirmação do servidor. Isso às vezes acontece mesmo quando o envio deu certo — ' +
-                    'confira a pasta no Dropbox antes de reenviar. Se o arquivo já estiver lá, use ' +
-                    '"Compartilhar PDF" no rodapé em vez de enviar outra vez.');
-    guardarPDF(doc.output('blob'), nomeLocal);
-    mostrarBotaoShare();
+                    'confira a pasta no Dropbox antes de reenviar. Se o arquivo já estiver lá, não envie de novo.' +
+                    ' O PDF só é liberado depois da confirmação.');
     bt.disabled = false; bt.textContent = rotuloBotao();
   }
 });
@@ -871,7 +869,7 @@ function sucesso(r){
       '<h2>' + (SCHEMA.titulo || 'Formulário') + '</h2>' +
       '<p>Protocolo <b>' + (r.id || '—') + '</b></p>' +
       '<p class="fim-caminho">' + (r.caminho || '') + '</p>' +
-      '<button type="button" class="btn" style="margin-bottom:10px" onclick="compartilharPDF()">Compartilhar PDF</button>' +
+      '<button type="button" class="btn" style="margin-bottom:10px" onclick="baixarPDF()">Baixar PDF</button>' +
       '<button type="button" class="btn" onclick="location.reload()">Preencher outro</button>' +
     '</div>';
   document.querySelector('.rodape').style.display = 'none';

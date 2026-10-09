@@ -930,11 +930,7 @@ document.getElementById('btPdf').addEventListener('click', async function(){
     nomeLocal = resolver(D.arquivo, dados).replace(/\{ID\}/g,'').replace(/[_-]+$/,'') || 'formulario';
     // blob em vez de doc.save(): evita uma segunda cópia do PDF inteiro em base64
     pdfBlob = doc.output('blob');
-    const liga = document.createElement('a');
-    const endereco = URL.createObjectURL(pdfBlob);
-    liga.href = endereco; liga.download = nomeLocal + '.pdf';
-    document.body.appendChild(liga); liga.click(); liga.remove();
-    setTimeout(function(){ URL.revokeObjectURL(endereco); }, 8000);
+    pdfPendente = {blob: pdfBlob, nome: (nomeLocal || 'formulario') + '.pdf'};   // só vira download depois da confirmação
   }catch(e){
     console.error(e);
     alerta('ruim', 'Falha ao gerar o PDF: ' + e.message);
@@ -943,26 +939,28 @@ document.getElementById('btPdf').addEventListener('click', async function(){
   }
 
   if(!D.url){
+    guardarPDF(pdfBlob, nomeLocal); baixarPDF();
     alerta('bom', 'PDF gerado. Verifique os downloads do aparelho.');
     bt.disabled = false; bt.textContent = rotuloBotao();
     return;
   }
 
   bt.textContent = 'Enviando...';
-  alerta('aviso', 'PDF salvo no aparelho. Enviando para o Dropbox — não feche a página.');
+  alerta('aviso', 'Enviando para o Dropbox — não feche nem saia desta tela. O PDF fica disponível para baixar quando aparecer a tela de confirmação.');
   try{
     const r = await enviar(pdfBlob, dados, D);
     if(r && r.ok){
       const usadas = chavesDasFotos();
       await limparRascunho();
       await apagarBlobs(usadas);
+      guardarPDF(pdfBlob, nomeLocal);   // libera o compartilhamento: o Dropbox confirmou
       sucesso(r, identificadores(dados, D));
     }else if(r && r.sessao === false){
       alerta('ruim', (r.erro || 'Sessão expirada.') + ' O preenchimento ficou salvo — entre de novo pelo menu e reenvie.');
       bt.disabled = false; bt.textContent = rotuloBotao();
     }else{
       alerta('ruim', 'O servidor recusou o envio: ' + ((r && r.erro) || 'motivo não informado') +
-                     '. O PDF já está salvo no aparelho — reenvie depois.');
+                     '. O PDF não foi liberado — corrija e envie de novo.');
       bt.disabled = false; bt.textContent = rotuloBotao();
     }
   }catch(e){
@@ -975,7 +973,7 @@ document.getElementById('btPdf').addEventListener('click', async function(){
       dica = ' Tamanho do envio: ' + ultimoTamanhoMB + ' MB.';
     }
     alerta('ruim', 'O envio falhou: ' + (e.message || 'erro de rede') + '.' + dica +
-                   ' O PDF está salvo no aparelho e o preenchimento ficou guardado — ' +
+                   ' O preenchimento ficou guardado (o PDF só é liberado depois da confirmação) — ' +
                    'use "Reenviar" quando tiver sinal, sem preencher tudo de novo.');
     mostrarReenviar(pdfBlob, dados, D);
     bt.disabled = false; bt.textContent = rotuloBotao();
@@ -994,6 +992,7 @@ function mostrarReenviar(pdfBlob, dados, D){
         const usadas = chavesDasFotos();
         await limparRascunho();
         await apagarBlobs(usadas);
+        pdfPronto = pdfPendente;   // confirmado: libera o download
         sucesso(r, identificadores(dados, D));
         return;
       }
@@ -1159,6 +1158,25 @@ function formatarData(v){
   return p.length === 3 ? (p[2] + '/' + p[1] + '/' + p[0]) : String(v);
 }
 
+/* ---------------- entrega do PDF ----------------
+   O PDF só pode ser baixado DEPOIS que o servidor confirma que ele chegou na
+   pasta do Dropbox (tela "Enviado"). Antes disso fica só em memória: ninguém
+   sai com um PDF que não está na pasta. */
+let pdfPendente = null, pdfPronto = null;
+
+function guardarPDF(blob, nome){
+  pdfPronto = {blob: blob, nome: (nome || 'formulario') + '.pdf'};
+}
+
+function baixarPDF(){
+  if(!pdfPronto){ alerta('ruim', 'O PDF não está mais na memória desta aba.'); return; }
+  const liga = document.createElement('a');
+  const endereco = URL.createObjectURL(pdfPronto.blob);
+  liga.href = endereco; liga.download = pdfPronto.nome;
+  document.body.appendChild(liga); liga.click(); liga.remove();
+  setTimeout(function(){ URL.revokeObjectURL(endereco); }, 30000);
+}
+
 function sucesso(r, ident){
   try{ if(window.ehsGravarUltimo) window.ehsGravarUltimo(); }catch(e){}
   let linhas = '';
@@ -1171,8 +1189,9 @@ function sucesso(r, ident){
       '<h2>' + (SCHEMA.titulo || 'Formulário') + '</h2>' +
       (linhas ? '<div class="fim-lista">' + linhas + '</div>' : '') +
       '<p>' + (r.substituiu ? 'O report deste dia foi substituído (PDF e planilha). ' : 'Registro concluído. ') +
-        'Uma cópia do PDF ficou salva neste aparelho.</p>' +
+        'Toque em Baixar PDF para guardar uma cópia no aparelho.</p>' +
       '<p class="fim-prot">Protocolo <b>' + (r.id || '—') + '</b></p>' +
+      '<button type="button" class="btn" style="margin-bottom:10px" onclick="baixarPDF()">Baixar PDF</button>' +
       '<button type="button" class="btn" onclick="location.reload()">Preencher outro</button>' +
     '</div>';
   document.querySelector('.rodape').style.display = 'none';
