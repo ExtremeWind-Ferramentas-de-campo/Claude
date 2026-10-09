@@ -181,11 +181,11 @@
       <label class="rot" for="placa">Placa do veículo <span class="obr">*</span></label>
       <p class="ajuda">Condutor, parque, frota, cartão e senha vêm da planilha da frota.</p>
       <div class="placa" id="placaMold">
-        <div class="placa-faixa" aria-hidden="true">BRASIL</div>
+        <div class="placa-faixa" id="placaFaixa" aria-hidden="true">PLACA</div>
         <input id="placa" type="text" inputmode="text" autocapitalize="characters" autocomplete="off"
-               spellcheck="false" maxlength="8" placeholder="ABC1D23" aria-describedby="placaDica">
+               spellcheck="false" maxlength="12" placeholder="ABC1D23" aria-describedby="placaDica">
       </div>
-      <p class="placa-dica" id="placaDica">Mercosul (ABC1D23) ou modelo antigo (ABC1234).</p>
+      <p class="placa-dica" id="placaDica">Como está no veículo: Mercosul (ABC1D23), antiga (ABC1234) ou de outro país.</p>
 
       <div class="ficha" id="ficha" aria-live="polite"></div>
     </section>
@@ -316,10 +316,17 @@ function revalidar(){
 
 /* ---------------- placa ---------------- */
 const inPlaca = $('placa'), molde = $('placaMold'), dica = $('placaDica'), ficha = $('ficha');
-function normPlaca(v){ return String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,7); }
-function placaValida(p){ return /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(p); }
-/* mesma chave do servidor: ABC1234 e ABC1C34 são o mesmo carro */
-function chavePlaca(p){ p = normPlaca(p); if(!placaValida(p)) return ''; const c = p.charAt(4); return /\d/.test(c) ? p.slice(0,4) + 'ABCDEFGHIJ'.charAt(+c) + p.slice(5) : p; }
+/* Sem trava de formato: a frota tem placa do Brasil e de outros países
+   (México, por exemplo). Vale qualquer placa de 4 a 10 letras/números com pelo
+   menos um número; traço, ponto e espaço são ignorados. */
+function normPlaca(v){ return String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,10); }
+function placaValida(p){ return /^[A-Z0-9]{4,10}$/.test(p) && /[0-9]/.test(p); }
+function placaBR(p){ return /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(p); }
+/* começo de uma placa brasileira ainda sendo digitada (ABC, ABC1, ABC1D2...) */
+function comecoBR(p){ return p.length < 7 && /^[A-Z]{1,3}$|^[A-Z]{3}[0-9]([A-Z0-9]([0-9])?)?$/.test(p); }
+/* mesma chave do servidor: ABC1234 e ABC1C34 são o mesmo carro; placa de
+   outro país fica como foi digitada (sem traço) */
+function chavePlaca(p){ p = normPlaca(p); if(!placaValida(p)) return ''; if(!placaBR(p)) return p; const c = p.charAt(4); return /\d/.test(c) ? p.slice(0,4) + 'ABCDEFGHIJ'.charAt(+c) + p.slice(5) : p; }
 
 /* Últimas placas consultadas ficam no aparelho: sem sinal na bomba, o técnico
    ainda vê cartão e senha do carro que ele já usou. */
@@ -342,16 +349,25 @@ inPlaca.addEventListener('input', ()=>{
   dica.classList.remove('ruim');
   clearTimeout(timerPlaca);
   if(p !== placaBuscada){ frota = null; placaBuscada = ''; mostrarFicha(null); }
-  if(p.length < 7){
-    dica.textContent = 'Mercosul (ABC1D23) ou modelo antigo (ABC1234).';
-  }else if(!placaValida(p)){
-    molde.classList.add('errada'); dica.classList.add('ruim');
-    dica.textContent = 'Formato inválido. Três letras, um número, uma letra ou número, dois números.';
-  }else{
+  $('placaFaixa').textContent = placaBR(p) ? 'BRASIL' : 'PLACA';
+  if(!placaValida(p)){
+    dica.textContent = 'Como está no veículo: Mercosul (ABC1D23), antiga (ABC1234) ou de outro país.';
+  }else if(placaBR(p)){
     dica.textContent = '';
     timerPlaca = setTimeout(()=> buscarPlaca(p), restaurando ? 0 : 300);
+  }else{
+    /* outro país: não dá para saber quando terminou de digitar — espera uma
+       pausa (ou sair do campo). Começo de placa brasileira não dispara busca. */
+    dica.textContent = '';
+    if(restaurando) buscarPlaca(p);
+    else if(!comecoBR(p)) timerPlaca = setTimeout(()=> buscarPlaca(p), 1200);
   }
   mexeu();
+});
+
+inPlaca.addEventListener('change', ()=>{
+  const p = normPlaca(inPlaca.value);
+  if(placaValida(p) && p !== placaBuscada){ clearTimeout(timerPlaca); buscarPlaca(p); }
 });
 
 /* Consulta o servidor. null = sem conexão. */
