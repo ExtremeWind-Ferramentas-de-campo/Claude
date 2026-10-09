@@ -605,19 +605,13 @@ function atualizarAvisoAlmoco(block){
 /* ---------- listas vindas do Banco de inputs ---------- */
 const IN = { ok:false, clientes:[], parques:{}, resumo:[], reparos:[], comuns:[], feriado:[],
              projetos:{clientes:[],parques:{},supervisores:[]} };
-/* Clientes = os dos projetos em andamento (aba SUPERVISORES) + os da aba
-   PARQUE E CLIENTE. Parques: os dos projetos têm o número da equipe no nome
-   ("GAMELEIRA 1") e por isso vêm primeiro; sem projeto daquele cliente, vale
-   a lista antiga. */
+/* Clientes e parques: SÓ os projetos em andamento da aba SUPERVISORES
+   (o parque já traz o número da equipe, ex.: "GAMELEIRA 1"). */
 function clientesDaLista(){
-  const out=[], visto={};
-  (IN.projetos.clientes||[]).concat(IN.clientes||[]).forEach(c=>{ if(c&&!visto[c]){ visto[c]=1; out.push(c); } });
-  return out.sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  return (IN.projetos.clientes||[]).slice().sort((a,b)=>a.localeCompare(b,'pt-BR'));
 }
 function parquesDaLista(cliente){
-  const p=(IN.projetos.parques||{})[cliente];
-  if(p&&p.length) return p;
-  return (IN.parques&&IN.parques[cliente])||[];
+  return ((IN.projetos.parques||{})[cliente])||[];
 }
 const IN_LS_KEY = 'ew_inputs_v1';
 
@@ -701,7 +695,8 @@ function exigeObs(nome){
 }
 
 function aplicarInputs(dados,origem){
-  if(!dados || !dados.reparos || !dados.reparos.length || !dados.clientes || !dados.clientes.length) return false;
+  /* cliente/parque vêm só da aba SUPERVISORES: lista vazia não derruba o RDO */
+  if(!dados || !dados.reparos || !dados.reparos.length) return false;
   IN.clientes=dados.clientes; IN.parques=dados.parques||{};
   IN.resumo=dados.resumo||[]; IN.reparos=dados.reparos;
   IN.comuns=dados.comuns||[];
@@ -709,8 +704,10 @@ function aplicarInputs(dados,origem){
   IN.projetos=dados.projetos||{clientes:[],parques:{},supervisores:[]};
   IN.ok=true;
 
-  selCliente.innerHTML='<option value="">Selecione o cliente…</option>'
-    + clientesDaLista().map(c=>`<option>${escHtml(c)}</option>`).join('');
+  const cls=clientesDaLista();
+  selCliente.innerHTML=(cls.length?'<option value="">Selecione o cliente…</option>'
+    :'<option value="">Nenhum projeto em andamento na aba SUPERVISORES</option>')
+    + cls.map(c=>`<option>${escHtml(c)}</option>`).join('');
   selParque.innerHTML='<option value="">Escolha o cliente primeiro</option>';
   selParque.disabled=true;
 
@@ -1198,9 +1195,11 @@ async function aplicarUltimoRdo(){
   const comProjeto=!!PROJ.dados;   /* cliente/parque/equipe vêm do projeto */
   if(!comProjeto){
     const cli=document.getElementById('cliente');
-    garantirOpcao(cli,u.cliente);
-    cli.value=u.cliente;
-    cli.dispatchEvent(new Event('change'));          /* popula a lista de parques */
+    /* só repõe cliente que ainda tem projeto em andamento */
+    if([...cli.options].some(o=>o.value===u.cliente)){
+      cli.value=u.cliente;
+      cli.dispatchEvent(new Event('change'));
+    }          /* popula a lista de parques */
     const pq=document.getElementById('parque');
     /* RDO antigo guardava o parque sem o número: só repõe se ainda existir */
     if(u.parque && [...pq.options].some(o=>o.value===u.parque)){ pq.value=u.parque; pq.dispatchEvent(new Event('change')); }
@@ -2027,10 +2026,9 @@ function aplicarRascunho(d){
 
     /* cliente antes do parque: o change monta a lista de parques e os campos SIEMENS */
     if(d.cliente){
-      garantirOpcao(selCliente,d.cliente);
-      selCliente.value=d.cliente;
+      selCliente.value=d.cliente;   /* fora da lista = fica vazio */
       selCliente.dispatchEvent(new Event('change'));
-      if(d.parque){ garantirOpcao(selParque,d.parque); selParque.value=d.parque; }
+      if(d.parque && [...selParque.options].some(o=>o.value===d.parque)) selParque.value=d.parque;
     }
     /* os campos SIEMENS são limpos pelo change: repõe depois */
     if(ehSiemens()){
