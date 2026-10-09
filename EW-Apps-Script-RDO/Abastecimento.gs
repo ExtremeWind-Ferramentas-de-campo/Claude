@@ -32,7 +32,8 @@
  *   arquivo .xlsx no Dropbox, aba ACOMPANHAMENTO, colunas fixas:
  *   D placa · T frota · U parque · V condutor · X cartão · Y senha.
  *   Placa repetida na aba: vale a linha MAIS DE BAIXO.
- *   Placa antiga (ABC1234) e Mercosul (ABC1C34) casam entre si.
+ *   Placa antiga (ABC1234) e Mercosul (ABC1C34) casam entre si. Placa de outro
+ *   país (México) vale como está, sem traço — não há trava de formato.
  *   Sincronização por gatilho de 10 min (abGatilho) + na hora, se a placa
  *   digitada não for achada e a planilha tiver mudado.
  *
@@ -79,7 +80,7 @@ var AB_PASTA_PADRAO = '/02 - EXTREME WIND/13 - LOGISTICA/CONTROLE DE COMBUSTÍVE
 var AB_XLSX_NOME = 'CONTROLE DE COMBUSTÍVEL.xlsx';
 var AB_ABA_REGISTRO = 'Abastecimentos';
 var AB_SENHA_NO_REGISTRO = false;
-var AB_PFX = 'AB1_';
+var AB_PFX = 'AB2_';   /* AB2: placas de outros países entraram no índice (troca = relê a planilha) */
 var AB_TRAVA_SEG = 240;
 var AB_FOTOS = [
   { k: 'antes', rot: 'antes' }, { k: 'bomba', rot: 'bomba' },
@@ -95,11 +96,15 @@ var AB_CAB = ['Protocolo', 'Registro (celular)', 'Recebido (servidor)', 'Data ab
 
 function abPlaca(v) { return String(v == null ? '' : v).toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
-/* Chave de busca: formato antigo vira Mercosul (5º caractere 0-9 -> A-J),
-   então ABC1234 e ABC1C34 são a mesma chave. '' = placa inválida. */
+/* Chave de busca. Sem trava de formato (out/2026): a frota tem placa do
+   Brasil e de outros países (México). Vale qualquer placa de 4 a 10
+   letras/números com pelo menos um número; traço/ponto/espaço são ignorados.
+   Placa brasileira no formato antigo vira Mercosul (5º caractere 0-9 -> A-J),
+   então ABC1234 e ABC1C34 continuam sendo a mesma chave. '' = sem placa. */
 function abChavePlaca(v) {
   var p = abPlaca(v);
-  if (!/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(p)) return '';
+  if (p.length < 4 || p.length > 10 || !/[0-9]/.test(p)) return '';
+  if (!/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(p)) return p;     /* outro país */
   var c = p.charAt(4);
   if (c >= '0' && c <= '9') p = p.slice(0, 4) + 'ABCDEFGHIJ'.charAt(Number(c)) + p.slice(5);
   return p;
@@ -301,7 +306,7 @@ function frotaPorPlaca(dados) {
              erro: sess.expirado ? 'Sessão expirada. Faça login novamente.' : 'Sessão inválida. Faça login novamente.' };
   }
   var chave = abChavePlaca(dados.placa);
-  if (!chave) return { ok: false, erro: 'Placa fora do formato. Use ABC1D23 (Mercosul) ou ABC1234.' };
+  if (!chave) return { ok: false, erro: 'Digite a placa completa (4 a 10 letras e números).' };
 
   var b = abBuscarPlaca(chave, true);
   if (b.ocupado) return { ok: false, retentar: true, erro: 'A planilha da frota está sendo atualizada. Tente de novo em 1 minuto.' };
@@ -420,7 +425,7 @@ function registrarAbastecimento(dados) {
   var obs = String(dados.obs || '').trim().slice(0, 1500);
 
   var chave = abChavePlaca(dados.placa);
-  if (!chave) return falha('Placa fora do formato.');
+  if (!chave) return falha('Digite a placa completa.');
   var b = abBuscarPlaca(chave, true);
   if (b.ocupado) return { ok: false, retentar: true, erro: 'A planilha da frota está sendo atualizada. Tente de novo em 1 minuto.' };
   if (b.erro) return falha(b.erro);
