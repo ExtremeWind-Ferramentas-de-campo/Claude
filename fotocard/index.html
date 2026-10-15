@@ -2097,31 +2097,35 @@ function carimboArquivo(){
    Aparece TAMBÉM ao vivo na tela da câmera (pintaCarimboCam, mais abaixo), no
    mesmo canto e no mesmo tamanho que vai ter na foto — o técnico confere a
    hora antes de disparar, não depois. */
-var MES_ABREV=['jan.','fev.','mar.','abr.','mai.','jun.','jul.','ago.','set.','out.','nov.','dez.'];
 var CARIMBO_FAM='Arial, Helvetica, sans-serif';
 
-/* Duas linhas: em cima a identificação (Parque · WTG · Blade, lidos do
-   formulário na hora — campo vazio some), embaixo a data e a hora. Sem nada
-   preenchido sai só a linha da data, como antes. A linha de cima é cortada
-   com "…" num nome muito comprido, para o carimbo continuar cabendo na foto. */
-var CARIMBO_ID_MAX=44;
-function idCarimbo(){
-  var v=function(id){ var e=document.getElementById(id); return e?e.value.trim():''; };
-  var pq=v('f-parque'), wtg=v('f-turbina'), ns=v('f-ns');
-  var partes=[];
-  if(pq)  partes.push(pq.toUpperCase());
-  if(wtg) partes.push(/^wtg/i.test(wtg)?wtg:'WTG '+wtg);
-  if(ns)  partes.push('Blade '+ns);
-  var t=partes.join(' · ');
-  return t.length>CARIMBO_ID_MAX ? t.slice(0,CARIMBO_ID_MAX-1).trim()+'…' : t;
+/* Três linhas, no padrão das câmeras de campo usadas pelo cliente:
+     14/10/2026 9:50 a.m.
+     PE.PUNTA LOMITAS
+     WTG: 54 PALA C 0737-M2
+   Parque, WTG e N/S Blade são lidos do formulário na hora, em maiúsculas.
+   Campo vazio some; sem parque e sem WTG/Blade sai só a linha da data.
+   Linha muito comprida é cortada com "…" para o carimbo caber na foto. */
+var CARIMBO_LINHA_MAX=34;
+function cortaLinhaCarimbo(t){ return t.length>CARIMBO_LINHA_MAX ? t.slice(0,CARIMBO_LINHA_MAX-1).trim()+'…' : t; }
+function linhasIdCarimbo(){
+  var v=function(id){ var e=document.getElementById(id); return e?e.value.trim().toUpperCase():''; };
+  var pq=v('f-parque'), wtg=v('f-turbina').replace(/^WTG[\s:.\-]*/,''), ns=v('f-ns');
+  var out=[];
+  if(pq) out.push(cortaLinhaCarimbo(/^PE[\s.]/.test(pq) ? pq : 'PE.'+pq));
+  var l3=[];
+  if(wtg) l3.push('WTG: '+wtg);
+  if(ns)  l3.push('PALA '+ns);
+  if(l3.length) out.push(cortaLinhaCarimbo(l3.join(' ')));
+  return out;
 }
 function textoCarimbo(d){
   d=d||new Date();
   var p=function(n){ return String(n).padStart(2,'0'); };
-  var hora=d.getDate()+' de '+MES_ABREV[d.getMonth()]+' de '+d.getFullYear()+
-           ' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
-  var id=idCarimbo();
-  return id ? id+'\n'+hora : hora;
+  var h=d.getHours(), h12=h%12||12;
+  var data=p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+
+           h12+':'+p(d.getMinutes())+' '+(h<12?'a.m.':'p.m.');
+  return [data].concat(linhasIdCarimbo()).join('\n');
 }
 
 /* Corpo da fonte e folga, proporcionais ao lado MENOR da foto — como o card:
