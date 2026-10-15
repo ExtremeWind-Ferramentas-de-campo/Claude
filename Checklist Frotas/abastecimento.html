@@ -151,6 +151,17 @@
     .carimbo,.ficha dl,.fim dl{grid-template-columns:1fr}
     .fim-fotos{grid-template-columns:repeat(2,minmax(0,1fr))}
   }
+  /* folha "Tirar foto agora / Escolher da galeria" — mesmo padrão do Report de EHS */
+  .escolha{position:fixed;inset:0;background:rgba(26,35,41,.55);display:none;z-index:60;
+    align-items:flex-end;justify-content:center}
+  .escolha.aberta{display:flex}
+  .escolha-cx{background:#fff;width:100%;max-width:520px;border-radius:2px 2px 0 0;padding:14px}
+  .escolha-tit{margin:0 0 10px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--tinta-2);text-align:center}
+  .escolha-bt{display:block;width:100%;margin-bottom:8px;padding:15px;border:1px solid var(--linha);
+    background:#fff;border-radius:2px;font-size:16px;color:var(--tinta)}
+  .escolha-bt:hover{border-color:var(--aco);color:var(--aco)}
+  .escolha-bt.cancelar{margin-bottom:0;color:var(--tinta-2);border-style:dashed}
 </style>
 <script>try{var t=localStorage.getItem("ew_tema");if(!t&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)t="escuro";document.documentElement.setAttribute("data-tema",t==="escuro"?"escuro":"claro")}catch(e){}</script>
 <link rel="stylesheet" href="../ew-form.css">
@@ -198,7 +209,7 @@
 
     <section class="bloco" data-campo="fotos">
       <span class="rot">Fotos <span class="obr">*</span></span>
-      <p class="ajuda">Abre a câmera. Toque de novo numa foto para refazer.</p>
+      <p class="ajuda">Tire a foto na hora ou escolha da galeria (útil sem sinal: fotografe com a câmera do celular e anexe depois). Toque de novo numa foto para trocar.</p>
       <div class="slots" id="slots"></div>
     </section>
 
@@ -216,6 +227,15 @@
 
   </form>
 </main>
+
+<div class="escolha" id="escolha" role="dialog" aria-modal="true" aria-labelledby="escolhaTit">
+  <div class="escolha-cx">
+    <p class="escolha-tit" id="escolhaTit">Foto</p>
+    <button type="button" class="escolha-bt" data-op="camera">Tirar foto agora</button>
+    <button type="button" class="escolha-bt" data-op="galeria">Escolher da galeria</button>
+    <button type="button" class="escolha-bt cancelar" data-op="cancelar">Cancelar</button>
+  </div>
+</div>
 <footer class="ew-credito">Extreme Wind Blade Services &copy; 2026 · Uso interno. Realizado por Ryan Neves.</footer>
 
 <div class="rodape" id="rodape"><button type="button" class="enviar" id="btEnviar">Enviar abastecimento</button></div>
@@ -484,13 +504,41 @@ $('obs').addEventListener('input', mexeu);
 /* ---------------- fotos ---------------- */
 const CAMERA = '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" aria-hidden="true"><path d="M4 8h3l1.6-2.2h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.6"/></svg>';
 const slots = $('slots');
+/* Dois inputs por foto: com "capture" o Android abre SÓ a câmera; sem ele,
+   abre a galeria/arquivos. O técnico escolhe numa folha na própria página
+   (o clique no botão da folha ainda conta como gesto, então o input abre).
+   Galeria liberada em out/2026: sem sinal no posto, o técnico fotografa com a
+   câmera do celular e preenche o abastecimento depois. */
+const cxEscolha = $('escolha');
+let destinoEscolha = null;
+function abrirEscolha(ft, inpCam, inpGal){
+  destinoEscolha = {cam: inpCam, gal: inpGal};
+  $('escolhaTit').textContent = 'Foto — ' + ft.rot;
+  cxEscolha.classList.add('aberta');
+}
+function fecharEscolha(){ cxEscolha.classList.remove('aberta'); destinoEscolha = null; }
+cxEscolha.addEventListener('click', ev=>{
+  if(ev.target === cxEscolha){ fecharEscolha(); return; }
+  const op = ev.target.getAttribute('data-op');
+  if(!op) return;
+  const alvo = destinoEscolha;
+  fecharEscolha();
+  if(!alvo || op === 'cancelar') return;
+  (op === 'camera' ? alvo.cam : alvo.gal).click();
+});
+document.addEventListener('keydown', ev=>{
+  if(ev.key === 'Escape' && cxEscolha.classList.contains('aberta')) fecharEscolha();
+});
+
 FOTOS.forEach(ft=>{
-  const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture','environment'); inp.hidden = true;
+  const inpCam = document.createElement('input');
+  inpCam.type = 'file'; inpCam.accept = 'image/*'; inpCam.setAttribute('capture','environment'); inpCam.hidden = true;
+  const inpGal = document.createElement('input');
+  inpGal.type = 'file'; inpGal.accept = 'image/*'; inpGal.hidden = true;
   const bt = document.createElement('button');
   bt.type = 'button'; bt.className = 'slot'; bt.id = 'slot-' + ft.k;
-  bt.addEventListener('click', ()=>{ fixarRegistro(); inp.click(); });
-  inp.addEventListener('change', async ()=>{
+  bt.addEventListener('click', ()=>{ fixarRegistro(); abrirEscolha(ft, inpCam, inpGal); });
+  async function receber(inp){
     const arq = inp.files && inp.files[0];
     inp.value = '';
     if(!arq) return;
@@ -505,13 +553,15 @@ FOTOS.forEach(ft=>{
       if(!guardou) alerta('aviso', 'Este navegador não deixou guardar a foto no aparelho. Envie sem fechar a página.');
     }catch(e){
       console.error(e);
-      alerta('ruim', 'Não foi possível ler a foto "' + ft.rot + '". Tire de novo.');
+      alerta('ruim', 'Não foi possível ler a foto "' + ft.rot + '". Tente de novo.');
     }
     desenharSlot(ft);
     mexeu();
     salvarRascunho();                          // foto é o que mais dói perder: grava na hora
-  });
-  slots.appendChild(bt); slots.appendChild(inp);
+  }
+  inpCam.addEventListener('change', ()=> receber(inpCam));
+  inpGal.addEventListener('change', ()=> receber(inpGal));
+  slots.appendChild(bt); slots.appendChild(inpCam); slots.appendChild(inpGal);
   desenharSlot(ft);
 });
 
@@ -519,11 +569,11 @@ function desenharSlot(ft){
   const bt = $('slot-' + ft.k), f = fotos[ft.k];
   if(f){
     bt.className = 'slot tem';
-    bt.setAttribute('aria-label', 'Foto ' + ft.rot + ' — tocar para refazer');
-    bt.innerHTML = '<img alt="" src="' + f.mini + '"><span class="etq">' + esc(ft.rot) + '<span>refazer</span></span>';
+    bt.setAttribute('aria-label', 'Foto ' + ft.rot + ' — tocar para trocar');
+    bt.innerHTML = '<img alt="" src="' + f.mini + '"><span class="etq">' + esc(ft.rot) + '<span>trocar</span></span>';
   }else{
     bt.className = 'slot' + (bt.classList.contains('erro') ? ' erro' : '');
-    bt.setAttribute('aria-label', 'Tirar foto ' + ft.rot);
+    bt.setAttribute('aria-label', 'Adicionar foto ' + ft.rot);
     bt.innerHTML = CAMERA + '<b>' + esc(ft.rot) + '</b><small>' + esc(ft.dica) + '</small>';
   }
 }

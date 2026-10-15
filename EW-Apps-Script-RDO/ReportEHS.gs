@@ -60,7 +60,7 @@ var EHS_CAB_FIXO = ['Protocolo', 'Recebido_em', 'Matricula_login', 'Data', 'Clie
                     'Supervisor', 'Link_PDF', 'Caminho_PDF'];
 var EHS_PDF_MAX_BYTES = 45 * 1024 * 1024;
 var EHS_FOTO_MAX_BYTES = 10 * 1024 * 1024;
-var EHS_FOTOS_MAX = 20;
+var EHS_FOTOS_MAX = 40;
 var EHS_PFX = 'EHS1_';
 
 /* Fotos que vão soltas para a pasta do dia.
@@ -183,29 +183,119 @@ function ehsPrepararFotos(fotos) {
   return out.slice(0, EHS_FOTOS_MAX);
 }
 
-/** Sobe várias fotos em paralelo (fetchAll). -> { ok:[caminho], falhou:[nome] } */
-function ehsUploadFotos(token, props, pastaDia, fotos) {
-  var res = { ok: [], falhou: [] };
-  if (!fotos.length) return res;
-  var reqs = fotos.map(function (f) {
+/* ---------------------------------------------------------------------------
+   UPLOAD DAS FOTOS
+   1ª versão subia todas com files/upload em paralelo. O Dropbox trava a pasta
+   a cada gravação e, com vários uploads ao mesmo tempo na mesma pasta, recusa
+   parte deles com 429 "too_many_write_operations" — era o "faltou duas".
+   Agora é o caminho que o próprio Dropbox recomenda para vários arquivos:
+     1) upload_session/start em paralelo  -> só transfere os bytes, não grava
+     2) upload_session/finish_batch_v2    -> grava TODOS numa única operação
+     3) o que ainda falhar é refeito UM POR VEZ, esperando o tempo que o
+        Dropbox pedir (retry_after), até 3 tentativas por foto.
+   --------------------------------------------------------------------------- */
+
+/** Espera pedida pelo Dropbox numa resposta 429/503 (segundos), com teto. */
+function ehsEsperaDropbox_(r, tentativa) {
+  var seg = 0;
+  try {
+    var j = JSON.parse(r.getContentText());
+    seg = Number((j.error && j.error.retry_after) || j.retry_after || 0);
+  } catch (e) {}
+  if (!seg) { try { seg = Number(r.getHeaders()['Retry-After'] || 0); } catch (e2) {} }
+  return Math.min(Math.max(seg || tentativa * 1.5, 1), 10);
+}
+
+/** files/upload de UMA foto, com até 3 tentativas. -> { ok, caminho, erro } */
+function ehsUploadUmaFoto_(token, props, caminho, bytes) {
+  var erro = '';
+  for (var t = 1; t <= 3; t++) {
     var h = ehsDbxHeaders(token, props);
-    h['Dropbox-API-Arg'] = escaparArg({ path: pastaDia + '/' + f.nome, mode: 'overwrite', autorename: false, mute: true });
-    return {
-      url: 'https://content.dropboxapi.com/2/files/upload', method: 'post',
-      contentType: 'application/octet-stream', headers: h, payload: f.bytes, muteHttpExceptions: true
-    };
-  });
-  var resps;
-  try { resps = UrlFetchApp.fetchAll(reqs); }
-  catch (e) { fotos.forEach(function (f) { res.falhou.push(f.nome); }); return res; }
-  resps.forEach(function (r, i) {
-    if (r.getResponseCode() < 300) {
-      try { res.ok.push(JSON.parse(r.getContentText()).path_display || (pastaDia + '/' + fotos[i].nome)); }
-      catch (e) { res.ok.push(pastaDia + '/' + fotos[i].nome); }
-    } else {
-      res.falhou.push(fotos[i].nome);
+    h['Dropbox-API-Arg'] = escaparArg({ path: caminho, mode: 'overwrite', autorename: false, mute: true });
+    try {
+      var r = UrlFetchApp.fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'post', contentType: 'application/octet-stream', headers: h,
+        payload: bytes, muteHttpExceptions: true
+      });
+      var cod = r.getResponseCode();
+      if (cod < 300) {
+        var meta = {};
+        try { meta = JSON.parse(r.getContentText()); } catch (e) {}
+        return { ok: true, caminho: meta.path_display || caminho };
+      }
+      erro = cod + ' ' + r.getContentText().slice(0, 160);
+      if (cod !== 429 && cod < 500) break;          // erro definitivo: não adianta repetir
+      Utilities.sleep(ehsEsperaDropbox_(r, t) * 1000);
+    } catch (e) {
+      erro = String(e).slice(0, 160);
+      Utilities.sleep(t * 1500);
     }
+  }
+  return { ok: false, erro: erro };
+}
+
+/** Sobe as fotos da pasta do dia. -> { ok:[caminho], falhou:[nome], erros:[texto] } */
+function ehsUploadFotos(token, props, pastaDia, fotos) {
+  var res = { ok: [], falhou: [], erros: [] };
+  if (!fotos.length) return res;
+
+  var pendentes = fotos.map(function (f) { return { nome: f.nome, bytes: f.bytes, caminho: pastaDia + '/' + f.nome }; });
+
+  /* 1) transfere os bytes em paralelo (sessões fechadas, nada gravado ainda) */
+  var sessoes = [];
+  try {
+    var reqs = pendentes.map(function (f) {
+      var h = ehsDbxHeaders(token, props);
+      h['Dropbox-API-Arg'] = JSON.stringify({ close: true });
+      return {
+        url: 'https://content.dropboxapi.com/2/files/upload_session/start', method: 'post',
+        contentType: 'application/octet-stream', headers: h, payload: f.bytes, muteHttpExceptions: true
+      };
+    });
+    UrlFetchApp.fetchAll(reqs).forEach(function (r, i) {
+      var sid = '';
+      if (r.getResponseCode() < 300) { try { sid = JSON.parse(r.getContentText()).session_id || ''; } catch (e) {} }
+      sessoes[i] = sid;
+    });
+  } catch (eS) { sessoes = []; }
+
+  /* 2) grava todas as que transferiram, numa operação só */
+  var gravou = {};
+  var lote = [];
+  pendentes.forEach(function (f, i) {
+    if (!sessoes[i]) return;
+    lote.push({ i: i, entrada: {
+      cursor: { session_id: sessoes[i], offset: f.bytes.length },
+      commit: { path: f.caminho, mode: 'overwrite', autorename: false, mute: true }
+    } });
   });
+  if (lote.length) {
+    try {
+      var r = UrlFetchApp.fetch('https://api.dropboxapi.com/2/files/upload_session/finish_batch_v2', {
+        method: 'post', contentType: 'application/json', headers: ehsDbxHeaders(token, props),
+        payload: JSON.stringify({ entries: lote.map(function (x) { return x.entrada; }) }),
+        muteHttpExceptions: true
+      });
+      if (r.getResponseCode() < 300) {
+        (JSON.parse(r.getContentText()).entries || []).forEach(function (e, k) {
+          if (e && e['.tag'] === 'success' && lote[k]) {
+            gravou[lote[k].i] = e.path_display || pendentes[lote[k].i].caminho;
+          }
+        });
+      } else {
+        res.erros.push('lote: ' + r.getResponseCode() + ' ' + r.getContentText().slice(0, 160));
+      }
+    } catch (eB) { res.erros.push('lote: ' + String(eB).slice(0, 160)); }
+  }
+
+  /* 3) o que não entrou no lote: uma por vez, com espera e nova tentativa */
+  pendentes.forEach(function (f, i) {
+    if (gravou[i]) { res.ok.push(gravou[i]); return; }
+    var u = ehsUploadUmaFoto_(token, props, f.caminho, f.bytes);
+    if (u.ok) res.ok.push(u.caminho);
+    else { res.falhou.push(f.nome); res.erros.push(f.nome + ': ' + u.erro); }
+  });
+
   return res;
 }
 
@@ -448,6 +538,10 @@ function enviarReportEhs(dados) {
     escreverBloco(sh, [linha]);
     antes.map(function (a) { return a.linha; }).sort(function (a, b) { return b - a; })
       .forEach(function (n) { sh.deleteRow(n); });
+
+    /* falha de foto vai para o log de execução (Execuções, no editor) com o
+       motivo exato que o Dropbox devolveu */
+    if (up.erros.length) console.warn('EHS fotos — ' + real + '\n' + up.erros.join('\n'));
 
     resp = { ok: true, id: id, link: link, substituiu: antes.length > 0, caminho: real,
              fotos: up.ok.length, fotosFalharam: up.falhou };
