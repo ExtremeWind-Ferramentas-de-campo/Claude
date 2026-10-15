@@ -4,7 +4,7 @@ App PWA para registro fotográfico de inspeção e reparo de pás eólicas.
 
 ## Versão
 
-**v45 · 07/10/2026** — o número aparece na tela do app, embaixo do título, ao
+**v46 · 15/10/2026** — o número aparece na tela do app, embaixo do título, ao
 lado do aviso de modo offline. É por ele que se sabe, olhando o celular, se o
 aparelho já carregou o código novo.
 
@@ -26,6 +26,7 @@ versão em campo; sem o `CACHE` o arquivo novo nem chega ao aparelho.
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| v46 | 15/10/2026 | **Carimbo com Parque, WTG e Blade.** O carimbo da foto passa a ter duas linhas: em cima **PARQUE · WTG xxx · Blade xxx** (lidos do formulário na hora; campo vazio some; nome muito comprido é cortado com …), embaixo a data e a hora como antes. Vale na câmera ao vivo, na foto gravada e na foto da galeria. Linhas alinhadas à direita. |
 | v45 | 07/10/2026 | **Caixa "Foto em paisagem" para voltar ao jeito antigo.** Marcar **Interno** continua levando direto à paisagem (a caixa liga sozinha), mas agora aparece, logo abaixo de Lado / Localização, a caixa **↔ Foto em paisagem**: desmarcá-la devolve o jeito antigo mesmo com Interno marcado. A escolha fica guardada no aparelho e só religa sozinha quando Interno é marcado de novo. |
 | v44 | 07/10/2026 | **Interno marcado → foto sempre em paisagem, com o card na horizontal.** Desfaz a v42/v43 (foto horizontal para todas as fotos, e a chave ↔): a regra passa a valer **só com a caixa Interno marcada**, na câmera e na galeria. Sem Interno marcado volta o comportamento de antes: foto como o celular estava e card/carimbo acompanhando o sensor de orientação. Sem chave e sem botão novo. |
 | v43 | 07/10/2026 | *(desfeita na v44)* **Chave "Foto sempre na horizontal" (ligar/desligar).** Ligada (padrão), vale o comportamento da v42. Desligada, a foto sai do jeito que o celular está (em pé sai em pé), e o card e o carimbo continuam sempre na horizontal. Botão **↔** na câmera e caixa na tela principal (vale também para a galeria); a escolha fica guardada no aparelho. |
