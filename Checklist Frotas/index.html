@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://script.google.com https://script.googleusercontent.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self' https://script.google.com https://script.googleusercontent.com; object-src 'none'; base-uri 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Extreme Wind — Checklist Frotas: gerador elétrico, plataforma e inspeção semanal de veículos">
 <meta name="theme-color" content="#12466B">
@@ -131,6 +131,17 @@
        que é o que o dedo entende de qualquer forma. */
     .opt-card .go .rot{display:none}
   }
+  /* aviso "sem acesso" do Abastecimento (só equipes NORDEX MX) */
+  .aviso-acesso{position:fixed;inset:0;z-index:90;background:rgba(9,20,34,.55);display:none;
+    align-items:center;justify-content:center;padding:20px}
+  .aviso-acesso.aberto{display:flex}
+  .aviso-acesso-cx{background:var(--card);color:var(--ink);max-width:400px;width:100%;border-radius:16px;
+    border-top:5px solid #c2410c;padding:22px 20px;text-align:center;box-shadow:var(--shadow)}
+  .aviso-acesso-cx h2{font-size:18px;margin-bottom:8px}
+  .aviso-acesso-cx p{font-size:14px;color:var(--muted);margin-bottom:16px;line-height:1.45}
+  .aviso-acesso-cx button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:11px 22px;
+    background:#12466b;color:#fff;cursor:pointer}
+  .opt-card.conferindo{opacity:.6;pointer-events:none}
 </style>
 <script src="../guard.js"></script>
 </head>
@@ -223,11 +234,11 @@
         <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-right"></i></span>
       </a>
 
-      <a class="opt-card" href="abastecimento.html" style="--c:#7A3E9D">
+      <a class="opt-card" href="abastecimento.html" id="cardAbast" style="--c:#7A3E9D">
         <span class="ico"><i class="fas fa-gas-pump"></i></span>
         <span class="txt">
           <span class="opt-title">Abastecimento</span>
-          <span class="opt-desc">Placa, KM, fotos e assinatura a cada abastecimento</span>
+          <span class="opt-desc">Placa, KM, fotos e assinatura a cada abastecimento — só equipes NORDEX MX</span>
         </span>
         <span class="go"><span class="rot">Abrir</span> <i class="fas fa-arrow-right"></i></span>
       </a>
@@ -244,6 +255,14 @@
     </div>
   </section>
 </main>
+
+<div class="aviso-acesso" id="avisoAcesso" role="alertdialog" aria-modal="true" aria-labelledby="avisoAcessoTit">
+  <div class="aviso-acesso-cx">
+    <h2 id="avisoAcessoTit">Você não tem acesso a este checklist</h2>
+    <p id="avisoAcessoMsg">O Abastecimento é só para as equipes dos parques NORDEX MX. Se você foi alocado agora, peça ao supervisor para incluir sua matrícula no projeto.</p>
+    <button type="button" id="avisoAcessoOk">Entendi</button>
+  </div>
+</div>
 
 <footer>
   <p>Extreme Wind Blade Services &copy; <span id="year"></span> · Uso interno</p>
@@ -266,6 +285,88 @@ document.getElementById('year').textContent = new Date().getFullYear();
     var dark=cur==='dark'||(!cur&&window.matchMedia('(prefers-color-scheme:dark)').matches);
     var next=dark?'light':'dark'; localStorage.setItem(KEY,next); apply(next);
   });
+})();
+</script>
+<script>
+/* ---------------------------------------------------------------------------
+   ACESSO AO ABASTECIMENTO — só para quem está num projeto NORDEX MX na aba
+   SUPERVISORES (quem decide é o servidor: ação acessoAbastecimento, no
+   AcessoAbastecimento.gs). A resposta é conferida ao abrir este menu e
+   guardada no aparelho (mesma chave que o abastecimento.html usa), para o
+   clique responder na hora e funcionar sem sinal.
+   Sem sinal e sem nenhuma resposta guardada, a tela abre: o servidor confere
+   de novo na busca da placa e no envio.
+   --------------------------------------------------------------------------- */
+(function(){
+  var ENDPOINT = 'https://script.google.com/macros/s/AKfycbxoOpV339g76UpYa7sO28C6lS99TAz7po2c0dNAk0i1X1HgsyKC_KXIuuBAS7qbBzLG/exec';
+  var LS = 'ew_abast_acesso';
+  var card = document.getElementById('cardAbast');
+  var aviso = document.getElementById('avisoAcesso');
+  if(!card) return;
+
+  function sess(){
+    try{
+      var s = JSON.parse(localStorage.getItem('ew_sessao') || 'null');
+      return (s && s.token && s.exp > Date.now()) ? s : null;
+    }catch(e){ return null; }
+  }
+  var S = sess() || {};
+  function guardado(){
+    try{
+      var a = JSON.parse(localStorage.getItem(LS) || 'null');
+      if(!a || String(a.mat) !== String(S.mat) || (Date.now() - a.quando) > 7*24*3600*1000) return null;
+      return a;
+    }catch(e){ return null; }
+  }
+  function guardar(j){
+    try{ localStorage.setItem(LS, JSON.stringify({mat:S.mat, liberado:!!j.liberado, mensagem:j.mensagem||'', quando:Date.now()})); }catch(e){}
+  }
+  function jsonp(params){
+    return new Promise(function(ok){
+      var cb = '__acCb' + Date.now() + Math.floor(Math.random()*1000), pronto = false;
+      window[cb] = function(j){ pronto = true; ok(j); try{ delete window[cb]; }catch(e){ window[cb] = null; } };
+      var qs = 'callback=' + cb;
+      Object.keys(params).forEach(function(k){ qs += '&' + k + '=' + encodeURIComponent(params[k]); });
+      var sc = document.createElement('script');
+      sc.src = ENDPOINT + '?' + qs;
+      sc.onerror = function(){ if(!pronto) ok(null); };
+      document.head.appendChild(sc);
+      setTimeout(function(){ if(!pronto) ok(null); }, 15000);
+    });
+  }
+  var emCurso = null;
+  function conferir(){
+    if(emCurso) return emCurso;
+    if(!S.token || !navigator.onLine) return Promise.resolve(null);
+    emCurso = fetch(ENDPOINT, {method:'POST', body: JSON.stringify({acao:'acessoAbastecimento', token:S.token})})
+      .then(function(r){ return r.json(); })
+      .catch(function(){ return null; })
+      .then(function(j){ return j || jsonp({acao:'acessoAbastecimento', token:S.token}); })
+      .then(function(j){ if(j && j.ok) guardar(j); emCurso = null; return (j && j.ok) ? j : null; });
+    return emCurso;
+  }
+  function semAcesso(){ aviso.classList.add('aberto'); document.getElementById('avisoAcessoOk').focus(); }
+
+  document.getElementById('avisoAcessoOk').addEventListener('click', function(){ aviso.classList.remove('aberto'); });
+  aviso.addEventListener('click', function(e){ if(e.target === aviso) aviso.classList.remove('aberto'); });
+
+  card.addEventListener('click', function(e){
+    e.preventDefault();
+    var decidir = function(){
+      var a = guardado();
+      if(a && !a.liberado) semAcesso();
+      else location.href = card.href;            // liberado, ou sem sinal e sem resposta: o servidor confere no envio
+    };
+    var a = guardado();
+    // resposta guardada e nenhuma conferência em andamento: decide na hora
+    if(a && !emCurso){ decidir(); return; }
+    // sem resposta, ou conferência ainda voltando (pode ter acabado de ser liberado): espera até 10 s
+    card.classList.add('conferindo');
+    Promise.race([conferir(), new Promise(function(ok){ setTimeout(function(){ ok(null); }, 10000); })])
+      .then(function(){ card.classList.remove('conferindo'); decidir(); });
+  });
+
+  conferir();   // já na abertura do menu, para o clique ser instantâneo
 })();
 </script>
 <script>

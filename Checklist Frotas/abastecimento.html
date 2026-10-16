@@ -162,6 +162,16 @@
     background:#fff;border-radius:2px;font-size:16px;color:var(--tinta)}
   .escolha-bt:hover{border-color:var(--aco);color:var(--aco)}
   .escolha-bt.cancelar{margin-bottom:0;color:var(--tinta-2);border-style:dashed}
+
+  /* bloqueio: Abastecimento só para as equipes NORDEX MX (conferido no servidor) */
+  .sem-acesso{position:fixed;inset:0;z-index:80;background:var(--papel);display:none;
+    align-items:center;justify-content:center;padding:24px}
+  .sem-acesso.aberto{display:flex}
+  .sem-acesso-cx{max-width:440px;background:#fff;border:1px solid var(--linha);border-top:4px solid var(--sinal);
+    padding:22px 20px;text-align:center}
+  .sem-acesso-cx h2{margin:0 0 10px;font-size:19px}
+  .sem-acesso-cx p{margin:0 0 16px;color:var(--tinta-2);font-size:15px}
+  .sem-acesso-cx a{display:inline-block;padding:12px 18px;background:var(--aco);color:#fff;text-decoration:none;font-weight:600}
 </style>
 <script>try{var t=localStorage.getItem("ew_tema");if(!t&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)t="escuro";document.documentElement.setAttribute("data-tema",t==="escuro"?"escuro":"claro")}catch(e){}</script>
 <link rel="stylesheet" href="../ew-form.css">
@@ -228,6 +238,14 @@
   </form>
 </main>
 
+<div class="sem-acesso" id="semAcesso" role="alertdialog" aria-modal="true" aria-labelledby="semAcessoTit">
+  <div class="sem-acesso-cx">
+    <h2 id="semAcessoTit">Você não tem acesso a este checklist</h2>
+    <p id="semAcessoMsg">O Abastecimento é só para as equipes dos parques NORDEX MX.</p>
+    <a href="index.html">Voltar ao Checklist Frotas</a>
+  </div>
+</div>
+
 <div class="escolha" id="escolha" role="dialog" aria-modal="true" aria-labelledby="escolhaTit">
   <div class="escolha-cx">
     <p class="escolha-tit" id="escolhaTit">Foto</p>
@@ -281,6 +299,43 @@ function sessao(){
 const S = sessao() || {};
 $('vNome').textContent = S.nome || '—';
 $('vMat').textContent = S.mat || '—';
+
+/* ---------------- acesso (só equipes NORDEX MX) ----------------
+   Quem decide é o servidor (aba SUPERVISORES): ele recusa a busca da placa e
+   o envio de quem não está num projeto liberado. A pergunta na abertura é só
+   para avisar logo, antes de o técnico preencher tudo.
+   Sem sinal: vale a última resposta guardada neste aparelho (até 7 dias).
+   Sem resposta guardada, deixa preencher — o envio confere de novo. */
+const LS_ACESSO = 'ew_abast_acesso';
+function mostrarSemAcesso(msg){
+  if(msg) $('semAcessoMsg').textContent = msg;
+  $('semAcesso').classList.add('aberto');
+}
+function acessoGuardado(){
+  try{
+    const a = JSON.parse(localStorage.getItem(LS_ACESSO) || 'null');
+    if(!a || String(a.mat) !== String(S.mat) || (Date.now() - a.quando) > 7*24*3600*1000) return null;
+    return a;
+  }catch(_){ return null; }
+}
+async function conferirAcesso(){
+  if(!S.token) return;
+  const salvo = acessoGuardado();
+  if(salvo && !salvo.liberado) mostrarSemAcesso(salvo.mensagem);   // já sabido: barra na hora
+  let j = null;
+  if(navigator.onLine){
+    try{
+      const r = await fetch(ENDPOINT, {method:'POST', body: JSON.stringify({acao:'acessoAbastecimento', token:S.token})});
+      j = await r.json();
+    }catch(_){ j = null; }
+    if(!j) j = await jsonp({acao:'acessoAbastecimento', token:S.token});
+  }
+  if(!j || !j.ok) return;                    // sem resposta: fica o que estava guardado
+  try{ localStorage.setItem(LS_ACESSO, JSON.stringify({mat:S.mat, liberado:!!j.liberado, mensagem:j.mensagem||'', quando:Date.now()})); }catch(_){}
+  if(j.liberado) $('semAcesso').classList.remove('aberto');
+  else mostrarSemAcesso(j.mensagem);
+}
+setTimeout(conferirAcesso, 0);             // depois de jsonp/ENDPOINT definidos
 
 function sessaoCaiu(){
   alerta('ruim', 'Sua sessão expirou. <a href="../index.html">Entre de novo</a> — o que já foi preenchido continua salvo neste aparelho.', true);
@@ -398,6 +453,7 @@ async function consultarPlaca(p){
     j = await r.json();
   }catch(_){ j = null; }
   if(!j && navigator.onLine) j = await jsonp({acao:'frotaPorPlaca', token:S.token, placa:p});
+  if(j && j.bloqueado){ mostrarSemAcesso(j.erro); return {ok:false, erro:j.erro}; }
   if(j && j.ok && j.encontrado) guardarFrota(j);
   return j;
 }
@@ -809,6 +865,7 @@ btEnviar.addEventListener('click', async ()=>{
   }
   destravar();
   if(r && r.sessao === false){ sessaoCaiu(); return; }
+  if(r && r.bloqueado){ mostrarSemAcesso(r.erro); return; }
   if(r){ alerta('ruim', 'O servidor recusou o envio: ' + (r.erro || 'motivo não informado') + ' Nada foi registrado; o preenchimento continua salvo.'); return; }
   alerta('aviso', 'Não recebi confirmação do servidor. Pode ter chegado mesmo assim. ' +
                   'Toque em Enviar de novo sem mudar nada: se já tiver chegado, não duplica.');
