@@ -108,6 +108,25 @@
     background:#fff;border-radius:2px;font-size:16px;color:var(--tinta)}
   .escolha-bt:hover{border-color:var(--aco);color:var(--aco)}
   .escolha-bt.cancelar{margin-bottom:0;color:var(--tinta-2);border-style:dashed}
+  /* tela de ajuste do fotocard + carimbo (mesma ideia da galeria do Fotocard) */
+  .fcaj{position:fixed;inset:0;z-index:70;background:#0d1117;color:#fff;display:none;flex-direction:column;align-items:center}
+  .fcaj.aberta{display:flex}
+  .fcaj-topo{width:100%;max-width:900px;padding:10px 12px 6px;font-size:13px;text-align:center}
+  .fcaj-topo b{display:block;font-size:14px;margin-bottom:2px}
+  .fcaj-topo span{opacity:.75}
+  .fcaj-palco{position:relative;flex:0 0 auto;touch-action:none;margin:4px 0;overflow:hidden}
+  .fcaj-palco canvas{position:absolute;top:0;left:0;display:block}
+  .fcaj-bts{display:flex;gap:8px;width:100%;max-width:560px;margin-top:auto;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+  .fcaj-bt{flex:1;padding:13px 4px;border:1px solid #3a4652;background:#161b22;color:#fff;border-radius:2px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+  .fcaj-bt.ok{background:var(--aco);border-color:var(--aco)}
+  .fcaj-bt:disabled{opacity:.5}
+  #fcAjVideo{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:fill;display:none;background:#000}
+  .fcaj.cam #fcAjVideo{display:block}
+  .fcaj.cam #fcAjFoto,.fcaj.cam [data-fc="usar"],.fcaj:not(.cam) [data-fc="capturar"]{display:none}
+  .fcaj-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
+  .fcaj-flash.on{opacity:.8;transition:none}
 </style>
 <script>try{var t=localStorage.getItem("ew_tema");if(!t&&window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)t="escuro";document.documentElement.setAttribute("data-tema",t==="escuro"?"escuro":"claro")}catch(e){}</script>
 <link rel="stylesheet" href="../../ew-form.css">
@@ -131,9 +150,25 @@
 <div class="escolha" id="escolha">
   <div class="escolha-cx">
     <p class="escolha-tit">Adicionar foto</p>
-    <button type="button" class="escolha-bt" data-op="camera">Tirar foto agora</button>
+    <button type="button" class="escolha-bt" data-op="aovivo">Câmera ao vivo (ajusta o fotocard na tela)</button>
+    <button type="button" class="escolha-bt" data-op="camera">Câmera do celular</button>
     <button type="button" class="escolha-bt" data-op="galeria">Escolher da galeria</button>
     <button type="button" class="escolha-bt cancelar" data-op="cancelar">Cancelar</button>
+  </div>
+</div>
+<div class="fcaj" id="fcAj">
+  <div class="fcaj-topo"><b id="fcAjEtapa"></b><span>Arraste o card e o carimbo para não cobrirem o que precisa aparecer.</span></div>
+  <div class="fcaj-palco" id="fcAjPalco">
+    <video id="fcAjVideo" playsinline muted autoplay></video>
+    <canvas id="fcAjFoto"></canvas><canvas id="fcAjCard"></canvas><canvas id="fcAjStamp"></canvas>
+    <div class="fcaj-flash" id="fcAjFlash"></div>
+  </div>
+  <div class="fcaj-bts">
+    <button type="button" class="fcaj-bt" data-fc="menos">Card −</button>
+    <button type="button" class="fcaj-bt" data-fc="mais">Card +</button>
+    <button type="button" class="fcaj-bt" data-fc="cancelar">Cancelar</button>
+    <button type="button" class="fcaj-bt ok" data-fc="usar">Usar foto</button>
+    <button type="button" class="fcaj-bt ok" data-fc="capturar">Fotografar</button>
   </div>
 </div>
 
@@ -234,8 +269,8 @@ setTimeout(function(){ atualizarCondicoes(); }, 30);
 const cxEscolha = $('#escolha');
 let destinoEscolha = null;
 
-function abrirEscolha(inpCam, inpGal){
-  destinoEscolha = {cam: inpCam, gal: inpGal};
+function abrirEscolha(inpCam, inpGal, aoVivo){
+  destinoEscolha = {cam: inpCam, gal: inpGal, aoVivo: aoVivo};
   cxEscolha.classList.add('aberta');
 }
 function fecharEscolha(){
@@ -249,6 +284,7 @@ cxEscolha.addEventListener('click', function(ev){
   const alvo = destinoEscolha;
   fecharEscolha();
   if(!alvo || op === 'cancelar') return;
+  if(op === 'aovivo'){ if(alvo.aoVivo) alvo.aoVivo(); return; }
   (op === 'camera' ? alvo.cam : alvo.gal).click();
 });
 
@@ -643,13 +679,10 @@ function montar(c, i){
       inp.value = '';
       for(const f of arquivos){
         try{
-          const r = await comprimir(f, QUAL[0], QUAL[1]);
-          const chave = 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-          const guardou = await guardarBlob(chave, r.blob);
-          // Se o banco não estiver disponível, o blob fica em memória — ainda é
-          // bem mais leve que a dataURL, mas aí o rascunho não protege.
-          fotos[i].push({id: chave, w: r.w, h: r.h, mini: r.mini, blob: guardou ? null : r.blob});
-          desenharFotos(i, grade);
+          // Fotocard + carimbo: a foto passa pela tela de ajuste antes de entrar.
+          const montada = await EHSFC.montar(f, EHSFC.etapaDe(c));
+          if(!montada) continue;               // cancelou na tela de ajuste
+          await guardarFoto(montada);
         }catch(e){
           console.error(e);
           alerta('ruim', 'Não foi possível ler uma das imagens.');
@@ -658,11 +691,32 @@ function montar(c, i){
       atualizarCondicoes();
       agendarRascunho();
     }
+    // Câmera ao vivo: as fotos já saem dela com o card e o carimbo gravados.
+    async function aoVivo(){
+      const blobs = await EHSFC.camera(EHSFC.etapaDe(c), !!c.varias);
+      for(const b of blobs){
+        try{ await guardarFoto(b); }
+        catch(e){ console.error(e); alerta('ruim', 'Não foi possível guardar uma das fotos.'); }
+      }
+      atualizarCondicoes();
+      agendarRascunho();
+    }
+    async function guardarFoto(montada){
+      const r = await comprimir(montada, QUAL[0], QUAL[1]);
+      const chave = 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+      const guardou = await guardarBlob(chave, r.blob);
+      // Se o banco não estiver disponível, o blob fica em memória — ainda é
+      // bem mais leve que a dataURL, mas aí o rascunho não protege.
+      fotos[i].push({id: chave, w: r.w, h: r.h, mini: r.mini, blob: guardou ? null : r.blob,
+                     fc: EHSFC.assinatura()});
+      desenharFotos(i, grade);
+    }
     inpCam.addEventListener('change', ()=> receber(inpCam));
     inpGal.addEventListener('change', ()=> receber(inpGal));
 
     const bt = el('button', {type:'button', class:'btn'}, 'Adicionar foto');
-    bt.addEventListener('click', ()=> abrirEscolha(inpCam, inpGal));
+    // Sem os dados fixos o fotocard sairia com "—": a foto só libera com eles preenchidos.
+    bt.addEventListener('click', ()=>{ if(EHSFC.liberado()) abrirEscolha(inpCam, inpGal, aoVivo); });
 
     w.appendChild(inpCam); w.appendChild(inpGal); w.appendChild(bt); w.appendChild(grade);
     return w;
@@ -797,6 +851,7 @@ function atualizarCondicoes(){
     b.style.display = mostrar ? '' : 'none';
     b.setAttribute('data-oculto', mostrar ? '0' : '1');
   });
+  if(window.ehsfcPrevia) window.ehsfcPrevia();
 }
 
 function estaOculto(i){
@@ -1350,6 +1405,612 @@ async function montarPDF(dados){
 
   return doc;
 }
+
+/* ================= FOTOCARD + CARIMBO NAS FOTOS =================
+   O mesmo card e o mesmo carimbo de data/hora do app Fotocard, montados aqui
+   dentro do report. As etapas fixas (cliente, parque, WTG, data, supervisor e
+   técnicos) são preenchidas uma vez no formulário e valem para todas as fotos
+   até o envio (ficam no rascunho); a "Etapa do Processo" de cada foto é a
+   própria pergunta (HOUVE DDS? -> FOTO DA EQUIPE EM DDS, e assim por diante).
+   Câmera ou galeria: toda foto passa pela tela de ajuste — arrastar card e
+   carimbo — e só então entra no report, já com os dois gravados na imagem. */
+const EHSFC = (function(){
+  const FIXOS = [2, 51, 3, 4, 9, 6, 7, 8];   // cliente, parque, WTG, data, supervisor, técnicos 01-03
+
+  function iDe(uid){ return porUid[String(uid)]; }
+  function valor(uid){
+    const i = iDe(uid);
+    if(i == null) return '';
+    const v = ler(SCHEMA.campos[i], i);
+    if(v && typeof v === 'object') return v.nome || '';
+    return String(v || '').trim();
+  }
+  function brData(v){
+    const p = String(v || '').split('-');
+    return p.length === 3 ? (p[2] + '/' + p[1] + '/' + p[0]) : String(v || '');
+  }
+  function estado(etapa){
+    return {
+      cliente: valor(2), parque: valor(51), wtg: valor(3), data: brData(valor(4)),
+      supervisor: valor(9),
+      equipe: [6, 7, 8].map(valor).filter(Boolean).join('\n'),
+      etapa: etapa || ''
+    };
+  }
+  /* "impressão digital" dos dados fixos: a foto guarda a do momento em que foi
+     tirada, e a prévia avisa se algum dado mudou depois */
+  function assinatura(){
+    const s = estado('');
+    return [s.cliente, s.parque, s.wtg, s.data, s.supervisor, s.equipe].join('|');
+  }
+  /* rótulo da pergunta -> etapa do card (sem a explicação entre parênteses) */
+  function etapaDe(c){
+    return String(c.rotulo || '').replace(/\s+—.*$/, '').replace(/\s*\([^)]{13,}\)/g, '').trim();
+  }
+  function faltando(){
+    const fora = [];
+    FIXOS.forEach(function(uid){
+      const i = iDe(uid);
+      if(i == null) return;
+      const c = SCHEMA.campos[i];
+      if(c.obrigatorio && !estaOculto(i) && vazioValor(ler(c, i))) fora.push(i);
+    });
+    return fora;
+  }
+  function liberado(){
+    const fora = faltando();
+    if(!fora.length) return true;
+    fora.forEach(function(i){
+      const b = document.querySelector('[data-bloco="' + i + '"]');
+      if(b) b.classList.add('erro');
+    });
+    alerta('ruim', 'Antes das fotos, preencha os dados do fotocard: ' +
+                   fora.map(function(i){ return SCHEMA.campos[i].rotulo; }).join(', ') + '.');
+    const b0 = document.querySelector('[data-bloco="' + fora[0] + '"]');
+    if(b0) setTimeout(function(){ b0.scrollIntoView({behavior:'smooth', block:'center'}); }, 350);
+    return false;
+  }
+
+  /* ── Card: mesmas primitivas, cores e medidas do módulo FC do Fotocard ── */
+  const W = 900, OUT = 3, HAIR = 1.5, IW = W - 2*OUT;
+  const INK = '#000', PAPER = [255,255,255], CYAN = [159,217,229];
+  const FAM = 'Arial, Helvetica, sans-serif', OPACITY = 0.85;
+  const PX = 9, PY = 5, LBL = 19, LBLH = 22, LBLM = 2;
+  let A = 1;
+
+  function rgba(c, a){ return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+  function fnt(px, bold){ return (bold ? 'bold ' : '') + px + 'px ' + FAM; }
+  function lhx(px, f){ return px*(f || 1.15); }
+  function str(v){ return v == null ? '' : String(v); }
+  function up(v){ return str(v).toUpperCase(); }
+  const mc = document.createElement('canvas').getContext('2d');
+
+  const logo = new Image();
+  let logoOk = false;
+  logo.onload = function(){ logoOk = true; previa(); };
+  logo.src = '../../logo-ew.png';
+  function logoH(){ return logoOk ? 152*(logo.naturalHeight/logo.naturalWidth) : 70; }
+
+  function fill(ctx, x, y, w, h, c){ ctx.fillStyle = c; ctx.fillRect(x, y, w, h); }
+  function bg(ctx, x, y, w, h, c){ if(A < 1) ctx.clearRect(x, y, w, h); fill(ctx, x, y, w, h, rgba(c, A)); }
+  function line(ctx, s, x, y, size, bold, align, lh, ls){
+    s = str(s); if(!s) return;
+    ctx.font = fnt(size, bold); ctx.fillStyle = INK; ctx.textBaseline = 'top';
+    const top = y + ((lh || lhx(size)) - lhx(size))/2;
+    if(ls){ lsLine(ctx, s, x, top, ls, align); return; }
+    ctx.textAlign = align || 'left';
+    ctx.fillText(s, x, top);
+    ctx.textAlign = 'left';
+  }
+  function lsLine(ctx, s, x, y, ls, align){
+    let i, w = -ls;
+    for(i = 0; i < s.length; i++) w += ctx.measureText(s.charAt(i)).width + ls;
+    let cx = align === 'center' ? x - w/2 : (align === 'right' ? x - w : x);
+    ctx.textAlign = 'left';
+    for(i = 0; i < s.length; i++){ ctx.fillText(s.charAt(i), cx, y); cx += ctx.measureText(s.charAt(i)).width + ls; }
+  }
+  function wrap(s, maxW, font, ls){
+    mc.font = font;
+    function wd(t){ return mc.measureText(t).width + (ls ? ls*t.length : 0); }
+    const out = [];
+    str(s).split('\n').forEach(function(par){
+      let buf = '';
+      par.split(' ').forEach(function(word){
+        while(wd(word) > maxW && word.length > 1){
+          let cut = word.length;
+          while(cut > 1 && wd(word.slice(0, cut)) > maxW) cut--;
+          if(buf){ out.push(buf); buf = ''; }
+          out.push(word.slice(0, cut));
+          word = word.slice(cut);
+        }
+        const t = buf ? buf + ' ' + word : word;
+        if(buf && wd(t) > maxW){ out.push(buf); buf = word; }
+        else buf = t;
+      });
+      out.push(buf);
+    });
+    return out;
+  }
+  function medeTexto(t, f){ mc.font = f; return mc.measureText(t).width; }
+  function tamanhoCentral(txt, larg, base, max, ls){
+    const t = str(txt); if(!t) return base;
+    let tam = max;
+    while(tam > base && (medeTexto(t, fnt(tam, true)) + ls*(t.length - 1)) > larg) tam--;
+    return tam;
+  }
+  /* valor cresce até "max" enquanto a linha mais comprida couber */
+  function tamanhoValor(val, larg, base, max){
+    const t = str(val);
+    if(!t || !max || max <= base) return base;
+    const linhas = t.split('\n');
+    let tam = max;
+    while(tam > base && linhas.some(function(l){ return medeTexto(l, fnt(tam, true)) > larg; })) tam--;
+    return tam;
+  }
+  function cellLV(ctx, x, y, w, lbl, val, size, o){
+    o = o || {};
+    const padX = o.padX || PX, padY = o.padY || PY, mb = (o.mb == null ? LBLM : o.mb);
+    const v = o.upper ? up(val) : val;
+    size = tamanhoValor(v, w - 2*padX, size, o.max);
+    let tx = x + padX, ty = y + padY;
+    const lh = lhx(size, o.lhf);
+    line(ctx, lbl, tx, ty, LBL, true, 'left', LBLH);
+    ty += LBLH + mb;
+    wrap(v || '—', w - 2*padX, fnt(size, true), 0).forEach(function(t){
+      line(ctx, t, tx, ty, size, true, 'left', lh);
+      ty += lh;
+    });
+  }
+  function cellLVh(w, val, size, o){
+    o = o || {};
+    const padX = o.padX || PX, padY = o.padY || PY, mb = (o.mb == null ? LBLM : o.mb);
+    const v = o.upper ? up(val) : val;
+    size = tamanhoValor(v, w - 2*padX, size, o.max);
+    const n = wrap(v || '—', w - 2*padX, fnt(size, true), 0).length;
+    return padY + LBLH + mb + n*lhx(size, o.lhf) + padY;
+  }
+  function centrado(txt, larg, base, max, ls){
+    const t = up(txt) || '—';
+    const tam = tamanhoCentral(t, larg, base, max, ls);
+    return {tam: tam, linhas: wrap(t, larg, fnt(tam, true), ls), lh: lhx(tam, 1.25)};
+  }
+
+  /* Layout do card EHS (faixa horizontal, como o Fotocard):
+       Logo | Data | Cliente | WTG
+       Parque eólico (Local)
+       Etapa do Processo  (a pergunta da foto)
+       Supervisor | Equipe */
+  function layout(s){
+    const B = [];
+    const lgW = 168, dtW = 196, wtW = 170, clW = IW - lgW - dtW - wtW, lgH = logoH();
+    const oDt = {max:32}, oCl = {max:34, upper:true}, oWt = {max:36, upper:true};
+    B.push({
+      h: Math.max(56, lgH + 12 + HAIR,
+                  cellLVh(dtW - HAIR, s.data, 12, oDt) + HAIR,
+                  cellLVh(clW - HAIR, s.cliente, 11, oCl) + HAIR,
+                  cellLVh(wtW, s.wtg, 11, oWt) + HAIR),
+      draw: function(ctx, y, h){
+        const ch = h - HAIR, x2 = OUT + lgW, x3 = x2 + dtW, x4 = x3 + clW;
+        bg(ctx, x4, y, wtW, ch, CYAN);                          /* WTG destacada */
+        [x2, x3, x4].forEach(function(x){ fill(ctx, x - HAIR, y, HAIR, ch, INK); });
+        if(logoOk) ctx.drawImage(logo, OUT + (lgW - HAIR - 152)/2, y + (ch - lgH)/2, 152, lgH);
+        cellLV(ctx, x2, y, dtW - HAIR, 'Data', s.data, 12, oDt);
+        cellLV(ctx, x3, y, clW - HAIR, 'Cliente', s.cliente, 11, oCl);
+        cellLV(ctx, x4, y, wtW, 'WTG', s.wtg, 11, oWt);
+      }
+    });
+
+    const pq = centrado(s.parque, IW - 20, 15, 54, 2.5);
+    B.push({
+      h: 3 + LBLH + LBLM + Math.max(24, pq.linhas.length*pq.lh) + 5 + HAIR,
+      draw: function(ctx, y){
+        line(ctx, 'Parque eólico (Local)', OUT + 10, y + 3, LBL, true, 'left', LBLH);
+        let ty = y + 3 + LBLH + LBLM;
+        pq.linhas.forEach(function(t){ line(ctx, t, W/2, ty, pq.tam, true, 'center', pq.lh, 2.5); ty += pq.lh; });
+      }
+    });
+
+    const et = centrado(s.etapa, IW - 20, 13, 40, 1);
+    B.push({
+      h: 3 + LBLH + LBLM + Math.max(24, et.linhas.length*et.lh) + 5 + HAIR,
+      draw: function(ctx, y, h){
+        bg(ctx, OUT, y, IW, h - HAIR, CYAN);                    /* etapa destacada */
+        line(ctx, 'Etapa do Processo', OUT + 10, y + 3, LBL, true, 'left', LBLH);
+        let ty = y + 3 + LBLH + LBLM;
+        et.linhas.forEach(function(t){ line(ctx, t, W/2, ty, et.tam, true, 'center', et.lh, 1); ty += et.lh; });
+      }
+    });
+
+    const svW = Math.round(IW*0.40), eqW = IW - svW;
+    const oSv = {max:28, upper:true, lhf:1.25}, oEq = {max:24, upper:true, lhf:1.3};
+    B.push({
+      h: Math.max(56, cellLVh(svW - HAIR, s.supervisor, 11, oSv) + HAIR, cellLVh(eqW, s.equipe, 10, oEq) + HAIR),
+      noline: true,
+      draw: function(ctx, y, h){
+        fill(ctx, OUT + svW - HAIR, y, HAIR, h - HAIR, INK);
+        cellLV(ctx, OUT, y, svW - HAIR, 'Supervisor', s.supervisor, 11, oSv);
+        cellLV(ctx, OUT + svW, y, eqW, 'Equipe', s.equipe, 10, oEq);
+      }
+    });
+
+    let H = OUT*2;
+    B.forEach(function(b){ H += b.h; });
+    return {w: W, h: H, blocks: B};
+  }
+  function paintLayout(ctx, L, scale, alpha){
+    A = (alpha == null ? 1 : alpha);
+    ctx.save();
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    if('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
+    ctx.clearRect(0, 0, L.w, L.h);
+    fill(ctx, 0, 0, L.w, L.h, rgba(PAPER, A));
+    let y = OUT;
+    L.blocks.forEach(function(b){
+      b.draw(ctx, y, b.h);
+      if(!b.noline) fill(ctx, OUT, y + b.h - HAIR, IW, HAIR, INK);
+      y += b.h;
+    });
+    ctx.strokeStyle = INK; ctx.lineWidth = OUT;
+    ctx.strokeRect(OUT/2, OUT/2, L.w - OUT, L.h - OUT);
+    ctx.restore();
+    A = 1;
+  }
+
+  /* ── Carimbo de data e hora: o do Fotocard (3 linhas, branco com contorno) ──
+       16/10/2026 9:50 a.m.
+       PE.PARQUE
+       WTG: 54 */
+  const CARIMBO_MAX = 34;
+  function corta(t){ return t.length > CARIMBO_MAX ? t.slice(0, CARIMBO_MAX - 1).trim() + '…' : t; }
+  function textoCarimbo(d, s){
+    const p = function(n){ return String(n).padStart(2, '0'); };
+    const h = d.getHours(), h12 = h % 12 || 12;
+    const linhas = [p(d.getDate()) + '/' + p(d.getMonth()+1) + '/' + d.getFullYear() + ' ' +
+                    h12 + ':' + p(d.getMinutes()) + ' ' + (h < 12 ? 'a.m.' : 'p.m.')];
+    const pq = up(s.parque).trim(), wtg = up(s.wtg).trim().replace(/^WTG[\s:.\-]*/, '');
+    if(pq) linhas.push(corta(/^PE[\s.]/.test(pq) ? pq : 'PE.' + pq));
+    if(wtg) linhas.push(corta('WTG: ' + wtg));
+    return linhas.join('\n');
+  }
+  function corpoCarimbo(lado){ return Math.max(16, Math.round(lado*0.038)); }
+  function margemCarimbo(lado){ return Math.round(lado*0.02); }
+  function medeCarimbo(ctx, size, txt){
+    ctx.font = 'bold ' + size + 'px ' + FAM;
+    const linhas = String(txt).split('\n');
+    let w = 0;
+    linhas.forEach(function(l){ w = Math.max(w, ctx.measureText(l).width); });
+    return {w: w, h: size*1.25*linhas.length};
+  }
+  function escreveCarimbo(ctx, size, txt){
+    ctx.font = 'bold ' + size + 'px ' + FAM;
+    const linhas = String(txt).split('\n'), lh = size*1.25, n = linhas.length;
+    let w = 0;
+    linhas.forEach(function(l){ w = Math.max(w, ctx.measureText(l).width); });
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, size*0.17);
+    ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.fillStyle = '#fff';
+    linhas.forEach(function(l, i){
+      const y = (i - (n - 1)/2)*lh;
+      ctx.strokeText(l, w/2, y);
+      ctx.fillText(l, w/2, y);
+    });
+  }
+  /* centro de um bloco de "bb" px num lado de "dim" px, na fração f do espaço livre */
+  function centroNoLivre(dim, mg, bb, f){
+    const livre = dim - 2*mg - bb;
+    return livre <= 0 ? dim/2 : mg + f*livre + bb/2;
+  }
+  function fracDoCentro(dim, mg, bb, c){
+    const livre = dim - 2*mg - bb;
+    return livre <= 0 ? 0.5 : Math.min(1, Math.max(0, (c - mg - bb/2)/livre));
+  }
+
+  /* posição (fração do espaço livre) e tamanho do card — lembrados no aparelho.
+     Padrão do Fotocard: card no canto superior direito, carimbo no inferior direito. */
+  const POS_KEY = 'ehs_fotocard_pos';
+  const P = {cx:1, cy:0, sx:1, sy:1, fr:0.55};
+  try{
+    const g = JSON.parse(localStorage.getItem(POS_KEY) || 'null');
+    if(g) ['cx','cy','sx','sy','fr'].forEach(function(k){ if(isFinite(g[k])) P[k] = Number(g[k]); });
+  }catch(e){}
+  function guardarPos(){ try{ localStorage.setItem(POS_KEY, JSON.stringify(P)); }catch(e){} }
+  function larguraCard(vw, vh){ return Math.min(Math.min(vw, vh)*P.fr, vw*0.96); }
+
+  /* ── Tela de ajuste ── */
+  const aj = $('#fcAj'), palco = $('#fcAjPalco');
+  const cvFoto = $('#fcAjFoto'), cvCard = $('#fcAjCard'), cvStamp = $('#fcAjStamp');
+  let AJ = null, arr = null;
+
+  function medidas(){
+    const lado = Math.min(AJ.vw, AJ.vh), k = AJ.k;
+    const L = layout(AJ.est);
+    const cw = larguraCard(AJ.vw, AJ.vh)*k, ch = cw*L.h/L.w, mg = Math.round(lado*0.01)*k;
+    const size = corpoCarimbo(lado)*k, mgS = margemCarimbo(lado)*k, txt = textoCarimbo(AJ.d, AJ.est);
+    const m = medeCarimbo(mc, size, txt);
+    return {
+      L: L,
+      card: {w: cw, h: ch, mg: mg, cx: centroNoLivre(AJ.sw, mg, cw, P.cx), cy: centroNoLivre(AJ.sh, mg, ch, P.cy)},
+      stamp: {w: m.w, h: m.h, mg: mgS, size: size, txt: txt,
+              cx: centroNoLivre(AJ.sw, mgS, m.w, P.sx), cy: centroNoLivre(AJ.sh, mgS, m.h, P.sy)}
+    };
+  }
+  /* tudo: true = redesenha card e carimbo; 'carimbo' = só o carimbo (relógio da câmera) */
+  function pintarPalco(tudo){
+    const M = medidas(), dpr = Math.min(3, window.devicePixelRatio || 1);
+    if(tudo === true){
+      cvCard.width = Math.ceil(M.card.w*dpr); cvCard.height = Math.ceil(M.card.h*dpr);
+      paintLayout(cvCard.getContext('2d'), M.L, M.card.w*dpr/W, OPACITY);
+    }
+    cvCard.style.width = M.card.w + 'px'; cvCard.style.height = M.card.h + 'px';
+    cvCard.style.transform = 'translate(' + (M.card.cx - M.card.w/2) + 'px,' + (M.card.cy - M.card.h/2) + 'px)';
+    const pad = Math.ceil(M.stamp.size*0.4), sw = M.stamp.w + 2*pad, sh = M.stamp.h + 2*pad;
+    if(tudo){
+      cvStamp.width = Math.ceil(sw*dpr); cvStamp.height = Math.ceil(sh*dpr);
+      const x = cvStamp.getContext('2d');
+      x.setTransform(dpr, 0, 0, dpr, 0, 0);
+      x.clearRect(0, 0, sw, sh);
+      x.translate(sw/2, sh/2);
+      escreveCarimbo(x, M.stamp.size, M.stamp.txt);
+    }
+    cvStamp.style.width = sw + 'px'; cvStamp.style.height = sh + 'px';
+    cvStamp.style.transform = 'translate(' + (M.stamp.cx - sw/2) + 'px,' + (M.stamp.cy - sh/2) + 'px)';
+  }
+  function dimensionar(){
+    const topo = aj.querySelector('.fcaj-topo').offsetHeight, bts = aj.querySelector('.fcaj-bts').offsetHeight;
+    const aw = Math.min(window.innerWidth - 16, 1100), ah = Math.max(120, window.innerHeight - topo - bts - 16);
+    AJ.k = Math.min(aw/AJ.vw, ah/AJ.vh);
+    AJ.sw = Math.round(AJ.vw*AJ.k); AJ.sh = Math.round(AJ.vh*AJ.k);
+    palco.style.width = AJ.sw + 'px'; palco.style.height = AJ.sh + 'px';
+    if(AJ.modo !== 'cam'){     // na câmera ao vivo o fundo é o próprio <video>
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      cvFoto.width = Math.round(AJ.sw*dpr); cvFoto.height = Math.round(AJ.sh*dpr);
+      cvFoto.style.width = AJ.sw + 'px'; cvFoto.style.height = AJ.sh + 'px';
+      cvFoto.getContext('2d').drawImage(AJ.base, 0, 0, cvFoto.width, cvFoto.height);
+    }
+    pintarPalco(true);
+  }
+  window.addEventListener('resize', function(){ if(AJ) dimensionar(); });
+
+  function pontoNoPalco(ev){
+    const r = palco.getBoundingClientRect();
+    return {x: ev.clientX - r.left, y: ev.clientY - r.top};
+  }
+  palco.addEventListener('pointerdown', function(ev){
+    if(!AJ) return;
+    const p = pontoNoPalco(ev), M = medidas();
+    const dentro = function(o, folga){ return Math.abs(p.x - o.cx) <= o.w/2 + folga && Math.abs(p.y - o.cy) <= o.h/2 + folga; };
+    const alvo = dentro(M.stamp, 14) ? 'stamp' : (dentro(M.card, 0) ? 'card' : null);
+    if(!alvo) return;
+    const o = M[alvo];
+    arr = {alvo: alvo, x0: p.x, y0: p.y, cx: o.cx, cy: o.cy, w: o.w, h: o.h, mg: o.mg};
+    try{ palco.setPointerCapture(ev.pointerId); }catch(e){}
+    ev.preventDefault();
+  });
+  palco.addEventListener('pointermove', function(ev){
+    if(!arr) return;
+    const p = pontoNoPalco(ev);
+    const nx = fracDoCentro(AJ.sw, arr.mg, arr.w, arr.cx + p.x - arr.x0);
+    const ny = fracDoCentro(AJ.sh, arr.mg, arr.h, arr.cy + p.y - arr.y0);
+    if(arr.alvo === 'card'){ P.cx = nx; P.cy = ny; } else { P.sx = nx; P.sy = ny; }
+    pintarPalco(false);
+  });
+  function soltar(){ if(arr){ arr = null; guardarPos(); } }
+  palco.addEventListener('pointerup', soltar);
+  palco.addEventListener('pointercancel', soltar);
+
+  function botoes(on){
+    Array.prototype.forEach.call(aj.querySelectorAll('.fcaj-bt'), function(b){ b.disabled = !on; });
+  }
+  function rotuloCancelar(){
+    const n = AJ && AJ.fotos ? AJ.fotos.length : 0;
+    aj.querySelector('[data-fc="cancelar"]').textContent = n ? 'Concluir (' + n + ')' : 'Cancelar';
+  }
+  /* foto (tela de ajuste) devolve o blob; câmera ao vivo devolve a lista de fotos tiradas */
+  function fechar(blob){
+    const A0 = AJ, fim = A0.resolve;
+    if(A0.base) A0.base.width = A0.base.height = 1;
+    if(A0.relogio) clearInterval(A0.relogio);
+    if(A0.stream) A0.stream.getTracks().forEach(function(t){ t.stop(); });
+    if(A0.video){ A0.video.onresize = null; A0.video.srcObject = null; }
+    AJ = null; arr = null;
+    aj.classList.remove('aberta', 'cam');
+    document.body.style.overflow = '';
+    fim(A0.modo === 'cam' ? A0.fotos : blob);
+  }
+  /* foto final: card e carimbo desenhados (vetor) direto na resolução da foto */
+  function montarFinal(){
+    const vw = AJ.vw, vh = AJ.vh, lado = Math.min(vw, vh);
+    const c = document.createElement('canvas');
+    c.width = vw; c.height = vh;
+    const x = c.getContext('2d');
+    x.drawImage(AJ.base, 0, 0);
+    const L = layout(AJ.est), esc = larguraCard(vw, vh)/W;
+    const cc = document.createElement('canvas');
+    cc.width = Math.max(1, Math.ceil(L.w*esc)); cc.height = Math.max(1, Math.ceil(L.h*esc));
+    paintLayout(cc.getContext('2d'), L, esc, OPACITY);
+    const mg = Math.round(lado*0.01);
+    x.drawImage(cc, centroNoLivre(vw, mg, cc.width, P.cx) - cc.width/2, centroNoLivre(vh, mg, cc.height, P.cy) - cc.height/2);
+    const size = corpoCarimbo(lado), mgS = margemCarimbo(lado), txt = textoCarimbo(AJ.d, AJ.est);
+    const m = medeCarimbo(x, size, txt);
+    x.save();
+    x.translate(centroNoLivre(vw, mgS, m.w, P.sx), centroNoLivre(vh, mgS, m.h, P.sy));
+    escreveCarimbo(x, size, txt);
+    x.restore();
+    return new Promise(function(ok){
+      c.toBlob(function(b){ c.width = c.height = 1; cc.width = cc.height = 1; ok(b); }, 'image/jpeg', 0.92);
+    });
+  }
+  aj.addEventListener('click', async function(ev){
+    const op = ev.target.getAttribute && ev.target.getAttribute('data-fc');
+    if(!op || !AJ) return;
+    if(op === 'cancelar'){ fechar(null); return; }
+    if(op === 'menos' || op === 'mais'){
+      P.fr = Math.min(0.90, Math.max(0.30, Math.round((P.fr + (op === 'mais' ? 0.05 : -0.05))*100)/100));
+      guardarPos(); pintarPalco(true);
+      return;
+    }
+    if(op === 'usar'){
+      botoes(false);
+      try{ fechar(await montarFinal()); }
+      catch(e){ console.error(e); botoes(true); alerta('ruim', 'Não consegui montar a foto com o fotocard.'); }
+    }
+    if(op === 'capturar') capturar();
+  });
+
+  /* ── Câmera ao vivo ──
+     Como no app Fotocard: o vídeo da câmera na tela, com o card e o carimbo
+     (relógio andando) por cima, arrastáveis antes de disparar. A foto sai com
+     os dois gravados exatamente onde estavam na tela. Pergunta que aceita
+     várias fotos deixa a câmera aberta até "Concluir". */
+  function medirVideo(){
+    const w = AJ.video.videoWidth || 1280, h = AJ.video.videoHeight || 720;
+    const f = Math.min(1, QUAL[0]/Math.max(w, h));
+    const vw = Math.round(w*f), vh = Math.round(h*f);
+    const mudou = vw !== AJ.vw || vh !== AJ.vh;
+    AJ.vw = vw; AJ.vh = vh;
+    return mudou;
+  }
+  async function capturar(){
+    if(!AJ || AJ.modo !== 'cam' || !AJ.video.videoWidth) return;
+    botoes(false);
+    try{
+      medirVideo();
+      const base = document.createElement('canvas');
+      base.width = AJ.vw; base.height = AJ.vh;
+      base.getContext('2d').drawImage(AJ.video, 0, 0, AJ.vw, AJ.vh);
+      AJ.base = base;
+      AJ.d = new Date();                // hora exata do disparo
+      const fl = $('#fcAjFlash');
+      fl.classList.add('on'); setTimeout(function(){ fl.classList.remove('on'); }, 60);
+      const b = await montarFinal();
+      base.width = base.height = 1; AJ.base = null;
+      if(b) AJ.fotos.push(b);
+      if(!AJ.varias){ fechar(); return; }
+      rotuloCancelar();
+    }catch(e){
+      console.error(e);
+      alerta('ruim', 'Não consegui gravar a foto da câmera.');
+    }
+    if(AJ) botoes(true);
+  }
+  async function camera(etapa, varias){
+    if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
+      alerta('ruim', 'Este aparelho/navegador não liberou a câmera ao vivo. Use "Câmera do celular".');
+      return [];
+    }
+    let stream;
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({audio: false,
+        video: {facingMode: {ideal: 'environment'}, width: {ideal: 1920}, height: {ideal: 1080}}});
+    }catch(e){
+      alerta('ruim', 'Não consegui abrir a câmera ao vivo (' +
+        (e && e.name === 'NotAllowedError' ? 'permissão negada' : (e && e.message || 'erro')) +
+        '). Use "Câmera do celular".');
+      return [];
+    }
+    const v = $('#fcAjVideo');
+    v.srcObject = stream;
+    try{ await v.play(); }catch(e){}
+    if(!v.videoWidth) await new Promise(function(ok){ v.onloadedmetadata = function(){ ok(); }; setTimeout(ok, 3000); });
+    return new Promise(function(ok){
+      AJ = {modo: 'cam', stream: stream, video: v, est: estado(etapa), d: new Date(),
+            resolve: ok, varias: varias, fotos: [], base: null};
+      medirVideo();
+      $('#fcAjEtapa').textContent = etapa;
+      aj.classList.add('aberta', 'cam');
+      document.body.style.overflow = 'hidden';
+      botoes(true); rotuloCancelar();
+      dimensionar();
+      AJ.relogio = setInterval(function(){
+        if(AJ && AJ.modo === 'cam' && !arr){ AJ.d = new Date(); pintarPalco('carimbo'); }
+      }, 1000);
+      /* celular girou: o vídeo muda de proporção e o palco acompanha */
+      v.onresize = function(){ if(AJ && AJ.modo === 'cam' && medirVideo()) dimensionar(); };
+    });
+  }
+
+  async function abrirImagem(file){
+    if(typeof createImageBitmap === 'function'){
+      try{
+        const b = await createImageBitmap(file, {imageOrientation:'from-image'});
+        return {img: b, w: b.width, h: b.height, fim: function(){ b.close(); }};
+      }catch(e){ /* cai para o modo antigo */ }
+    }
+    const url = URL.createObjectURL(file);
+    const im = await new Promise(function(ok, err){
+      const i = new Image();
+      i.onload = function(){ ok(i); };
+      i.onerror = function(){ URL.revokeObjectURL(url); err(new Error('imagem invalida')); };
+      i.src = url;
+    });
+    return {img: im, w: im.naturalWidth, h: im.naturalHeight, fim: function(){ URL.revokeObjectURL(url); }};
+  }
+
+  /* -> Promise<Blob com card + carimbo> ou null (cancelado).
+     A foto já é reduzida aqui para o tamanho do report: o card é desenhado
+     direto nessa resolução, sem passar por reamostragem depois. */
+  async function montar(file, etapa){
+    const d = new Date();   // relógio do aparelho na hora em que a foto chega — como no Fotocard
+    const im = await abrirImagem(file);
+    const base = document.createElement('canvas');
+    try{
+      const f = Math.min(1, QUAL[0]/Math.max(im.w, im.h));
+      base.width = Math.round(im.w*f); base.height = Math.round(im.h*f);
+      const x = base.getContext('2d');
+      x.fillStyle = '#fff'; x.fillRect(0, 0, base.width, base.height);
+      x.drawImage(im.img, 0, 0, base.width, base.height);
+    }finally{ im.fim(); }
+    return new Promise(function(ok){
+      AJ = {base: base, vw: base.width, vh: base.height, est: estado(etapa), d: d, resolve: ok};
+      $('#fcAjEtapa').textContent = etapa;
+      aj.classList.add('aberta');
+      document.body.style.overflow = 'hidden';
+      botoes(true); rotuloCancelar();
+      dimensionar();
+    });
+  }
+
+  /* ── Prévia no formulário, logo abaixo dos técnicos ── */
+  let cvPrevia = null, avisoPrevia = null, rafPrevia = 0;
+  (function(){
+    const i = iDe(8);
+    const ref = document.querySelector('[data-bloco="' + i + '"]');
+    if(!ref) return;
+    const b = el('div', {class:'bloco'});
+    b.appendChild(el('label', {class:'rot'}, 'FOTOCARD DAS FOTOS'));
+    b.appendChild(el('p', {class:'ajuda'}, 'Os dados acima entram no fotocard e no carimbo de data e hora de todas as ' +
+      'fotos deste report — preencha uma vez, antes das fotos. A etapa de cada foto é a própria pergunta.'));
+    cvPrevia = el('canvas', {style:'width:100%;max-width:600px;height:auto;display:block;border:1px solid var(--linha)'});
+    b.appendChild(cvPrevia);
+    avisoPrevia = el('p', {class:'ajuda', style:'color:var(--sinal);margin:8px 0 0;display:none'});
+    b.appendChild(avisoPrevia);
+    ref.parentNode.insertBefore(b, ref.nextSibling);
+  })();
+  function previa(){
+    if(!cvPrevia || rafPrevia) return;
+    rafPrevia = requestAnimationFrame(function(){
+      rafPrevia = 0;
+      const L = layout(estado('(PERGUNTA DA FOTO)'));
+      const esc = 600/W*Math.min(2, window.devicePixelRatio || 1);
+      cvPrevia.width = Math.ceil(L.w*esc); cvPrevia.height = Math.ceil(L.h*esc);
+      paintLayout(cvPrevia.getContext('2d'), L, esc, 1);
+      const sig = assinatura();
+      let velhas = 0;
+      Object.keys(fotos).forEach(function(k){
+        if(estaOculto(Number(k))) return;
+        (fotos[k] || []).forEach(function(f){ if(f && f.fc && f.fc !== sig) velhas++; });
+      });
+      avisoPrevia.style.display = velhas ? '' : 'none';
+      avisoPrevia.textContent = velhas ? (velhas + ' foto(s) já anexada(s) saíram com dados diferentes dos de cima. ' +
+        'Se algum dado mudou, apague essas fotos e tire de novo.') : '';
+    });
+  }
+  window.ehsfcPrevia = previa;
+  setTimeout(previa, 0);
+
+  return {montar: montar, camera: camera, etapaDe: etapaDe, liberado: liberado, assinatura: assinatura, previa: previa};
+})();
 
 /* ================= EHS: projeto (aba SUPERVISORES) + último report =================
    1) Projeto da matrícula de quem logou (backend do RDO, ação 'projeto'):
