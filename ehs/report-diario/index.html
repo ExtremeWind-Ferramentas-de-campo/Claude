@@ -150,8 +150,7 @@
 <div class="escolha" id="escolha">
   <div class="escolha-cx">
     <p class="escolha-tit">Adicionar foto</p>
-    <button type="button" class="escolha-bt" data-op="aovivo">Câmera ao vivo (ajusta o fotocard na tela)</button>
-    <button type="button" class="escolha-bt" data-op="camera">Câmera do celular</button>
+    <button type="button" class="escolha-bt" data-op="aovivo">Tirar foto (câmera com fotocard)</button>
     <button type="button" class="escolha-bt" data-op="galeria">Escolher da galeria</button>
     <button type="button" class="escolha-bt cancelar" data-op="cancelar">Cancelar</button>
   </div>
@@ -1896,7 +1895,7 @@ const EHSFC = (function(){
   }
   async function camera(etapa, varias){
     if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
-      alerta('ruim', 'Este aparelho/navegador não liberou a câmera ao vivo. Use "Câmera do celular".');
+      alerta('ruim', 'Este aparelho/navegador não liberou a câmera. Atualize o navegador ou use "Escolher da galeria".');
       return [];
     }
     let stream;
@@ -1906,7 +1905,7 @@ const EHSFC = (function(){
     }catch(e){
       alerta('ruim', 'Não consegui abrir a câmera ao vivo (' +
         (e && e.name === 'NotAllowedError' ? 'permissão negada' : (e && e.message || 'erro')) +
-        '). Use "Câmera do celular".');
+        '). Libere a câmera para este site nas configurações do navegador ou use "Escolher da galeria".');
       return [];
     }
     const v = $('#fcAjVideo');
