@@ -538,7 +538,7 @@ var curState={}, camStream=null, facingMode='environment', isOnline=navigator.on
      3. o histórico no README.md
    Sem o passo 1 o técnico não tem como saber, olhando a tela, qual versão o
    aparelho carregou. */
-var APP_VERSAO = 'v47 · 21/10/2026';
+var APP_VERSAO = 'v48 · 21/10/2026';
 
 /* ─── Service Worker ─── */
 (function(){
@@ -1527,6 +1527,54 @@ var fisAng=null;           /* último quadrante lido no sensor (null = sem leitu
 var sensorLigado=false;
 
 function angFisico(){ return fisAng===null ? anguloOrientacao() : fisAng; }
+
+/* ═══ NIVELAMENTO (v48) ═══
+   O giro em quadrantes (0/90/180/270) acerta o lado da foto, mas o celular
+   quase nunca está reto: inclinado 15°, a foto sai torta. Na hora de gravar,
+   o resto da inclinação (nivelResiduo) é desfeito — a foto é girada até ficar
+   no prumo e recortada no maior retângulo de mesma proporção que cabe dentro
+   dela, sem bordas pretas e sem esticar pixel. O card e o carimbo são
+   desenhados DEPOIS, já retos na foto nivelada.
+   Celular apontado para o chão (quase deitado na horizontal) não tem prumo
+   confiável: aí a foto sai sem nivelar. Sem sensor, também. */
+var nivVx=0, nivVy=1, nivMag=0;
+
+/* Na hora do disparo o quadrante é o mais próximo da inclinação real — sem a
+   folga da diagonal, que só serve para o card não ficar pulando na tela. */
+function travaQuadrante(){
+  if(fisAng===null||nivMag<0.5) return;
+  var th=(Math.atan2(nivVx,nivVy)*180/Math.PI+360)%360;
+  var q=(Math.round(th/90)%4)*90;
+  if(q!==fisAng){ fisAng=q; scaleCamOverlay(); pintaCarimboCam(); }
+}
+
+/* Quanto falta para o prumo, em graus (−45 a 45; positivo = celular girado
+   para a esquerda além do quadrante). 0 quando não dá para confiar. */
+function nivelResiduo(){
+  if(fisAng===null||nivMag<0.5) return 0;
+  var th=Math.atan2(nivVx,nivVy)*180/Math.PI;
+  var r=((th-fisAng)%360+540)%360-180;
+  return Math.abs(r)>45 ? 0 : r;
+}
+
+/* Gira o canvas "cv" para desfazer "r" graus e devolve um canvas novo com o
+   maior recorte reto de mesma proporção. Celular girado para a esquerda deixa
+   a cena girada para a direita na foto — por isso o giro aqui é −r. */
+function nivelaCanvas(cv,r){
+  var w=cv.width, h=cv.height, a=r*Math.PI/180;
+  var c=Math.abs(Math.cos(a)), s=Math.abs(Math.sin(a));
+  var k=Math.max(c+(h/w)*s, c+(w/h)*s);
+  var nw=Math.round(w/k), nh=Math.round(h/k);
+  var out=document.createElement('canvas');
+  out.width=nw; out.height=nh;
+  var x=out.getContext('2d');
+  x.imageSmoothingQuality='high';
+  x.translate(nw/2,nh/2);
+  x.rotate(-a);
+  x.drawImage(cv,-w/2,-h/2);
+  x.setTransform(1,0,0,1,0,0);   /* o card e o carimbo são desenhados neste contexto depois */
+  return out;
+}
 function giroCena(){ return ((angFisico()-anguloOrientacao())%360+360)%360; }
 
 /* Lê a gravidade a partir de beta/gamma e devolve o quadrante. "Para cima" no
@@ -1538,7 +1586,13 @@ function onSensor(e){
   if(e.beta==null||e.gamma==null) return;
   var b=e.beta*Math.PI/180, g=e.gamma*Math.PI/180;
   var ux=-Math.cos(b)*Math.sin(g), uy=Math.sin(b);
-  if(Math.sqrt(ux*ux+uy*uy)<0.5) return;
+  var mag=Math.sqrt(ux*ux+uy*uy);
+  /* média móvel do "para cima", para o nivelamento não pegar o tremido do
+     dedo no disparo; a primeira leitura entra direto */
+  if(fisAng===null){ nivVx=ux; nivVy=uy; }
+  else { nivVx=nivVx*0.6+ux*0.4; nivVy=nivVy*0.6+uy*0.4; }
+  nivMag=mag;
+  if(mag<0.5) return;
   var th=(Math.atan2(ux,uy)*180/Math.PI+360)%360;
   var q=(Math.round(th/90)%4)*90;
   if(fisAng!==null&&q!==fisAng){
@@ -2414,6 +2468,7 @@ async function capturePhoto(){
   // sensor) → foto em pé no mundo; modo paisagem (Interno) com quadro em pé →
   // 90° para a esquerda. Giro de ±90° troca largura e altura do arquivo
   // (ow × oh). Daqui para baixo tudo é medido na FOTO FINAL (ow × oh).
+  travaQuadrante();
   var G=giroQuadro();
   var deita=(G===90||G===-90);
   var ow=deita?vh:vw, oh=deita?vw:vh;
@@ -2426,6 +2481,17 @@ async function capturePhoto(){
   if(facingMode==='user') ctx.scale(-1,1);
   ctx.drawImage(video,sx,sy,sw,sh,-vw/2,-vh/2,vw,vh);
   ctx.restore();
+
+  // Nivelamento: desfaz a inclinação que sobrou do quadrante (celular torto)
+  // e recorta reto. Na câmera frontal a imagem é espelhada, e o giro inverte.
+  // Abaixo de meio grau não mexe — não vale perder pixel por isso.
+  var niv=nivelResiduo();
+  if(facingMode==='user') niv=-niv;
+  if(Math.abs(niv)>=0.5){
+    main=nivelaCanvas(main,niv);
+    ow=main.width; oh=main.height;
+    ctx=main.getContext('2d');
+  }
 
   // Card VETORIZADO direto no tamanho final: o texto é rasterizado só agora,
   // já com os pixels da foto, então sai nítido em qualquer resolução.
