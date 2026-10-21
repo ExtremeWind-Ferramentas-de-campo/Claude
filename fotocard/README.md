@@ -4,7 +4,7 @@ App PWA para registro fotográfico de inspeção e reparo de pás eólicas.
 
 ## Versão
 
-**v46 · 15/10/2026** — o número aparece na tela do app, embaixo do título, ao
+**v47 · 21/10/2026** — o número aparece na tela do app, embaixo do título, ao
 lado do aviso de modo offline. É por ele que se sabe, olhando o celular, se o
 aparelho já carregou o código novo.
 
@@ -19,13 +19,14 @@ aparelho já carregou o código novo.
 Os três andam juntos. Sem o `APP_VERSAO` o técnico não tem como conferir a
 versão em campo; sem o `CACHE` o arquivo novo nem chega ao aparelho.
 
-> Hoje o `sw.js` da raiz é a versão **aposentada** (não guarda cache e não tem
-> `CACHE`), então o passo do meio não se aplica enquanto for assim.
+> O `sw.js` da raiz voltou a guardar cache (`CACHE = 'ew-site-vNN'`): o passo
+> do meio vale de novo.
 
 ### Histórico
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| v47 | 21/10/2026 | **Card e carimbo giram pelo sensor do celular, como nas câmeras de campo.** A tela pode ficar em pé (rotação automática desligada ou app instalado): ao deitar o celular, o card e o carimbo giram na hora e a foto é gravada deitada, com os dois na horizontal; ao voltar em pé, voltam. No iPhone o sensor pede autorização na primeira vez que a câmera abre; sem sensor vale o giro da tela. Com **Interno** marcado continua valendo a foto em paisagem. **Carimbo passa para o canto inferior esquerdo**, com as linhas alinhadas à esquerda (do lado direito continuam alinhadas à direita); todo aparelho volta a esse canto uma vez. **"PALA" vira "PÁ"** no carimbo (português): **WTG: 54 PÁ C 0737-M2**. Vale na câmera ao vivo, na foto gravada e na foto da galeria. |
 | v46 | 15/10/2026 | **Carimbo com Parque, WTG e Pala, no padrão das câmeras de campo do cliente.** Três linhas, alinhadas à direita: **14/10/2026 9:50 a.m.** / **PE.PUNTA LOMITAS** / **WTG: 54 PALA C 0737-M2**. Parque, Torre (WTG) e N/S Blade são lidos do formulário na hora, em maiúsculas; campo vazio some; linha muito comprida é cortada com …. A hora sai em 12 h, sem segundos. Vale na câmera ao vivo, na foto gravada e na foto da galeria. |
 | v45 | 07/10/2026 | **Caixa "Foto em paisagem" para voltar ao jeito antigo.** Marcar **Interno** continua levando direto à paisagem (a caixa liga sozinha), mas agora aparece, logo abaixo de Lado / Localização, a caixa **↔ Foto em paisagem**: desmarcá-la devolve o jeito antigo mesmo com Interno marcado. A escolha fica guardada no aparelho e só religa sozinha quando Interno é marcado de novo. |
 | v44 | 07/10/2026 | **Interno marcado → foto sempre em paisagem, com o card na horizontal.** Desfaz a v42/v43 (foto horizontal para todas as fotos, e a chave ↔): a regra passa a valer **só com a caixa Interno marcada**, na câmera e na galeria. Sem Interno marcado volta o comportamento de antes: foto como o celular estava e card/carimbo acompanhando o sensor de orientação. Sem chave e sem botão novo. |
