@@ -123,10 +123,16 @@
   .multi-linha{display:flex;gap:6px;align-items:center;margin-top:8px;}
   .multi-linha input{flex:1 1 auto;min-width:0;}
   .btn-multi{min-height:38px;padding:7px 10px;font-size:13px;margin-top:8px;}
-  /* observação que repete uma atividade da lista */
-  .obs-aviso{margin-top:6px;padding:8px 10px;border-radius:8px;font-size:12.5px;line-height:1.4;
-    background:#FFF8ED;border:1px solid #F0D9B5;color:#7A4A0B;}
-  html[data-tema="escuro"] .obs-aviso{background:rgba(240,180,80,.12);border-color:rgba(240,180,80,.35);color:#F3D29B;}
+  /* pop-up: observação que repete uma atividade da lista */
+  .obs-pop{position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.55);display:none;
+    align-items:center;justify-content:center;padding:16px;}
+  .obs-pop.aberto{display:flex;}
+  .obs-pop-cx{background:var(--branco);color:inherit;border-radius:14px;max-width:420px;width:100%;
+    padding:20px 18px 16px;box-shadow:0 12px 40px rgba(0,0,0,.25);border-top:5px solid #E0A030;}
+  .obs-pop-tit{margin:0 0 10px;font-size:16px;font-weight:800;}
+  .obs-pop-txt{margin:0 0 8px;font-size:14.5px;line-height:1.5;}
+  .obs-pop-lista{margin:0 0 16px;padding-left:20px;font-size:14.5px;font-weight:700;line-height:1.6;}
+  .obs-pop .btn{width:100%;background:var(--azul);color:#fff;}
   /* técnicos */
   .tecnico-row{display:flex;gap:6px;align-items:center;margin-bottom:10px;}
   .tec-num{font-size:13px;font-weight:700;color:var(--azul);flex:0 0 16px;}
@@ -456,7 +462,16 @@
 <div id="sucesso"></div>
 
 <!-- container oculto para montar o PDF -->
-<div id="pdfArea" style="position:fixed;left:0;top:0;width:794px;background:#fff;z-index:-1;"></div>
+<div class="obs-pop" id="obsPop" role="dialog" aria-modal="true" aria-labelledby="obsPopTit">
+  <div class="obs-pop-cx">
+    <p class="obs-pop-tit" id="obsPopTit">&#9888;&#65039; Atenção na observação</p>
+    <p class="obs-pop-txt" id="obsPopTxt"></p>
+    <ul class="obs-pop-lista" id="obsPopLista"></ul>
+    <p class="obs-pop-txt">Adicione um bloco próprio com o horário para ela.</p>
+    <button type="button" class="btn" id="obsPopOk">Entendido</button>
+  </div>
+</div>
+<div id="pdfArea"style="position:fixed;left:0;top:0;width:794px;background:#fff;z-index:-1;"></div>
 
 <script>
 /* ============================================================
@@ -1800,15 +1815,13 @@ function addAtividade(){
       </div>
     </div>
     <div class="hint atv-almoco" hidden style="margin:-6px 0 12px;font-weight:600;"></div>
-    <div class="field"><label>Observação</label><textarea class="atv-obs" placeholder="Opcional"></textarea>
-      <div class="obs-aviso" hidden></div></div>`;
+    <div class="field"><label>Observação</label><textarea class="atv-obs" placeholder="Opcional"></textarea></div>`;
   div.querySelector('.btn-remove').onclick=()=>{
     if(document.querySelectorAll('.atv-block').length>1){div.remove();syncAtividades();}
   };
-  let tObs=null;
-  div.querySelector('.atv-obs').addEventListener('input',()=>{
-    clearTimeout(tObs); tObs=setTimeout(()=>avisoObs(div),400);
-  });
+  /* 'change' do textarea = saiu do campo depois de mexer: o pop-up não
+     interrompe a digitação */
+  div.querySelector('.atv-obs').addEventListener('change',()=>avisoObs(div));
   ligarBuscaAtividade(div.querySelector('.atv-tipo'), div.querySelector('.atv-list'));
   atvBox.appendChild(div);
   syncAtividades();
@@ -1847,18 +1860,31 @@ function atividadesNaObs(obs,escolhida){
   achadas.filter(x=>x.inteira).forEach(x=>x.bateu.forEach(c=>cobertas.add(c)));
   return achadas.filter(x=>x.inteira || x.bateu.some(c=>!cobertas.has(c))).map(x=>x.nome);
 }
+/* pop-up com "Entendido". Só orienta: NÃO bloqueia o envio (a sugestão pode
+   estar errada). Cada atividade é avisada uma vez só por bloco — depois do
+   Entendido ela não volta, mesmo que o técnico não mude a observação. */
 function avisoObs(bloco){
-  const box=bloco.querySelector('.obs-aviso');
-  if(!box) return;
-  const achadas=atividadesNaObs(bloco.querySelector('.atv-obs').value, bloco.querySelector('.atv-tipo').value);
-  box.hidden=!achadas.length;
-  if(!achadas.length){ box.textContent=''; return; }
-  const lista=achadas.slice(0,3).map(n=>'"'+n+'"').join(', ')+(achadas.length>3?' e outras':'');
-  box.textContent='⚠ '+(achadas.length>1?'As atividades ':'A atividade ')+lista
-    +(achadas.length>1?' estão listadas':' está listada')+' nas opções de atividade. '
-    +'Se foi feita, lance em um bloco próprio (+ Adicionar atividade) com o horário dela, '
-    +'em vez de só escrever na observação.';
+  const ja=(bloco.dataset.obsAvisado||'').split('|').filter(Boolean);
+  const achadas=atividadesNaObs(bloco.querySelector('.atv-obs').value, bloco.querySelector('.atv-tipo').value)
+    .filter(n=>ja.indexOf(n)<0);
+  if(!achadas.length) return;
+  bloco.dataset.obsAvisado=ja.concat(achadas).join('|');
+  document.getElementById('obsPopTxt').textContent=achadas.length>1
+    ? 'A atividade descrita em observação pode ser encontrada na lista de opções das atividades como:'
+    : 'A atividade descrita em observação pode ser encontrada na lista de opções das atividades como';
+  const ul=document.getElementById('obsPopLista');
+  ul.innerHTML='';
+  achadas.slice(0,5).forEach(n=>{ const li=document.createElement('li'); li.textContent=n; ul.appendChild(li); });
+  const pop=document.getElementById('obsPop');
+  pop.classList.add('aberto');
+  document.getElementById('obsPopOk').focus();
 }
+(function(){
+  const pop=document.getElementById('obsPop');
+  const fechar=()=>pop.classList.remove('aberto');
+  document.getElementById('obsPopOk').onclick=fechar;
+  document.addEventListener('keydown',ev=>{ if(ev.key==='Escape' && pop.classList.contains('aberto')) fechar(); });
+})();
 
 /* encadeia horas ENTRE atividades: fim de uma = início da próxima (travado).
    O expediente NÃO está mais vinculado (a equivalência é verificada no envio). */
@@ -1982,7 +2008,6 @@ document.addEventListener('change',e=>{
     const precisa=exigeObs(e.target.value);
     obs.placeholder = precisa ? 'Observação OBRIGATÓRIA nesta atividade' : 'Opcional';
     obs.style.borderColor = precisa ? 'var(--erro)' : '';
-    avisoObs(block);
   }
 });
 
@@ -2250,7 +2275,6 @@ function aplicarRascunho(d){
         obs.placeholder='Observação OBRIGATÓRIA nesta atividade';
         obs.style.borderColor='var(--erro)';
       }
-      avisoObs(b);
     });
 
     /* fotos */
