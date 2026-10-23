@@ -119,6 +119,14 @@
   .btn-add{background:var(--azul-fundo);color:var(--azul);border:1.5px dashed var(--azul-claro);width:100%;}
   .btn-add:active{background:#e9f0f9;}
   .btn-remove{background:none;border:none;color:var(--erro);font-size:13px;font-weight:600;cursor:pointer;padding:6px;}
+  /* turbina / blade / dano: mais de um valor */
+  .multi-linha{display:flex;gap:6px;align-items:center;margin-top:8px;}
+  .multi-linha input{flex:1 1 auto;min-width:0;}
+  .btn-multi{min-height:38px;padding:7px 10px;font-size:13px;margin-top:8px;}
+  /* observação que repete uma atividade da lista */
+  .obs-aviso{margin-top:6px;padding:8px 10px;border-radius:8px;font-size:12.5px;line-height:1.4;
+    background:#FFF8ED;border:1px solid #F0D9B5;color:#7A4A0B;}
+  html[data-tema="escuro"] .obs-aviso{background:rgba(240,180,80,.12);border-color:rgba(240,180,80,.35);color:#F3D29B;}
   /* técnicos */
   .tecnico-row{display:flex;gap:6px;align-items:center;margin-bottom:10px;}
   .tec-num{font-size:13px;font-weight:700;color:var(--azul);flex:0 0 16px;}
@@ -342,11 +350,21 @@
         <div class="field">
           <label class="req">Turbina (WTG)</label>
           <input type="text" id="turbina" placeholder="Ex.: T-07">
+          <div id="turbinas"></div>
+          <button type="button" class="btn btn-add btn-multi" id="addTurbina">+ Adicionar turbina</button>
         </div>
         <div class="field">
           <label class="req">Blade</label>
           <input type="text" id="blade" placeholder="Ex.: A">
+          <div id="blades"></div>
+          <button type="button" class="btn btn-add btn-multi" id="addBlade">+ Adicionar blade</button>
         </div>
+      </div>
+      <div class="field">
+        <label>Dano</label>
+        <input type="text" id="dano" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Nº do dano (só números)">
+        <div id="danos"></div>
+        <button type="button" class="btn btn-add btn-multi" id="addDano">+ Adicionar dano</button>
       </div>
       <div id="camposSiemens" style="display:none;">
         <div class="hint" id="hintSemParada" hidden style="margin-bottom:8px;"></div>
@@ -655,8 +673,11 @@ function atividadesDoTipo(){
   if(modoFeriado()) return atividadesFeriado();
   const r=reparoAtual();
   if(!r) return [];
+  /* setup início -> atividades do tipo -> setup final -> gerais (ver grupoComum) */
+  const comuns=IN.comuns||[];
+  const doGrupo=g=>comuns.filter(a=>grupoComum(a.nome)===g);
   const out=[], visto={};
-  r.atividades.concat(IN.comuns||[]).forEach(a=>{
+  doGrupo(0).concat(r.atividades, doGrupo(2), doGrupo(3)).forEach(a=>{
     const k=normTxt(a.nome);
     if(visto[k]) return;
     visto[k]=1; out.push(a);
@@ -1085,7 +1106,7 @@ function agendarRascunho(){
 }
 
 function temConteudo(d){
-  return !!(d.data_exp||d.cliente||d.turbina||d.blade||d.tipo_reparo
+  return !!(d.data_exp||d.cliente||d.turbina||d.blade||d.dano||d.tipo_reparo
     ||(d.resumo&&d.resumo.length)||(d.proxima&&d.proxima.length)
     ||(d.atividades&&d.atividades.length)||(d.tecnicos&&d.tecnicos.length>1)
     );
@@ -1124,7 +1145,8 @@ function chaveUltimo(){ return 'u_'+((SESSAO&&SESSAO.mat)||'sem-mat'); }
 const TRAVAS = {
   ident:  { sel:'#secIdent',  titulo:'Identificação',       campos:['cliente','parque'], avisar:false },
   equipe: { sel:'#secEquipe', titulo:'Equipe',              campos:['email'], equipe:true, avisar:false },
-  local:  { sel:'#secLocal',  titulo:'Local e máquina',     campos:['turbina','blade'], chips:['local'], avisar:true },
+  local:  { sel:'#secLocal',  titulo:'Local e máquina',     campos:['turbina','blade','dano'],
+            chips:['local','turbinas','blades','danos'], botoes:['addTurbina','addBlade','addDano'], avisar:true },
   ativ:   { sel:'#secAtiv',   titulo:'Atividade realizada', campos:['tipo_reparo'], avisar:true }
 };
 
@@ -1134,7 +1156,7 @@ async function salvarUltimoRdo(d){
       cliente:d.cliente||'', parque:d.parque||'',
       tecnicos:(d.tecnicos||[]).map(t=>({nome:t.nome||'',mat:t.mat||''})),
       email:d.email||'', local:d.local||'',
-      turbina:d.turbina||'', blade:d.blade||'', tipo_reparo:d.tipo_reparo||'',
+      turbina:d.turbina||'', blade:d.blade||'', dano:d.dano||'', tipo_reparo:d.tipo_reparo||'',
       finalizado:!!d.finalizado
     }, salvo:Date.now() }, chaveUltimo());
   }catch(_){}
@@ -1153,6 +1175,10 @@ function travarGrupo(k,trava){
       .forEach(el=>{ el.disabled=!!trava; });
     const box=document.getElementById(id);
     if(box) box.style.opacity=trava?'.6':'';
+  });
+  (cfg.botoes||[]).forEach(id=>{
+    const b=document.getElementById(id);
+    if(b) b.style.display=trava?'none':'';
   });
   if(cfg.equipe){
     document.querySelectorAll('#tecnicos input,#tecnicos select')
@@ -1175,7 +1201,8 @@ function botaoNoTitulo(k,u){
   b.onclick=()=>{
     if(cfg.avisar && !u.finalizado){
       const ok=confirm('ATENÇÃO\n\nO último RDO deste reparo NÃO foi marcado como '
-        +'finalizado.\n\nTurbina '+(u.turbina||'—')+' / blade '+(u.blade||'—')
+        +'finalizado.\n\nTurbina '+(u.turbina||'—')+' | blade '+(u.blade||'—')
+        +(u.dano?' | dano '+u.dano:'')
         +' / '+(u.tipo_reparo||'—')+'\n\nTem certeza da troca dos campos?');
       if(!ok) return;
     }
@@ -1208,8 +1235,9 @@ async function aplicarUltimoRdo(){
 
   if(u.local) marcarChip('local',u.local);
 
-  document.getElementById('turbina').value=u.turbina||'';
-  document.getElementById('blade').value=u.blade||'';
+  porMulti('turbina',u.turbina||'');
+  porMulti('blade',u.blade||'');
+  porMulti('dano',u.dano||'');
   if(u.tipo_reparo){
     const tr=document.getElementById('tipo_reparo');
     tr.value=u.tipo_reparo;
@@ -1559,8 +1587,85 @@ function proximaValida(nome){
   });
 })();
 
+/* ---------- turbina / blade / dano: mais de um valor ----------
+   O 1º campo continua sendo #turbina / #blade / #dano; os extras entram logo
+   abaixo. No envio tudo vira um texto só separado por " / " — a planilha e o
+   PDF continuam com uma coluna para cada um. Dano aceita só números. */
+const MULTI_SEP=' / ';
+const MULTI={
+  turbina:{box:'turbinas', bt:'addTurbina', ph:'Outra turbina', num:false},
+  blade:  {box:'blades',   bt:'addBlade',   ph:'Outra blade',   num:false},
+  dano:   {box:'danos',    bt:'addDano',    ph:'Nº de outro dano', num:true}
+};
+function soNumeros(inp){
+  inp.addEventListener('input',()=>{
+    const v=inp.value.replace(/\D/g,'');
+    if(v!==inp.value) inp.value=v;
+  });
+}
+function addMulti(campo,valor){
+  const cfg=MULTI[campo];
+  const linha=document.createElement('div');
+  linha.className='multi-linha';
+  const inp=document.createElement('input');
+  inp.type='text'; inp.className='multi-extra'; inp.autocomplete='off';
+  inp.placeholder=cfg.ph; inp.value=valor||'';
+  if(cfg.num){ inp.inputMode='numeric'; inp.pattern='[0-9]*'; soNumeros(inp); }
+  const rm=document.createElement('button');
+  rm.type='button'; rm.className='btn-remove'; rm.textContent='Remover';
+  rm.onclick=()=>{ linha.remove(); agendarRascunho(); };
+  linha.append(inp,rm);
+  document.getElementById(cfg.box).appendChild(linha);
+  return inp;
+}
+function lerMulti(campo){
+  const extras=[...document.querySelectorAll('#'+MULTI[campo].box+' .multi-extra')].map(i=>i.value);
+  return [document.getElementById(campo).value].concat(extras)
+    .map(v=>String(v||'').trim()).filter(Boolean).join(MULTI_SEP);
+}
+function porMulti(campo,texto){
+  document.querySelectorAll('#'+MULTI[campo].box+' .multi-linha').forEach(l=>l.remove());
+  const partes=String(texto||'').split(MULTI_SEP).map(s=>s.trim()).filter(Boolean);
+  document.getElementById(campo).value=partes[0]||'';
+  partes.slice(1).forEach(v=>addMulti(campo,v));
+}
+Object.keys(MULTI).forEach(campo=>{
+  document.getElementById(MULTI[campo].bt).onclick=()=>addMulti(campo).focus();
+});
+soNumeros(document.getElementById('dano'));
+
 /* ---------- atividades por hora ---------- */
 const atvBox=document.getElementById('atividades');
+
+/* Ordem da lista: setup início -> atividades do tipo de reparo -> setup final
+   -> gerais (stand by, almoço, aguardando...). As comuns vêm da planilha sem o
+   grupo, então o grupo sai do nome. Atividade nova que não bater com nenhuma
+   palavra abaixo cai no setup início. */
+function grupoComum(nome){
+  const ATV_SETUP_FINAL=['descida da wtg','desmontagem','5s','recolhimento das cordas',
+    'deslocamento para subestacao','saida do parque','desmobilizacao'];
+  const ATV_GERAIS=['stand by','aguardando','liberado pelo cliente','almoco','janta',
+    'outra atividade','feriado','a definir'];
+  const n=normTxt(nome);
+  if(ATV_GERAIS.some(k=>n.indexOf(k)>=0)) return 3;
+  if(ATV_SETUP_FINAL.some(k=>n.indexOf(k)>=0)) return 2;
+  return 0;
+}
+/* lista de um bloco: o que já foi escolhido nos OUTROS blocos desce para o fim
+   (na ordem em que foi escolhido), para a próxima atividade ficar no topo */
+function ordenarParaBloco(lista,inp){
+  const usadas=[];
+  document.querySelectorAll('.atv-tipo').forEach(x=>{
+    if(x===inp || x.dataset.ok!=='1' || !x.value) return;
+    const k=normTxt(x.value);
+    const i=usadas.indexOf(k);
+    if(i>=0) usadas.splice(i,1);
+    usadas.push(k);                       /* a mais recente fica por último */
+  });
+  const livres=lista.filter(a=>usadas.indexOf(normTxt(a.nome))<0);
+  const fim=usadas.map(k=>lista.filter(a=>normTxt(a.nome)===k)[0]).filter(Boolean);
+  return livres.concat(fim);
+}
 
 /* placeholder do campo de atividade conforme o tipo de reparo esteja escolhido */
 function placeholderAtividade(){
@@ -1605,7 +1710,7 @@ function ligarBuscaAtividade(inp,list,cfg){
   }
   function render(){
     fecharListas(list);        /* só uma lista aberta por vez */
-    const lista=fonte();
+    const lista=cfg.fonte ? fonte() : ordenarParaBloco(fonte(), inp);
     if(!lista.length){
       const vz=(!cfg.fonte && modoFeriado())
         ? 'A atividade "Feriado" não está cadastrada no Banco de inputs. Avise a administração.'
@@ -1695,14 +1800,66 @@ function addAtividade(){
       </div>
     </div>
     <div class="hint atv-almoco" hidden style="margin:-6px 0 12px;font-weight:600;"></div>
-    <div class="field"><label>Observação</label><textarea class="atv-obs" placeholder="Opcional"></textarea></div>`;
+    <div class="field"><label>Observação</label><textarea class="atv-obs" placeholder="Opcional"></textarea>
+      <div class="obs-aviso" hidden></div></div>`;
   div.querySelector('.btn-remove').onclick=()=>{
     if(document.querySelectorAll('.atv-block').length>1){div.remove();syncAtividades();}
   };
+  let tObs=null;
+  div.querySelector('.atv-obs').addEventListener('input',()=>{
+    clearTimeout(tObs); tObs=setTimeout(()=>avisoObs(div),400);
+  });
   ligarBuscaAtividade(div.querySelector('.atv-tipo'), div.querySelector('.atv-list'));
   atvBox.appendChild(div);
   syncAtividades();
 }
+/* ---------- observação que descreve outra atividade da lista ----------
+   O técnico escolhe "Laminação" e escreve "lixamento e pintura" na observação:
+   lixamento e pintura somem do hora a hora. Ao reconhecer as palavras-chave
+   de uma atividade da lista na observação, avisa logo abaixo (não bloqueia). */
+const OBS_IGNORAR=['de','da','do','das','dos','e','a','o','em','na','no','com','sem','para','por',
+  'pela','pelo','ao','as','os','um','uma','quando','aplicavel','geral','tecnicos','atividade',
+  /* palavras que aparecem em qualquer observação e não identificam atividade */
+  'wtg','dano','area','turbina','blade','pa','cliente','equipe'];
+function palavrasObs(t){
+  return normTxt(t).replace(/[^a-z0-9]+/g,' ').split(' ')
+    .filter(w=>w.length>=3 && OBS_IGNORAR.indexOf(w)<0);
+}
+/* "raiz" da palavra: laminação / laminamos / laminado batem pelo começo */
+function raizObs(w){ return w.length>5 ? w.slice(0,5) : w; }
+function atividadesNaObs(obs,escolhida){
+  const raizes=palavrasObs(obs).map(raizObs);
+  if(!raizes.length) return [];
+  const kEsc=normTxt(escolhida||'');
+  const achadas=[];
+  atividadesDoTipo().forEach(a=>{
+    const n=normTxt(a.nome);
+    if(n===kEsc || n.indexOf('outra atividade')>=0) return;
+    const chaves=[...new Set(palavrasObs(a.nome).map(raizObs))];
+    if(!chaves.length) return;
+    const bateu=chaves.filter(c=>raizes.indexOf(c)>=0);
+    /* pelo menos metade das palavras-chave do nome (1 de 2, 2 de 3 ou 4...) */
+    if(bateu.length>=Math.ceil(chaves.length/2)) achadas.push({nome:a.nome, bateu, inteira:bateu.length===chaves.length});
+  });
+  /* "teste de dureza" bate inteiro com Teste de dureza: Teste de condutividade,
+     que só bateu pelo "teste", sai da lista */
+  const cobertas=new Set();
+  achadas.filter(x=>x.inteira).forEach(x=>x.bateu.forEach(c=>cobertas.add(c)));
+  return achadas.filter(x=>x.inteira || x.bateu.some(c=>!cobertas.has(c))).map(x=>x.nome);
+}
+function avisoObs(bloco){
+  const box=bloco.querySelector('.obs-aviso');
+  if(!box) return;
+  const achadas=atividadesNaObs(bloco.querySelector('.atv-obs').value, bloco.querySelector('.atv-tipo').value);
+  box.hidden=!achadas.length;
+  if(!achadas.length){ box.textContent=''; return; }
+  const lista=achadas.slice(0,3).map(n=>'"'+n+'"').join(', ')+(achadas.length>3?' e outras':'');
+  box.textContent='⚠ '+(achadas.length>1?'As atividades ':'A atividade ')+lista
+    +(achadas.length>1?' estão listadas':' está listada')+' nas opções de atividade. '
+    +'Se foi feita, lance em um bloco próprio (+ Adicionar atividade) com o horário dela, '
+    +'em vez de só escrever na observação.';
+}
+
 /* encadeia horas ENTRE atividades: fim de uma = início da próxima (travado).
    O expediente NÃO está mais vinculado (a equivalência é verificada no envio). */
 function syncAtividades(){
@@ -1825,6 +1982,7 @@ document.addEventListener('change',e=>{
     const precisa=exigeObs(e.target.value);
     obs.placeholder = precisa ? 'Observação OBRIGATÓRIA nesta atividade' : 'Opcional';
     obs.style.borderColor = precisa ? 'var(--erro)' : '';
+    avisoObs(block);
   }
 });
 
@@ -2018,11 +2176,12 @@ function aplicarRascunho(d){
   if(!d) return false;
   rascunhoCarregando=true;
   try{
-    ['registrado','data_exp','hora_ini','hora_fim','email','turbina','blade',
+    ['registrado','data_exp','hora_ini','hora_fim','email',
      'parada','marcha','fibraon','fibraoff','avanco'].forEach(id=>{
       const el=document.getElementById(id);
       if(el && d[id]!=null) el.value=d[id];
     });
+    Object.keys(MULTI).forEach(c=>{ if(d[c]!=null) porMulti(c,d[c]); });
 
     /* cliente antes do parque: o change monta a lista de parques e os campos SIEMENS */
     if(d.cliente){
@@ -2091,6 +2250,7 @@ function aplicarRascunho(d){
         obs.placeholder='Observação OBRIGATÓRIA nesta atividade';
         obs.style.borderColor='var(--erro)';
       }
+      avisoObs(b);
     });
 
     /* fotos */
@@ -2150,8 +2310,9 @@ function coletar(){
     parque:selParque.value,
     tecnicos, email:document.getElementById('email').value,
     local:chips('local')[0]||'',
-    turbina:document.getElementById('turbina').value,
-    blade:document.getElementById('blade').value,
+    turbina:lerMulti('turbina'),
+    blade:lerMulti('blade'),
+    dano:lerMulti('dano'),
     parada:document.getElementById('parada').value,
     marcha:document.getElementById('marcha').value,
     fibraon:document.getElementById('fibraon').value,
@@ -2208,6 +2369,7 @@ function montarPDF(d){
     <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
       ${linha('Local de atividade',d.local)}
       ${linha2('Turbina (WTG)',d.turbina,'Blade',d.blade)}
+      ${linha('Dano',d.dano)}
       ${linha2('Parada da WTG',d.parada,'WTG posto em marcha',d.marcha)}
       ${linha2('Fibra-on',d.fibraon,'Fibra-off',d.fibraoff)}
     </table>
@@ -2448,7 +2610,7 @@ btnEnviar.onclick=async ()=>{
       registrado:d.registrado, data_exp:d.data_exp, hora_ini:d.hora_ini, hora_fim:d.hora_fim,
       token:(SESSAO&&SESSAO.token)||'',
       cliente:d.cliente, parque:d.parque, tecnicos:d.tecnicos.map(t=>({nome:t.nome, mat:t.mat})), email:d.email,
-      local:d.local, turbina:d.turbina, blade:d.blade, parada:d.parada, marcha:d.marcha,
+      local:d.local, turbina:d.turbina, blade:d.blade, dano:d.dano, parada:d.parada, marcha:d.marcha,
       fibraon:d.fibraon, fibraoff:d.fibraoff, resumo:d.resumo, avanco:d.avanco, proxima:d.proxima,
       tipo_reparo:d.tipo_reparo, finalizado:d.finalizado,
       atividades:d.atividades, imagens:d.imagens, assinatura:d.assinatura
