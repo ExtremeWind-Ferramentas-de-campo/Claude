@@ -90,6 +90,17 @@
   .btn:hover{border-color:var(--aco);color:var(--aco)}
   .btn-mini{padding:4px 9px;font-size:12px}
 
+  /* Forma de pagamento: 3 botões, um só marcado */
+  .pags{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:6px}
+  .pag{position:relative;display:block}
+  .pag input{position:absolute;opacity:0;pointer-events:none}
+  .pag span{display:flex;align-items:center;justify-content:center;min-height:48px;padding:10px 6px;
+    border:1.5px solid var(--linha);border-radius:4px;background:#fff;font-weight:600;font-size:15px;cursor:pointer;text-align:center}
+  .pag span:hover{border-color:var(--aco)}
+  .pag input:checked + span{background:var(--aco);border-color:var(--aco);color:#fff}
+  .pag input:focus-visible + span{outline:2px solid var(--aco);outline-offset:2px}
+  .bloco.erro .pag span{border-color:#F3C4AF}
+
   /* Fotos: 4 posições fixas, na ordem do abastecimento */
   .slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:6px}
   .slot{position:relative;border:1.5px dashed #AEB7B3;border-radius:4px;background:#FAFBFA;aspect-ratio:4/3;
@@ -215,6 +226,15 @@
       <label class="rot" for="km">KM abastecido <span class="obr">*</span></label>
       <p class="ajuda">Quilometragem do painel no momento do abastecimento, só números.</p>
       <input class="entrada" type="text" id="km" inputmode="numeric" pattern="[0-9]*" maxlength="9" placeholder="Ex.: 84215">
+    </section>
+
+    <section class="bloco" data-campo="pagamento">
+      <span class="rot" id="pagRot">Forma de pagamento <span class="obr">*</span></span>
+      <div class="pags" role="radiogroup" aria-labelledby="pagRot">
+        <label class="pag"><input type="radio" name="pagamento" value="Dinheiro"><span>Dinheiro</span></label>
+        <label class="pag"><input type="radio" name="pagamento" value="Débito"><span>Débito</span></label>
+        <label class="pag"><input type="radio" name="pagamento" value="Crédito"><span>Crédito</span></label>
+      </div>
     </section>
 
     <section class="bloco" data-campo="fotos">
@@ -557,6 +577,11 @@ $('km').addEventListener('input', e=>{
 });
 $('obs').addEventListener('input', mexeu);
 
+/* ---------------- forma de pagamento ---------------- */
+function pagamento(){ const r = document.querySelector('input[name="pagamento"]:checked'); return r ? r.value : ''; }
+function marcarPagamento(v){ document.querySelectorAll('input[name="pagamento"]').forEach(r => { r.checked = (r.value === v); }); }
+document.querySelectorAll('input[name="pagamento"]').forEach(r => r.addEventListener('change', mexeu));
+
 /* ---------------- fotos ---------------- */
 const CAMERA = '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" aria-hidden="true"><path d="M4 8h3l1.6-2.2h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.6"/></svg>';
 const slots = $('slots');
@@ -713,11 +738,11 @@ function bdLimparFotos(){ return banco((bd, ok)=>{ const t = bd.transaction('fot
 
 function estadoAtual(){
   const e = {quando: Date.now(), idEnvio, tentou, registroIso,
-    placa: normPlaca(inPlaca.value), km: $('km').value, obs: $('obs').value, fotos: {}};
+    placa: normPlaca(inPlaca.value), km: $('km').value, pagamento: pagamento(), obs: $('obs').value, fotos: {}};
   FOTOS.forEach(ft=>{ const f = fotos[ft.k]; if(f && f.id && !f.blob) e.fotos[ft.k] = {id:f.id, w:f.w, h:f.h, mini:f.mini}; });
   return e;
 }
-function vazio(e){ return !e.placa && !e.km && !e.obs && !Object.keys(e.fotos).length; }
+function vazio(e){ return !e.placa && !e.km && !e.pagamento && !e.obs && !Object.keys(e.fotos).length; }
 let timerRasc = null;
 function agendarRascunho(){ clearTimeout(timerRasc); timerRasc = setTimeout(salvarRascunho, 500); }
 function salvarRascunho(){
@@ -748,6 +773,7 @@ bdGet('estado','atual').then(e=>{
   idEnvio = e.idEnvio || idEnvio; tentou = !!e.tentou;
   registroIso = e.registroIso || null; mostrarRegistro();
   $('km').value = e.km || '';
+  marcarPagamento(e.pagamento || '');
   $('obs').value = e.obs || '';
   Object.keys(e.fotos || {}).forEach(k=>{ fotos[k] = e.fotos[k]; });
   FOTOS.forEach(desenharSlot);
@@ -772,10 +798,11 @@ function validar(){
   else if(frota && placaBuscada === p && frota.faltando && frota.faltando.length)
     falhas.push(['placa','A planilha da frota está sem ' + frota.faltando.join(', ') + ' para esta placa. Avise a logística.']);
   if(!Number($('km').value)) falhas.push(['km','Preencha o KM.']);
+  if(!pagamento()) falhas.push(['pagamento','Escolha a forma de pagamento.']);
   const semFoto = FOTOS.filter(ft => !fotos[ft.k]);
   if(semFoto.length) falhas.push(['fotos','Falta foto: ' + semFoto.map(f=>f.rot).join(', ') + '.']);
   if(!assinatura) falhas.push(['assinatura','Falta a assinatura.']);
-  ['placa','km','fotos','assinatura'].forEach(c => marcar(c, falhas.some(f => f[0] === c)));
+  ['placa','km','pagamento','fotos','assinatura'].forEach(c => marcar(c, falhas.some(f => f[0] === c)));
   FOTOS.forEach(ft => $('slot-' + ft.k).classList.toggle('erro', !fotos[ft.k]));
   return falhas;
 }
@@ -821,7 +848,7 @@ btEnviar.addEventListener('click', async ()=>{
     nome: S.nome || '', mat: S.mat || '',
     registroIso, registroTxt: isoTexto(registroIso),
     placa: p, condutor: j.condutor, parque: j.parque, frota: j.frota, cartao: j.cartao,
-    km: $('km').value, obs: $('obs').value.trim()
+    km: $('km').value, pagamento: pagamento(), obs: $('obs').value.trim()
   };
   let imgs = {}, pdfBlob, pdfB64;
   try{
@@ -839,7 +866,7 @@ btEnviar.addEventListener('click', async ()=>{
   tentou = true; await salvarRascunho();
   const corpo = {
     acao: 'abastecimento', token: S.token, idEnvio,
-    registro: reg.registroIso, placa: reg.placa, km: reg.km, obs: reg.obs,
+    registro: reg.registroIso, placa: reg.placa, km: reg.km, pagamento: reg.pagamento, obs: reg.obs,
     fotos: {}, pdf: pdfB64
   };
   FOTOS.forEach(ft => { corpo.fotos[ft.k] = imgs[ft.k].split(',')[1]; });
@@ -889,6 +916,7 @@ function montarPDF(reg, imgs){
   P.linha2('Placa', reg.placa, 'Frota', reg.frota);
   P.linha2('Condutor', reg.condutor, 'Parque', reg.parque);
   P.linha2('Cartão', reg.cartao, 'KM abastecido', kmTxt(reg.km));
+  P.linha('Forma de pagamento', reg.pagamento, 0.2);
 
   if(reg.obs){
     P.secao('Observação');
@@ -945,6 +973,7 @@ function concluir(reg, r){
         '<div><dt>Frota</dt><dd>' + esc(reg.frota) + '</dd></div>' +
         '<div><dt>Cartão</dt><dd>' + esc(reg.cartao) + '</dd></div>' +
         '<div><dt>KM abastecido</dt><dd>' + esc(kmTxt(reg.km)) + '</dd></div>' +
+        '<div><dt>Forma de pagamento</dt><dd>' + esc(reg.pagamento) + '</dd></div>' +
         '<div class="larga"><dt>Protocolo</dt><dd style="font-family:var(--mono);font-size:13px">' + esc(r.id || '—') + '</dd></div>' +
         (reg.obs ? '<div class="larga"><dt>Observação</dt><dd style="font-weight:400">' + esc(reg.obs) + '</dd></div>' : '') +
       '</dl>' +
