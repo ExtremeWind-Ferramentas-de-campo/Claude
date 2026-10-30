@@ -361,17 +361,18 @@
         </div>
         <div class="field">
           <label class="req">Blade</label>
-          <input type="text" id="blade" placeholder="Ex.: A">
+          <input type="text" id="blade" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Ex.: 1">
           <div id="blades"></div>
           <button type="button" class="btn btn-add btn-multi" id="addBlade">+ Adicionar blade</button>
         </div>
       </div>
       <div class="field">
-        <label>Dano</label>
+        <label class="req">Dano</label>
         <input type="text" id="dano" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Nº do dano (só números)">
         <div id="danos"></div>
         <button type="button" class="btn btn-add btn-multi" id="addDano">+ Adicionar dano</button>
       </div>
+      <div class="hint" style="margin:-4px 0 14px;font-weight:600;">Turbina (WTG), Blade e Dano são obrigatórios. Se algum deles não se aplica à atividade, preencha com o número 0.</div>
       <div id="camposSiemens" style="display:none;">
         <div class="hint" id="hintSemParada" hidden style="margin-bottom:8px;"></div>
         <div class="row">
@@ -1277,6 +1278,9 @@ async function aplicarUltimoRdo(){
 
   Object.keys(TRAVAS).forEach(k=>{
     if(comProjeto && (k==='ident'||k==='equipe')) return;   /* o projeto cuida desses */
+    /* turbina/blade/dano obrigatórios: se algum não voltou (ex.: blade antiga com
+       letra, ou RDO de antes do campo Dano), o card fica aberto para preencher */
+    if(k==='local' && ['turbina','blade','dano'].some(c=>!lerMulti(c))) return;
     travarGrupo(k,true); botaoNoTitulo(k,u);
   });
   atualizarParadaWtg();
@@ -1609,7 +1613,7 @@ function proximaValida(nome){
 const MULTI_SEP=' / ';
 const MULTI={
   turbina:{box:'turbinas', bt:'addTurbina', ph:'Outra turbina', num:false},
-  blade:  {box:'blades',   bt:'addBlade',   ph:'Outra blade',   num:false},
+  blade:  {box:'blades',   bt:'addBlade',   ph:'Outra blade (nº)', num:true},
   dano:   {box:'danos',    bt:'addDano',    ph:'Nº de outro dano', num:true}
 };
 function soNumeros(inp){
@@ -1640,7 +1644,10 @@ function lerMulti(campo){
 }
 function porMulti(campo,texto){
   document.querySelectorAll('#'+MULTI[campo].box+' .multi-linha').forEach(l=>l.remove());
-  const partes=String(texto||'').split(MULTI_SEP).map(s=>s.trim()).filter(Boolean);
+  let partes=String(texto||'').split(MULTI_SEP).map(s=>s.trim());
+  /* campo só de números: valor antigo com letra ("A") não volta */
+  if(MULTI[campo].num) partes=partes.filter(s=>/^\d+$/.test(s));
+  partes=partes.filter(Boolean);
   document.getElementById(campo).value=partes[0]||'';
   partes.slice(1).forEach(v=>addMulti(campo,v));
 }
@@ -1648,6 +1655,7 @@ Object.keys(MULTI).forEach(campo=>{
   document.getElementById(MULTI[campo].bt).onclick=()=>addMulti(campo).focus();
 });
 soNumeros(document.getElementById('dano'));
+soNumeros(document.getElementById('blade'));
 
 /* ---------- atividades por hora ---------- */
 const atvBox=document.getElementById('atividades');
@@ -2531,8 +2539,12 @@ btnEnviar.onclick=async ()=>{
   }
   if(!d.email) erros.push('E-mail do técnico');
   if(!d.local) erros.push('Local de atividade');
-  if(!d.turbina) erros.push('Turbina (WTG)');
-  if(!d.blade) erros.push('Blade');
+  /* não se aplica = 0 (ver aviso no card) */
+  if(!d.turbina) erros.push('Turbina (WTG) — se não se aplica, preencha 0');
+  if(!d.blade) erros.push('Blade — se não se aplica, preencha 0');
+  else if(!/^\d+( \/ \d+)*$/.test(d.blade)) erros.push('Blade: só números (ex.: 1, 2 ou 3; 0 se não se aplica)');
+  if(!d.dano) erros.push('Dano — se não se aplica, preencha 0');
+  else if(!/^\d+( \/ \d+)*$/.test(d.dano)) erros.push('Dano: só números');
   if(ehSiemens() && !motivoSemParada()){
     if(!d.parada) erros.push('Parada da WTG');
     if(!d.marcha) erros.push('WTG posto em marcha');
