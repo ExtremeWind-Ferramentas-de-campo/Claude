@@ -271,6 +271,7 @@
     <button class="tab"        data-tab="estrutural" onclick="goTab('estrutural')"><i class="fas fa-layer-group"></i> Estrutural</button>
     <button class="tab"        data-tab="adesivo"    onclick="goTab('adesivo')"><i class="fas fa-droplet"></i> Adesivo G3</button>
     <button class="tab"        data-tab="filler"     onclick="goTab('filler')"><i class="fas fa-fill-drip"></i> Filler</button>
+    <button class="tab"        data-tab="porefiller" onclick="goTab('porefiller')"><i class="fas fa-fill"></i> Pore Filler</button>
     <button class="tab"        data-tab="pintura"    onclick="goTab('pintura')"><i class="fas fa-paint-roller"></i> Pintura</button>
     <button class="tab"        data-tab="hist"       onclick="goTab('hist')"><i class="fas fa-clock-rotate-left"></i> Histórico</button>
   </nav>
@@ -425,6 +426,30 @@
     </div>
   </section>
 
+  <!-- ══════════════════ PORE FILLER 6 ══════════════════ -->
+  <section class="panel" id="panel-porefiller">
+    <div class="card">
+      <div class="card-title"><span class="ico"><i class="fas fa-fill"></i></span> Acabamento — Pore Filler 6</div>
+      <div class="card-desc">Fechamento de poros antes da pintura.</div>
+      <div class="spec">
+        <div class="row"><span><b>Base:</b> Pore Filler 6</span></div>
+        <div class="row"><span><b>Endurecedor:</b> Endurecedor Pore Filler 6</span><span><b>6 : 1</b></span></div>
+        <p class="note" style="margin:6px 0 0">6 partes de base para 1 parte de endurecedor.</p>
+      </div>
+      <div class="spec warn">
+        <p class="note" style="margin:0;color:var(--ink);font-size:.9rem"><i class="fas fa-triangle-exclamation" style="color:var(--amber)"></i> <b style="color:var(--amber)">ATENÇÃO</b><br>
+        O tempo de cura do Pore Filler é de <b>5 a 10 min</b> — é muito rápido.<br>
+        Faça <b>porções pequenas</b> e aplique logo, para não curar no pote.</p>
+      </div>
+      <div class="field">
+        <label for="porefiller-base">Quantidade de Base <span class="hint">(g)</span></label>
+        <input type="text" id="porefiller-base" inputmode="decimal" placeholder="Ex: 300">
+      </div>
+      <button class="btn btn-primary" onclick="calcPoreFiller()"><i class="fas fa-calculator"></i> Calcular</button>
+      <div class="result" id="res-porefiller"></div>
+    </div>
+  </section>
+
   <!-- ══════════════════ PINTURA ══════════════════ -->
   <section class="panel" id="panel-pintura">
     <div class="card">
@@ -486,15 +511,16 @@ const CFG = {
   estruturalRatio: 0.30,   // endurecedor = 30% da resina (HEXION LR635 : LH635/LH637 = 100:30)
   adesivoRatio:    0.45,   // Adesivo G3 (Epikote/Epikure) = 100:45
   fillerRatio:     6,      // Filler 3 = 6:1 (endur = base/6)
+  poreFillerRatio: 6,      // Pore Filler 6 = 6:1 (endur = base/6) — cura 5–10 min
   pinturaRatio:    4,      // TopCoat 12 = 4:1 (endur = base/4)
   thinnerPct:      10      // Thinner 12 = 10% da base (opcional)
 };
 
 const MODULOS_POR_TIPO = {
-  'Externo': ['estrutural','adesivo','filler','pintura','hist'],
+  'Externo': ['estrutural','adesivo','filler','porefiller','pintura','hist'],
   'Interno': ['estrutural','adesivo','hist'],
   'LPS':     ['estrutural','hist'],
-  'SBI':     ['estrutural','adesivo','filler','pintura','hist']
+  'SBI':     ['estrutural','adesivo','filler','porefiller','pintura','hist']
 };
 const NOTAS_TIPO = {
   'Externo': 'Reparo externo: laminação + adesivo + acabamento (filler + pintura).',
@@ -536,7 +562,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     e.value = h.getFullYear()+'-'+z(h.getMonth()+1)+'-'+z(h.getDate()); } })();
   aplicarTema(localStorage.getItem('nordex_theme'));
   atualizarNotaTipo();
-  ['estrutural-resina','adesivo-resina','filler-base','pintura-base','i-peso-nucleo','i-tecido-qtd']
+  ['estrutural-resina','adesivo-resina','filler-base','porefiller-base','pintura-base','i-peso-nucleo','i-tecido-qtd']
     .forEach(id=>{ const e=$(id); if(e) e.addEventListener('input',()=>onlyNum(e)); });
   // seleção visual dos segmentos (robusto, sem :has)
   document.querySelectorAll('.seg').forEach(seg=>{
@@ -680,6 +706,15 @@ function calcFiller(){
   renderResult('res-filler','Filler 3',[
     ['Base',base,'g'],['Endurecedor',endur,'g'],['Mistura total',base+endur,'g',true]
   ], {tipo:'Filler 3',base,endur,adicional:0,total:base+endur});
+}
+function calcPoreFiller(){
+  const base=num(v('porefiller-base'));
+  if(base<=0){ toast('Informe a quantidade de base (g)','error'); return; }
+  const endur=base/CFG.poreFillerRatio;
+  renderResult('res-porefiller','Pore Filler 6',[
+    ['Base',base,'g'],['Endurecedor',endur,'g'],['Mistura total',base+endur,'g',true]
+  ], {tipo:'Pore Filler 6',base,endur,adicional:0,total:base+endur});
+  toast('ATENÇÃO: Pore Filler cura em 5 a 10 min — faça porções pequenas!','error');
 }
 function atualizarProdutoPintura(){
   const sbi = ID.tipo==='SBI';
