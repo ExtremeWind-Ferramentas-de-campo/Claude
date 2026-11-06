@@ -117,8 +117,7 @@
     <i class="fas fa-rotate"></i> Atualizar
   </button>
 
-  <p class="nota">O contracheque é pessoal: só aparece para a sua matrícula.
-    Em caso de dúvidas, entre em contato com o setor de DP.</p>
+  <p class="nota">O contracheque é pessoal: só aparece para a sua matrícula.</p>
 </main>
 
 <footer>Extreme Wind Blade Services &copy; <span id="year"></span> · Uso interno. Realizado por Ryan Neves.</footer>
@@ -203,8 +202,7 @@ function mostrar(r){
     elConteudo.innerHTML = cabecalho(r)
       + '<div class="estado vazio"><i class="fas fa-file-circle-xmark"></i>'
       + 'Não há contracheque seu no mês vigente'
-      + (r.mes ? ' (<b>' + esc(r.mes) + '</b>)' : '') + '.<br><br>'
-      + 'Em caso de dúvidas, entre em contato com o setor de <b>DP</b>.</div>';
+      + (r.mes ? ' (<b>' + esc(r.mes) + '</b>)' : '') + '.</div>';
     return;
   }
   elConteudo.innerHTML = cabecalho(r)
