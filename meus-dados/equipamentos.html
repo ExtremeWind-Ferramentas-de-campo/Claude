@@ -167,6 +167,40 @@
   .girando{animation:gira 1s linear infinite}
   @keyframes gira{to{transform:rotate(360deg)}}
   @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}
+
+  /* ---------- Requisições para assinar ---------- */
+  .rq-lista{display:flex;flex-direction:column;gap:10px}
+  .rq{background:var(--card);border:1px solid var(--card-line);border-left:5px solid #c77d0a;border-radius:14px;padding:12px 14px}
+  .rq.ok{border-left-color:var(--cor)}
+  .rq-topo{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .rq-num{font-weight:800;font-size:.92rem;font-variant-numeric:tabular-nums}
+  .badge-pend{background:#fff3dd;color:#8a5200}
+  .rq-btn{margin-top:10px;width:100%;min-height:42px;border:1px solid var(--cor);background:var(--card);color:var(--cor-forte);
+    border-radius:12px;font-family:inherit;font-weight:800;font-size:.86rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+  .rq-btn.forte{background:var(--cor);color:#fff}
+  .rq-modal{position:fixed;inset:0;z-index:50;background:rgba(5,20,35,.55);display:flex;align-items:flex-end;justify-content:center}
+  .rq-caixa{background:var(--card);color:var(--ink);width:100%;max-width:640px;max-height:94vh;overflow:auto;border-radius:20px 20px 0 0;padding:16px 14px 22px}
+  @media(min-width:700px){.rq-modal{align-items:center}.rq-caixa{border-radius:20px}}
+  .rq-cab{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .rq-cab h2{flex:1;font-size:1rem;font-weight:800}
+  .rq-fechar{width:38px;height:38px;border-radius:10px;border:1px solid var(--card-line);background:var(--card);color:var(--ink);cursor:pointer}
+  .rq-folha{border:1px solid var(--card-line);border-radius:12px;padding:10px;font-size:.78rem}
+  .rq-kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin-bottom:8px}
+  .rq-kv b{color:var(--muted);font-size:.72rem}
+  .rq-folha table{font-size:.72rem}
+  .rq-passo{margin-top:14px;border-top:1px solid var(--card-line);padding-top:12px}
+  .rq-passo h3{font-size:.9rem;font-weight:800;margin-bottom:6px}
+  .rq-ajuda{font-size:.78rem;color:var(--muted);margin-bottom:8px;line-height:1.4}
+  .rq-canvas{width:100%;height:170px;border:2px dashed var(--card-line);border-radius:12px;background:#fff;touch-action:none;display:block}
+  .rq-linha{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center}
+  .rq-mini{border:1px solid var(--card-line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 12px;font-family:inherit;font-weight:700;font-size:.82rem;cursor:pointer}
+  .rq-foto-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--cor);color:var(--cor-forte);background:var(--card);border-radius:12px;padding:10px 14px;font-weight:800;font-size:.86rem;cursor:pointer}
+  .rq-foto-btn input{display:none}
+  .rq-foto{max-width:150px;max-height:200px;border-radius:12px;border:1px solid var(--card-line);display:block;margin-top:8px}
+  .rq-decl{display:flex;gap:8px;align-items:flex-start;font-size:.84rem;font-weight:600;line-height:1.4;margin-top:4px}
+  .rq-decl input{margin-top:3px;width:18px;height:18px;flex-shrink:0}
+  .rq-msg{margin-top:8px;font-size:.84rem;font-weight:700;text-align:center;min-height:1.2em}
+  .rq-msg.erro{color:#b3261e}.rq-msg.ok{color:#15803d}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
@@ -196,7 +230,7 @@
     <i class="fas fa-rotate"></i> Atualizar
   </button>
 
-  <p class="nota">Algum item errado ou faltando? Fale com o almoxarifado — esta tela é só consulta.
+  <p class="nota">Algum item errado ou faltando? Fale com o almoxarifado. Na aba Requisições você assina o recebimento com sua assinatura e uma selfie.
     Mudanças na planilha podem levar até 15 minutos para aparecer aqui.</p>
 </main>
 
@@ -371,11 +405,14 @@ function mostrar(r){
     +   '<button type="button" class="tab-btn ativo" data-aba="eq" role="tab" aria-selected="true">Meus Equipamentos</button>'
     +   '<button type="button" class="tab-btn" data-aba="ext" role="tab" aria-selected="false">Extraviados e Avariados'
     +     (ext.length ? ' <span class="tab-badge">' + ext.length + '</span>' : '') + '</button>'
+    +   '<button type="button" class="tab-btn" data-aba="req" role="tab" aria-selected="false">Requisi\u00e7\u00f5es'
+    +     ' <span class="tab-badge" id="reqBadge" hidden></span></button>'
     + '</div>'
     + '<div id="abaEq">' + painelEquipamentos(itens) + '</div>'
     + '<div id="abaExt" hidden>' + painelExtravio(ext)
     +   (r.extravioAtualizadoEm ? '<p class="ext-fonte">Lista de extravios e descontos salva em ' + esc(r.extravioAtualizadoEm) + '</p>' : '')
-    + '</div>';
+    + '</div>'
+    + '<div id="abaReq" hidden><div id="reqConteudo"><div class="vazio-aba">Carregando requisi\u00e7\u00f5es\u2026</div></div></div>';
 }
 
 elConteudo.addEventListener('click', e => {
@@ -387,6 +424,7 @@ elConteudo.addEventListener('click', e => {
     });
     document.getElementById('abaEq').hidden = aba !== 'eq';
     document.getElementById('abaExt').hidden = aba !== 'ext';
+    const ar = document.getElementById('abaReq'); if(ar) ar.hidden = aba !== 'req';
   }
   if(e.target.closest('#pdfBtn')) baixarPdf();
   const dv = e.target.closest('[data-dev]');
@@ -482,7 +520,254 @@ async function consultar(){
   if(r.atualizadoEm){ elData.textContent = r.atualizadoEm; elBlocoData.hidden = false; }
   ATUAL = r;
   mostrar(r);
+  carregarRequisicoes();
 }
+
+
+/* =====================================================================
+   REQUISIÇÕES PARA ASSINAR (dados vindos do app de Movimentação)
+   O colaborador vê o formulário de entrega, assina com o dedo, tira uma
+   selfie e envia. O PDF assinado é montado aqui e guardado pelo servidor.
+   ===================================================================== */
+let REQS = null;
+
+async function chamarPost(corpo){
+  try{
+    const res = await fetch(ENDPOINT, { method:'POST', body: JSON.stringify(corpo) });
+    return await res.json();
+  }catch(_){ return null; }
+}
+
+async function carregarRequisicoes(){
+  const ss = sessao();
+  const alvo = document.getElementById('reqConteudo');
+  if(!ss || !alvo) return;
+  alvo.innerHTML = '<div class="vazio-aba"><i class="fas fa-circle-notch girando"></i> Carregando requisições…</div>';
+  const r = await chamarPost({ acao:'minhasRequisicoes', token: ss.token });
+  if(!r){ alvo.innerHTML = '<div class="vazio-aba">Não foi possível carregar as requisições agora. Toque em Atualizar.</div>'; return; }
+  if(r.sessao === false){ paraOLogin(); return; }
+  if(!r.ok){ alvo.innerHTML = '<div class="vazio-aba">' + esc(r.erro || 'Não foi possível carregar as requisições.') + '</div>'; return; }
+  REQS = r;
+  renderRequisicoes();
+}
+
+function renderRequisicoes(){
+  const alvo = document.getElementById('reqConteudo');
+  const badge = document.getElementById('reqBadge');
+  if(!alvo || !REQS) return;
+  const lista = REQS.requisicoes || [];
+  const pend = lista.filter(q => !q.assinada).length;
+  if(badge){ badge.hidden = !pend; badge.textContent = pend; }
+  if(!lista.length){
+    alvo.innerHTML = '<div class="vazio-aba">' + esc(REQS.aviso || 'Nenhuma requisição no seu nome para assinar.') + '</div>';
+    return;
+  }
+  alvo.innerHTML = '<div class="rq-lista">' + lista.map((q, i) => {
+    const n = (q.linhas || []).reduce((a, l) => a + (Number(l[4]) || 0), 0);
+    return '<div class="rq' + (q.assinada ? ' ok' : '') + '">'
+      + '<div class="rq-topo"><span class="rq-num">' + esc(q.num) + '</span>'
+      + (q.assinada ? '<span class="badge badge-nao">Assinada</span>' : '<span class="badge badge-pend">Pendente</span>') + '</div>'
+      + '<div class="ext-meta"><span>' + esc(q.data || '—') + '</span>' + (q.proj ? '<span>' + esc(q.proj) + '</span>' : '')
+      + '<span>' + n + ' ' + (n === 1 ? 'unidade' : 'unidades') + '</span>'
+      + (q.assinada && q.assinadaEm ? '<span>assinada em ' + esc(q.assinadaEm) + '</span>' : '') + '</div>'
+      + '<button type="button" class="rq-btn' + (q.assinada ? '' : ' forte') + '" data-rq="' + i + '"><i class="fas fa-file-signature"></i> '
+      + (q.assinada ? 'Ver formulário' : 'Ver e assinar') + '</button></div>';
+  }).join('') + '</div>'
+  + (REQS.atualizadoEm ? '<p class="ext-fonte">Requisições enviadas pelo almoxarifado em ' + esc(REQS.atualizadoEm) + '</p>' : '');
+}
+
+function folhaHtml(q){
+  const linhas = (q.linhas || []).map(l => '<tr><td>' + esc(l[0]) + '</td><td class="c-id">' + esc(l[1]) + '</td><td class="c-desc">' + esc(l[2])
+    + '</td><td class="c-id">' + esc(l[3]) + '</td><td class="c-qtd">' + esc(l[4]) + '</td></tr>').join('');
+  const pend = (q.pend || []).length ? '<p style="margin:10px 0 4px;font-weight:800">Solicitado e não entregue (pendente)</p><div class="tabela"><table><thead><tr><th>ID</th><th>DESCRIÇÃO</th><th>QTD</th></tr></thead><tbody>'
+    + q.pend.map(p => '<tr><td class="c-id">' + esc(p[0] || 'sem ID') + '</td><td class="c-desc">' + esc(p[1]) + '</td><td class="c-qtd">' + esc(p[2]) + '</td></tr>').join('') + '</tbody></table></div>' : '';
+  return '<div class="rq-folha"><div class="rq-kv">'
+    + '<b>DATA</b><span>' + esc(q.data || '') + '</span><b>Nº REQUISIÇÃO</b><span>' + esc(q.num) + '</span>'
+    + '<b>RESPONSÁVEL</b><span>' + esc(q.resp || '') + '</span><b>RECEBEDOR</b><span>' + esc(REQS.nome || '') + '</span>'
+    + '<b>PROJETO</b><span>' + esc(q.proj || '') + '</span></div>'
+    + '<div class="tabela"><table><colgroup><col style="width:20%"><col style="width:9%"><col><col style="width:22%"><col style="width:8%"></colgroup><thead><tr><th>CLASSIFICAÇÃO</th><th>ID</th><th>DESCRIÇÃO</th><th>Nº DE SÉRIE</th><th>QTD</th></tr></thead><tbody>'
+    + linhas + '</tbody></table></div>' + pend + '</div>';
+}
+
+/* PDF no mesmo modelo do formulário de entrega do almoxarifado. assin = {img, foto, em, codigo} quando assinado. */
+function pdfRequisicao(q, assin){
+  const jsPDF = window.jspdf && window.jspdf.jsPDF;
+  if(!jsPDF) throw new Error('sem_pdf');
+  const doc = new jsPDF({ unit:'mm', format:'a4', compress: true });
+  const W = 210, M = 12;
+  let tx = M;
+  if(REQS.logo){ try{ const p = doc.getImageProperties(REQS.logo); const h = 12, w = h * p.width / p.height; doc.addImage(REQS.logo, 'PNG', M, 8, w, h); tx = M + w + 5; }catch(_){} }
+  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('FORMULÁRIO DE ENTREGA DE MATERIAL', tx, 15.5);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  (REQS.form || []).forEach((t, i) => doc.text(String(t), W - M, 10 + i * 3.6, { align:'right' }));
+  doc.setDrawColor(20); doc.setLineWidth(0.5); doc.line(M, 22, W - M, 22);
+  const kv = [['DATA:', q.data || ''], ['Nº REQUISIÇÃO:', q.num], ['RESPONSÁVEL:', q.resp || ''], ['RECEBEDOR:', (REQS.nome || '') + ' (mat. ' + REQS.mat + ')'], ['PROJETO:', q.proj || '']];
+  doc.setFontSize(9);
+  kv.forEach((p, i) => { const col = i % 2, lin = Math.floor(i / 2), x = M + col * 95, y = 28 + lin * 5.5;
+    doc.setFont('helvetica','bold'); doc.text(p[0], x, y); doc.setFont('helvetica','normal'); doc.text(String(p[1]), x + 30, y, { maxWidth: 63 }); });
+  doc.autoTable({
+    startY: 46, margin:{ left:M, right:M }, theme:'grid',
+    head: [['CLASSIFICAÇÃO','ID','DESCRIÇÃO','Nº DE SÉRIE','Qtd']],
+    body: (q.linhas || []).map(l => [l[0], l[1], l[2], l[3], String(l[4])]),
+    styles:{ font:'helvetica', fontSize:8, cellPadding:1.4, textColor:20, lineColor:[160,170,178], lineWidth:0.2 },
+    headStyles:{ fillColor:[221,230,236], textColor:20, fontStyle:'bold' },
+    columnStyles:{ 0:{ cellWidth:32 }, 1:{ cellWidth:13, halign:'center' }, 3:{ cellWidth:38 }, 4:{ cellWidth:12, halign:'center' } }
+  });
+  let y = doc.lastAutoTable.finalY + 6;
+  if((q.pend || []).length){
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.text('SOLICITADO E NÃO ENTREGUE (PENDENTE)', M, y);
+    doc.autoTable({ startY: y + 2, margin:{ left:M, right:M }, theme:'grid', head:[['ID','DESCRIÇÃO','Qtd pendente']],
+      body: q.pend.map(p => [p[0] || 'sem ID', p[1], String(p[2])]), styles:{ font:'helvetica', fontSize:8, cellPadding:1.4 },
+      headStyles:{ fillColor:[221,230,236], textColor:20 } });
+    y = doc.lastAutoTable.finalY + 6;
+  }
+  if(y > 225){ doc.addPage(); y = 20; }
+  /* assinaturas: recebedor, separação, suprimentos */
+  const cw = (W - 2 * M - 16) / 3, yl = y + 26;
+  const bloco = (i, titulo, sub, img, dataTxt) => {
+    const x = M + i * (cw + 8);
+    if(img){ try{ const p = doc.getImageProperties(img); const h = 20, w = Math.min(cw, h * p.width / p.height); doc.addImage(img, 'PNG', x + (cw - w) / 2, yl - h - 1, w, h); }catch(_){} }
+    doc.setLineWidth(0.3); doc.line(x, yl, x + cw, yl);
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.text(titulo, x + cw / 2, yl + 4, { align:'center' });
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+    if(sub) doc.text(sub, x + cw / 2, yl + 8, { align:'center', maxWidth: cw });
+    if(dataTxt) doc.text(dataTxt, x + cw / 2, yl + 12, { align:'center', maxWidth: cw });
+  };
+  bloco(0, 'ASSINATURA DO RECEBEDOR', REQS.nome || '', assin ? assin.img : null, assin ? 'Assinado eletronicamente em ' + assin.em : 'Data: ____/____/______');
+  bloco(1, 'RESPONSÁVEL PELA SEPARAÇÃO', '', null, 'Data: ____/____/______');
+  bloco(2, 'ASSINATURA DO SUPRIMENTOS', REQS.suprimentos ? (REQS.suprimentos.nome || 'Almoxarifado') : 'Almoxarifado', REQS.suprimentos ? REQS.suprimentos.img : null, '');
+  if(assin){
+    let y2 = yl + 18; if(y2 + 46 > 287){ doc.addPage(); y2 = 20; }
+    doc.setDrawColor(150); doc.setLineWidth(0.2); doc.rect(M, y2, W - 2 * M, 44);
+    try{ doc.addImage(assin.foto, 'JPEG', M + 3, y2 + 3, 28, 38); }catch(_){}
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.text('ASSINATURA ELETRÔNICA COM FOTO', M + 36, y2 + 8);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+    [ 'Recebedor: ' + (REQS.nome || '') + '  ·  Matrícula ' + REQS.mat,
+      'Assinado em: ' + assin.em + ' (pelo portal Meus Equipamentos, com login do colaborador)',
+      'Declaração: recebi os materiais listados acima em perfeitas condições de uso.',
+      'Código de verificação: ' + assin.codigo ].forEach((t, i) => doc.text(t, M + 36, y2 + 15 + i * 6, { maxWidth: W - 2 * M - 40 }));
+  }
+  return doc;
+}
+
+function salvarBlob(blob, nome){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = nome;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+async function codigoVerificacao(q, em){
+  const txt = JSON.stringify({ n: q.num, m: REQS.mat, l: q.linhas, e: em });
+  try{
+    const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
+    return Array.from(new Uint8Array(h)).slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().replace(/(.{4})/g, '$1-').replace(/-$/, '');
+  }catch(_){ return String(Date.now()); }
+}
+
+/* foto: reduz para no máximo 720 px e devolve JPEG */
+function reduzirFoto(arquivo){
+  return new Promise((ok, falha) => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      const im = new Image();
+      im.onload = () => {
+        const esc = Math.min(1, 720 / Math.max(im.width, im.height));
+        const c = document.createElement('canvas'); c.width = Math.round(im.width * esc); c.height = Math.round(im.height * esc);
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        ok(c.toDataURL('image/jpeg', 0.82));
+      };
+      im.onerror = falha; im.src = fr.result;
+    };
+    fr.onerror = falha; fr.readAsDataURL(arquivo);
+  });
+}
+
+function abrirRequisicao(i){
+  const q = (REQS.requisicoes || [])[i];
+  if(!q) return;
+  const ov = document.createElement('div'); ov.className = 'rq-modal';
+  ov.innerHTML = '<div class="rq-caixa" role="dialog" aria-modal="true" aria-label="Requisição ' + esc(q.num) + '">'
+    + '<div class="rq-cab"><h2>' + esc(q.num) + '</h2><button type="button" class="rq-fechar" aria-label="Fechar"><i class="fas fa-xmark"></i></button></div>'
+    + folhaHtml(q)
+    + '<div class="rq-linha"><button type="button" class="rq-mini" data-acao="pdf"><i class="fas fa-file-arrow-down"></i> Baixar PDF</button></div>'
+    + (q.assinada
+      ? '<p class="rq-msg ok">Assinada em ' + esc(q.assinadaEm || '') + '.</p>'
+      : '<div class="rq-passo"><h3>1. Sua assinatura</h3><p class="rq-ajuda">Assine com o dedo (ou o mouse) dentro do quadro.</p>'
+      + '<canvas class="rq-canvas" aria-label="Quadro de assinatura"></canvas>'
+      + '<div class="rq-linha"><button type="button" class="rq-mini" data-acao="limpar">Limpar</button></div></div>'
+      + '<div class="rq-passo"><h3>2. Selfie</h3><p class="rq-ajuda">Tire uma foto do seu rosto agora. Ela vai junto com a assinatura.</p>'
+      + '<label class="rq-foto-btn"><i class="fas fa-camera"></i> Tirar selfie<input type="file" accept="image/*" capture="user"></label>'
+      + '<img class="rq-foto" alt="Sua selfie" hidden></div>'
+      + '<div class="rq-passo"><label class="rq-decl"><input type="checkbox"> Declaro que recebi os materiais listados acima em perfeitas condições de uso.</label>'
+      + '<button type="button" class="rq-btn forte" data-acao="assinar"><i class="fas fa-signature"></i> Assinar e enviar</button></div>')
+    + '<div class="rq-msg" aria-live="polite"></div></div>';
+  document.body.appendChild(ov);
+  document.body.style.overflow = 'hidden';
+  const msg = ov.querySelector('.rq-msg');
+  const fechar = () => { ov.remove(); document.body.style.overflow = ''; };
+  ov.addEventListener('click', e => { if(e.target === ov) fechar(); });
+  ov.querySelector('.rq-fechar').addEventListener('click', fechar);
+  let pdfAssinado = null;
+  ov.querySelector('[data-acao="pdf"]').addEventListener('click', () => {
+    try{ salvarBlob((pdfAssinado || pdfRequisicao(q, null)).output('blob'), (pdfAssinado ? 'assinado-' : 'requisicao-') + q.num + '.pdf'); }
+    catch(_){ msg.className = 'rq-msg erro'; msg.textContent = 'Gerador de PDF não carregou. Confira a internet.'; }
+  });
+  if(q.assinada) return;
+
+  /* quadro de assinatura */
+  const cv = ov.querySelector('.rq-canvas'), ctx = cv.getContext('2d');
+  let vazio = true, desenhando = false;
+  const ajustar = () => { const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1; cv.width = r.width * d; cv.height = r.height * d;
+    ctx.setTransform(d, 0, 0, d, 0, 0); ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0b2a4a'; vazio = true; };
+  ajustar();
+  const ponto = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  cv.addEventListener('pointerdown', e => { desenhando = true; cv.setPointerCapture(e.pointerId); const [x, y] = ponto(e); ctx.beginPath(); ctx.moveTo(x, y); });
+  cv.addEventListener('pointermove', e => { if(!desenhando) return; const [x, y] = ponto(e); ctx.lineTo(x, y); ctx.stroke(); vazio = false; });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => cv.addEventListener(t, () => { desenhando = false; }));
+  ov.querySelector('[data-acao="limpar"]').addEventListener('click', ajustar);
+
+  /* selfie */
+  let foto = null;
+  const inp = ov.querySelector('.rq-foto-btn input'), prev = ov.querySelector('.rq-foto');
+  inp.addEventListener('change', async () => {
+    const f = inp.files && inp.files[0]; if(!f) return;
+    try{ foto = await reduzirFoto(f); prev.src = foto; prev.hidden = false; msg.textContent = ''; }
+    catch(_){ msg.className = 'rq-msg erro'; msg.textContent = 'Não deu para ler a foto. Tente de novo.'; }
+  });
+
+  const btn = ov.querySelector('[data-acao="assinar"]'), decl = ov.querySelector('.rq-decl input');
+  btn.addEventListener('click', async () => {
+    msg.className = 'rq-msg erro';
+    if(vazio){ msg.textContent = 'Faça sua assinatura no quadro.'; return; }
+    if(!foto){ msg.textContent = 'Tire a selfie antes de enviar.'; return; }
+    if(!decl.checked){ msg.textContent = 'Marque a declaração de recebimento.'; return; }
+    const ss = sessao(); if(!ss){ paraOLogin(); return; }
+    btn.disabled = true; msg.className = 'rq-msg'; msg.textContent = 'Enviando…';
+    try{
+      const agora = new Date(), p2 = n => String(n).padStart(2, '0');
+      const em = p2(agora.getDate()) + '/' + p2(agora.getMonth() + 1) + '/' + agora.getFullYear() + ' às ' + p2(agora.getHours()) + ':' + p2(agora.getMinutes());
+      const codigo = await codigoVerificacao(q, em);
+      const doc = pdfRequisicao(q, { img: cv.toDataURL('image/png'), foto: foto, em: em, codigo: codigo });
+      const pdf = doc.output('datauristring');
+      const r = await chamarPost({ acao:'assinarRequisicao', token: ss.token, num: q.num, pdf: pdf, foto: foto, codigo: codigo, navegador: navigator.userAgent });
+      if(!r){ throw new Error('rede'); }
+      if(r.sessao === false){ paraOLogin(); return; }
+      if(!r.ok){ msg.className = 'rq-msg erro'; msg.textContent = r.erro || 'Não foi possível enviar.'; if(r.jaAssinada){ q.assinada = true; renderRequisicoes(); } btn.disabled = !!r.jaAssinada; return; }
+      q.assinada = true; q.assinadaEm = r.assinadaEm || em; pdfAssinado = doc;
+      ov.querySelectorAll('.rq-passo').forEach(el => el.remove());
+      msg.className = 'rq-msg ok'; msg.textContent = 'Assinatura enviada. Obrigado! Toque em Baixar PDF para guardar sua via.';
+      renderRequisicoes();
+    }catch(_){
+      msg.className = 'rq-msg erro'; msg.textContent = 'Sem conexão ou falha no envio. Confira a internet e tente de novo.'; btn.disabled = false;
+    }
+  });
+}
+
+elConteudo.addEventListener('click', e => {
+  const b = e.target.closest('[data-rq]');
+  if(b) abrirRequisicao(Number(b.getAttribute('data-rq')));
+});
 
 btnRecarregar.addEventListener('click', consultar);
 consultar();
