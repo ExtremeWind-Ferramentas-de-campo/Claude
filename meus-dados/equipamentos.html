@@ -183,7 +183,7 @@
   .sit-campo{color:var(--cor-forte)}.sit-dev{color:var(--muted)}.sit-ext{color:#b3261e}
   .ext.app{border-left-color:#c77d0a}
   .ext-sub{margin:14px 0 8px;font-size:.82rem;font-weight:800;color:var(--muted)}
-  @media(max-width:520px){.rq-folha col:first-child{width:0}.rq-folha th:first-child,.rq-folha td:first-child{display:none}}
+  .rq-folha .sit{margin-top:3px;font-weight:700}
   .rq-btn{margin-top:10px;width:100%;min-height:42px;border:1px solid var(--cor);background:var(--card);color:var(--cor-forte);
     border-radius:12px;font-family:inherit;font-weight:800;font-size:.86rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
   .rq-btn.forte{background:var(--cor);color:#fff}
@@ -582,13 +582,11 @@ function resumoReq(q){
   r.ultimaBr = r.ultima ? r.ultima.split('-').reverse().join('/') : '';
   return r;
 }
+/* marca discreta embaixo da descrição: só quando o item já saiu de campo (a requisição continua a original) */
 function sitHtml(l){
   const s = sitsDaLinha(l), tot = Number(l[4]) || 0;
-  const fora = s.reduce((a, x) => a + (Number(x[1]) || 0), 0);
-  let h = s.map(x => '<span class="sit ' + (x[0] === 'extraviado' || x[0] === 'avariado' ? 'sit-ext' : 'sit-dev') + '">'
-    + (tot > 1 ? esc(x[1]) + ' ' : '') + esc(SIT_NOME[x[0]] || x[0]) + (x[2] ? ' em ' + esc(x[2]) : '') + (x[0] === 'repassado' && x[3] ? ' ' + esc(x[3]) : '') + '</span>').join('');
-  if(fora < tot) h = '<span class="sit sit-campo">' + (s.length && tot > 1 ? (tot - fora) + ' ' : '') + 'Em campo</span>' + h;
-  return h;
+  return s.map(x => '<span class="sit ' + (x[0] === 'extraviado' || x[0] === 'avariado' ? 'sit-ext' : 'sit-dev') + '">'
+    + (tot > 1 ? esc(x[1]) + ' ' : '') + esc(SIT_NOME[x[0]] || x[0]) + (x[2] ? ' em ' + esc(x[2]) : '') + '</span>').join('');
 }
 /* aba Extraviados e Avariados: também os itens marcados no app do almoxarifado nas requisições */
 function renderExtApp(){
@@ -617,7 +615,8 @@ function renderRequisicoes(){
   if(!alvo || !REQS) return;
   renderExtApp();
   const lista = REQS.requisicoes || [];
-  const pend = lista.filter(q => !q.assinada).length;
+  /* devolvida antes de assinar não pede mais assinatura */
+  const pend = lista.filter(q => !q.assinada && !resumoReq(q).devolvida).length;
   if(badge){ badge.hidden = !pend; badge.textContent = pend; }
   if(!lista.length){
     alvo.innerHTML = '<div class="vazio-aba">' + esc(REQS.aviso || 'Nenhuma requisição no seu nome para assinar.') + '</div>';
@@ -625,34 +624,34 @@ function renderRequisicoes(){
   }
   alvo.innerHTML = '<div class="rq-lista">' + lista.map((q, i) => {
     const n = (q.linhas || []).reduce((a, l) => a + (Number(l[4]) || 0), 0);
-    const rs = resumoReq(q);
-    return '<div class="rq' + (q.assinada ? ' ok' : '') + (rs.devolvida ? ' dev' : '') + '">'
+    const rs = resumoReq(q), pedeAssinatura = !q.assinada && !rs.devolvida;
+    return '<div class="rq' + (q.assinada ? ' ok' : '') + (rs.devolvida && !q.assinada ? ' dev' : '') + '">'
       + '<div class="rq-topo"><span class="rq-num">' + esc(q.num) + '</span><span class="rq-badges">'
-      + (q.assinada ? '<span class="badge badge-nao">Assinada</span>' : '<span class="badge badge-pend">Pendente</span>')
+      + (q.assinada ? '<span class="badge badge-nao">Assinada</span>' : pedeAssinatura ? '<span class="badge badge-pend">Pendente</span>' : '')
       + (rs.devolvida ? '<span class="badge badge-dev">Devolvida</span>' : rs.parcial ? '<span class="badge badge-dev">Parte devolvida</span>' : '')
       + (rs.ext ? '<span class="badge badge-ext">' + rs.ext + ' extraviado' + (rs.ext > 1 ? 's' : '') + '</span>' : '')
       + (rs.ava ? '<span class="badge badge-ext">' + rs.ava + ' avariado' + (rs.ava > 1 ? 's' : '') + '</span>' : '') + '</span></div>'
       + '<div class="ext-meta"><span>' + esc(q.data || '—') + '</span>' + (q.proj ? '<span>' + esc(q.proj) + '</span>' : '')
-      + '<span>' + n + ' ' + (n === 1 ? 'unidade' : 'unidades') + '</span>'
+      + (n ? '<span>' + n + ' ' + (n === 1 ? 'unidade' : 'unidades') + '</span>' : '')
       + (rs.devolvida && rs.ultimaBr ? '<span>baixa em ' + esc(rs.ultimaBr) + '</span>' : rs.parcial ? '<span>' + (rs.tot - rs.fora) + ' em campo</span>' : '')
       + (q.assinada && q.assinadaEm ? '<span>assinada em ' + esc(q.assinadaEm) + '</span>' : '') + '</div>'
-      + '<button type="button" class="rq-btn' + (q.assinada ? '' : ' forte') + '" data-rq="' + i + '"><i class="fas fa-file-signature"></i> '
-      + (q.assinada ? 'Ver formulário' : 'Ver e assinar') + '</button></div>';
+      + '<button type="button" class="rq-btn' + (pedeAssinatura ? ' forte' : '') + '" data-rq="' + i + '"><i class="fas fa-file-signature"></i> '
+      + (q.assinada ? 'Ver requisição assinada' : pedeAssinatura ? 'Ver e assinar' : 'Ver requisição') + '</button></div>';
   }).join('') + '</div>'
   + (REQS.atualizadoEm ? '<p class="ext-fonte">Requisições enviadas pelo almoxarifado em ' + esc(REQS.atualizadoEm) + '</p>' : '');
 }
 
 function folhaHtml(q){
   const linhas = (q.linhas || []).map(l => '<tr><td>' + esc(l[0]) + '</td><td class="c-id">' + esc(l[1]) + '</td><td class="c-desc">' + esc(l[2])
-    + '</td><td class="c-id">' + esc(l[3]) + '</td><td class="c-qtd">' + esc(l[4]) + '</td><td>' + sitHtml(l) + '</td></tr>').join('');
+    + sitHtml(l) + '</td><td class="c-id">' + esc(l[3]) + '</td><td class="c-qtd">' + esc(l[4]) + '</td></tr>').join('');
   const pend = (q.pend || []).length ? '<p style="margin:10px 0 4px;font-weight:800">Solicitado e não entregue (pendente)</p><div class="tabela"><table><thead><tr><th>ID</th><th>DESCRIÇÃO</th><th>QTD</th></tr></thead><tbody>'
     + q.pend.map(p => '<tr><td class="c-id">' + esc(p[0] || 'sem ID') + '</td><td class="c-desc">' + esc(p[1]) + '</td><td class="c-qtd">' + esc(p[2]) + '</td></tr>').join('') + '</tbody></table></div>' : '';
   return '<div class="rq-folha"><div class="rq-kv">'
     + '<b>DATA</b><span>' + esc(q.data || '') + '</span><b>Nº REQUISIÇÃO</b><span>' + esc(q.num) + '</span>'
     + '<b>RESPONSÁVEL</b><span>' + esc(q.resp || '') + '</span><b>RECEBEDOR</b><span>' + esc(REQS.nome || '') + '</span>'
     + '<b>PROJETO</b><span>' + esc(q.proj || '') + '</span></div>'
-    + '<div class="tabela"><table><colgroup><col style="width:16%"><col style="width:8%"><col><col style="width:16%"><col style="width:7%"><col style="width:20%"></colgroup><thead><tr><th>CLASSIFICAÇÃO</th><th>ID</th><th>DESCRIÇÃO</th><th>Nº DE SÉRIE</th><th>QTD</th><th>SITUAÇÃO</th></tr></thead><tbody>'
-    + linhas + '</tbody></table></div>' + pend + '</div>';
+    + (linhas ? '<div class="tabela"><table><colgroup><col style="width:20%"><col style="width:9%"><col><col style="width:22%"><col style="width:8%"></colgroup><thead><tr><th>CLASSIFICAÇÃO</th><th>ID</th><th>DESCRIÇÃO</th><th>Nº DE SÉRIE</th><th>QTD</th></tr></thead><tbody>'
+    + linhas + '</tbody></table></div>' : '<p class="rq-ajuda">Abra o PDF assinado para ver os itens desta requisição.</p>') + pend + '</div>';
 }
 
 /* PDF no mesmo modelo do formulário de entrega do almoxarifado. assin = {img, foto, em, codigo} quando assinado. */
@@ -749,16 +748,40 @@ function reduzirFoto(arquivo){
   });
 }
 
+/* o PDF que foi assinado (guardado no Dropbox pelo servidor): abre numa aba nova */
+async function abrirPdfAssinado(q, botao, msg){
+  const ss = sessao(); if(!ss){ paraOLogin(); return; }
+  let janela = null;
+  try{ janela = window.open('', '_blank'); }catch(_){ janela = null; }
+  if(janela){ try{ janela.document.write('<p style="font-family:sans-serif;padding:24px">Abrindo o PDF assinado…</p>'); }catch(_){} }
+  botao.disabled = true; msg.className = 'rq-msg'; msg.textContent = 'Abrindo…';
+  const r = await chamarPost({ acao:'pdfAssinado', token: ss.token, num: q.num });
+  botao.disabled = false;
+  if(r && r.sessao === false){ if(janela) try{ janela.close(); }catch(_){} paraOLogin(); return; }
+  if(!r || !r.ok || !r.url){
+    if(janela) try{ janela.close(); }catch(_){}
+    msg.className = 'rq-msg erro'; msg.textContent = (r && r.erro) || 'Não foi possível abrir o PDF assinado agora.';
+    return;
+  }
+  if(janela && !janela.closed){ janela.location.href = r.url; msg.className = 'rq-msg ok'; msg.textContent = 'Assinada em ' + (q.assinadaEm || '') + '.'; }
+  else { msg.className = 'rq-msg'; msg.innerHTML = '<a href="' + esc(r.url) + '" target="_blank" rel="noopener">Toque aqui para abrir o PDF assinado</a>'; }
+}
+
 function abrirRequisicao(i){
   const q = (REQS.requisicoes || [])[i];
   if(!q) return;
+  const semAssinar = q.assinada || resumoReq(q).devolvida;
   const ov = document.createElement('div'); ov.className = 'rq-modal';
   ov.innerHTML = '<div class="rq-caixa" role="dialog" aria-modal="true" aria-label="Requisição ' + esc(q.num) + '">'
     + '<div class="rq-cab"><h2>' + esc(q.num) + '</h2><button type="button" class="rq-fechar" aria-label="Fechar"><i class="fas fa-xmark"></i></button></div>'
     + folhaHtml(q)
-    + '<div class="rq-linha"><button type="button" class="rq-mini" data-acao="pdf"><i class="fas fa-file-arrow-down"></i> Baixar PDF</button></div>'
+    + '<div class="rq-linha">' + (q.assinada
+      ? '<button type="button" class="rq-mini" data-acao="pdfAssinado"><i class="fas fa-file-signature"></i> Abrir PDF assinado</button>'
+      : '<button type="button" class="rq-mini" data-acao="pdf"><i class="fas fa-file-arrow-down"></i> Baixar PDF</button>') + '</div>'
     + (q.assinada
       ? '<p class="rq-msg ok">Assinada em ' + esc(q.assinadaEm || '') + '.</p>'
+      : semAssinar
+      ? '<p class="rq-msg">Requisição já devolvida: não precisa assinar.</p>'
       : '<div class="rq-passo"><h3>1. Sua assinatura</h3><p class="rq-ajuda">Assine com o dedo (ou o mouse) dentro do quadro.</p>'
       + '<canvas class="rq-canvas" aria-label="Quadro de assinatura"></canvas>'
       + '<div class="rq-linha"><button type="button" class="rq-mini" data-acao="limpar">Limpar</button></div></div>'
@@ -775,11 +798,14 @@ function abrirRequisicao(i){
   ov.addEventListener('click', e => { if(e.target === ov) fechar(); });
   ov.querySelector('.rq-fechar').addEventListener('click', fechar);
   let pdfAssinado = null;
-  ov.querySelector('[data-acao="pdf"]').addEventListener('click', () => {
+  const bPdf = ov.querySelector('[data-acao="pdf"]');
+  if(bPdf) bPdf.addEventListener('click', () => {
     try{ salvarBlob((pdfAssinado || pdfRequisicao(q, null)).output('blob'), (pdfAssinado ? 'assinado-' : 'requisicao-') + q.num + '.pdf'); }
     catch(_){ msg.className = 'rq-msg erro'; msg.textContent = 'Gerador de PDF não carregou. Confira a internet.'; }
   });
-  if(q.assinada) return;
+  const bAss = ov.querySelector('[data-acao="pdfAssinado"]');
+  if(bAss) bAss.addEventListener('click', () => abrirPdfAssinado(q, bAss, msg));
+  if(semAssinar) return;
 
   /* quadro de assinatura */
   const cv = ov.querySelector('.rq-canvas'), ctx = cv.getContext('2d');
