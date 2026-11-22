@@ -184,6 +184,7 @@
   .ext.app{border-left-color:#c77d0a}
   .ext-sub{margin:14px 0 8px;font-size:.82rem;font-weight:800;color:var(--muted)}
   .rq-folha .sit{margin-top:3px;font-weight:700}
+  .rq-aviso{margin-top:8px;background:#fdecec;color:#8c1d18;border-radius:10px;padding:8px 10px;font-size:.8rem;font-weight:700;line-height:1.4}
   .rq-btn{margin-top:10px;width:100%;min-height:42px;border:1px solid var(--cor);background:var(--card);color:var(--cor-forte);
     border-radius:12px;font-family:inherit;font-weight:800;font-size:.86rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
   .rq-btn.forte{background:var(--cor);color:#fff}
@@ -609,6 +610,13 @@ function renderExtApp(){
   if(badge){ const n = (Number(badge.getAttribute('data-base')) || 0) + itens.length; badge.textContent = n; badge.hidden = !n; }
 }
 
+/* assinatura anterior cancelada pelo almoxarifado (ex.: selfie sem o rosto): mostra o motivo e pede de novo */
+function avisoCancelada(q){
+  if(q.assinada || !q.cancelada) return '';
+  return 'Sua assinatura de ' + esc(q.cancelada.assinadaEm || '') + ' foi cancelada pelo almoxarifado'
+    + (q.cancelada.motivo ? ': ' + esc(q.cancelada.motivo) : '') + '. Assine de novo, com a foto do seu rosto.';
+}
+
 function renderRequisicoes(){
   const alvo = document.getElementById('reqConteudo');
   const badge = document.getElementById('reqBadge');
@@ -635,6 +643,7 @@ function renderRequisicoes(){
       + (n ? '<span>' + n + ' ' + (n === 1 ? 'unidade' : 'unidades') + '</span>' : '')
       + (rs.devolvida && rs.ultimaBr ? '<span>baixa em ' + esc(rs.ultimaBr) + '</span>' : rs.parcial ? '<span>' + (rs.tot - rs.fora) + ' em campo</span>' : '')
       + (q.assinada && q.assinadaEm ? '<span>assinada em ' + esc(q.assinadaEm) + '</span>' : '') + '</div>'
+      + (avisoCancelada(q) ? '<div class="rq-aviso">' + avisoCancelada(q) + '</div>' : '')
       + '<button type="button" class="rq-btn' + (pedeAssinatura ? ' forte' : '') + '" data-rq="' + i + '"><i class="fas fa-file-signature"></i> '
       + (q.assinada ? 'Ver requisição assinada' : pedeAssinatura ? 'Ver e assinar' : 'Ver requisição') + '</button></div>';
   }).join('') + '</div>'
@@ -782,7 +791,7 @@ function abrirRequisicao(i){
       ? '<p class="rq-msg ok">Assinada em ' + esc(q.assinadaEm || '') + '.</p>'
       : semAssinar
       ? '<p class="rq-msg">Requisição já devolvida: não precisa assinar.</p>'
-      : '<div class="rq-passo"><h3>1. Sua assinatura</h3><p class="rq-ajuda">Assine com o dedo (ou o mouse) dentro do quadro.</p>'
+      : (avisoCancelada(q) ? '<div class="rq-aviso">' + avisoCancelada(q) + '</div>' : '') + '<div class="rq-passo"><h3>1. Sua assinatura</h3><p class="rq-ajuda">Assine com o dedo (ou o mouse) dentro do quadro.</p>'
       + '<canvas class="rq-canvas" aria-label="Quadro de assinatura"></canvas>'
       + '<div class="rq-linha"><button type="button" class="rq-mini" data-acao="limpar">Limpar</button></div></div>'
       + '<div class="rq-passo"><h3>2. Selfie</h3><p class="rq-ajuda">Tire uma foto do seu rosto agora. Ela vai junto com a assinatura.</p>'
