@@ -589,6 +589,10 @@ function sitHtml(l){
   return s.map(x => '<span class="sit ' + (x[0] === 'extraviado' || x[0] === 'avariado' ? 'sit-ext' : 'sit-dev') + '">'
     + (tot > 1 ? esc(x[1]) + ' ' : '') + esc(SIT_NOME[x[0]] || x[0]) + (x[2] ? ' em ' + esc(x[2]) : '') + '</span>').join('');
 }
+function sitTxtPdf(l){
+  const tot = Number(l[4]) || 0;
+  return sitsDaLinha(l).map(x => (SIT_NOME[x[0]] || x[0]).toUpperCase() + (tot > 1 && Number(x[1]) < tot ? ' (' + x[1] + ')' : '') + (x[2] ? ' EM ' + x[2] : '')).join(' | ');
+}
 /* aba Extraviados e Avariados: também os itens marcados no app do almoxarifado nas requisições */
 function renderExtApp(){
   const alvo = document.getElementById('extApp'), badge = document.getElementById('extBadge');
@@ -682,7 +686,9 @@ function pdfRequisicao(q, assin){
   doc.autoTable({
     startY: 46, margin:{ left:M, right:M }, theme:'grid',
     head: [['CLASSIFICAÇÃO','ID','DESCRIÇÃO','Nº DE SÉRIE','Qtd']],
-    body: (q.linhas || []).map(l => [l[0], l[1], l[2], l[3], String(l[4])]),
+    /* item que já saiu de campo: aviso embaixo da descrição (ex.: DEVOLVIDO EM 23/11/2026), linha em vermelho */
+    body: (q.linhas || []).map(l => { const t = sitTxtPdf(l); return [l[0], l[1], t ? l[2] + '\n' + t : l[2], l[3], String(l[4])]; }),
+    didParseCell: c => { if(c.section === 'body' && sitTxtPdf((q.linhas || [])[c.row.index] || [])) c.cell.styles.textColor = [180,35,24]; },
     styles:{ font:'helvetica', fontSize:8, cellPadding:1.4, textColor:20, lineColor:[160,170,178], lineWidth:0.2 },
     headStyles:{ fillColor:[221,230,236], textColor:20, fontStyle:'bold' },
     columnStyles:{ 0:{ cellWidth:32 }, 1:{ cellWidth:13, halign:'center' }, 3:{ cellWidth:38 }, 4:{ cellWidth:12, halign:'center' } }
