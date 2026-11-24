@@ -777,9 +777,34 @@ async function talvezCarregarRascunho(){
     temRascunho=await carregarRascunho();
     if(!temRascunho) await aplicarUltimoRdo();
   }catch(_){}
-  /* o projeto de hoje vale mais que rascunho e último RDO para cliente/parque;
-     a equipe do projeto só entra se não houver rascunho (lá estão as edições) */
-  aplicarProjetoRdo(!temRascunho);
+  /* o projeto de hoje vale mais que rascunho e último RDO para cliente/parque.
+     Equipe: sem rascunho, vem do projeto. Com rascunho, vale a do rascunho (lá
+     estão as edições, ex.: alguém de folga) — A MENOS QUE a equipe do projeto
+     tenha mudado depois que o rascunho foi salvo (troca feita na Reunião
+     Diária / portal). Aí a equipe nova entra e o técnico é avisado. */
+  const mudou=temRascunho && equipeProjetoMudou();
+  aplicarProjetoRdo(!temRascunho || mudou);
+  if(mudou){
+    mmStatus('A equipe do seu projeto foi atualizada pela supervisão. Confira os nomes antes de enviar.','#B45309');
+    agendarRascunho();
+  }
+}
+
+/* Assinatura da equipe do projeto (matrículas, sem a de quem está logado). */
+function assinaturaEquipe(lista){
+  const meu=String((SESSAO&&SESSAO.mat)||'');
+  return (lista||[]).map(t=>String(t.mat||'').replace(/\D/g,'').replace(/^0+/,''))
+    .filter(m=>m && m!==meu.replace(/^0+/,'')).sort().join(',');
+}
+var RASC_EQUIPE_PROJ=null, RASC_TECS=null;   /* var: pode ser usado antes desta linha rodar */
+function equipeProjetoMudou(){
+  const p=PROJ.dados;
+  if(!p||!Array.isArray(p.equipe)||!p.equipe.length) return false;
+  const atual=assinaturaEquipe(p.equipe);
+  /* rascunho novo: sabe qual era a equipe do projeto quando foi salvo */
+  if(typeof RASC_EQUIPE_PROJ==='string') return RASC_EQUIPE_PROJ!==atual;
+  /* rascunho antigo (de antes desta versão): compara com a equipe do rascunho */
+  return !!RASC_TECS && assinaturaEquipe(RASC_TECS)!==atual;
 }
 
 /* ===================== PROJETO (aba SUPERVISORES) =====================
@@ -1137,6 +1162,8 @@ async function salvarRascunho(){
        o tecnico refaz as duas coisas antes de enviar */
     d.imagens=[];
     d.assinatura='';
+    /* equipe do projeto no momento do rascunho: se mudar depois, o RDO avisa e atualiza */
+    if(PROJ.dados && Array.isArray(PROJ.dados.equipe)) d.equipeProjeto=assinaturaEquipe(PROJ.dados.equipe);
     await idbPut('rascunhos',{ dados:d, salvo:Date.now() },chaveRascunho());
     const h=new Date();
     const p=n=>String(n).padStart(2,'0');
@@ -2310,6 +2337,8 @@ async function carregarRascunho(){
   let reg=null;
   try{ reg=await idbGet('rascunhos',chaveRascunho()); }catch(_){ return false; }
   if(!reg || !reg.dados) return false;
+  RASC_EQUIPE_PROJ=typeof reg.dados.equipeProjeto==='string' ? reg.dados.equipeProjeto : null;
+  RASC_TECS=Array.isArray(reg.dados.tecnicos) ? reg.dados.tecnicos : null;
   aplicarRascunho(reg.dados);
   const dt=new Date(reg.salvo||Date.now());
   const p=n=>String(n).padStart(2,'0');
