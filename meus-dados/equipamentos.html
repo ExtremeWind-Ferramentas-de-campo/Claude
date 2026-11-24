@@ -585,9 +585,9 @@ function resumoReq(q){
 }
 /* marca discreta embaixo da descrição: só quando o item já saiu de campo (a requisição continua a original) */
 function sitHtml(l){
-  const s = sitsDaLinha(l), tot = Number(l[4]) || 0;
-  return s.map(x => '<span class="sit ' + (x[0] === 'extraviado' || x[0] === 'avariado' ? 'sit-ext' : 'sit-dev') + '">'
-    + (tot > 1 ? esc(x[1]) + ' ' : '') + esc(SIT_NOME[x[0]] || x[0]) + (x[2] ? ' em ' + esc(x[2]) : '') + '</span>').join('');
+  /* igual ao formulário do almoxarifado: em vermelho, maiúsculas, embaixo da descrição (ex.: DEVOLVIDO EM 23/11/2026) */
+  const t = sitTxtPdf(l);
+  return t ? '<span class="sit sit-ext">' + esc(t) + '</span>' : '';
 }
 function sitTxtPdf(l){
   const tot = Number(l[4]) || 0;
