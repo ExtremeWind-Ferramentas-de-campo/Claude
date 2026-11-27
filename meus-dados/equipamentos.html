@@ -207,6 +207,11 @@
   .rq-foto-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--cor);color:var(--cor-forte);background:var(--card);border-radius:12px;padding:10px 14px;font-weight:800;font-size:.86rem;cursor:pointer}
   .rq-foto-btn input{display:none}
   .rq-foto{max-width:150px;max-height:200px;border-radius:12px;border:1px solid var(--card-line);display:block;margin-top:8px}
+  .rq-cam{position:relative;width:min(100%,320px);aspect-ratio:3/4;margin-top:8px;border-radius:14px;overflow:hidden;background:#0b1a2a}
+  .rq-cam video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+  .rq-cam-guia{position:absolute;left:50%;top:44%;width:62%;aspect-ratio:3/4;transform:translate(-50%,-50%);border:3px dashed rgba(255,255,255,.7);border-radius:50%;transition:border-color .2s}
+  .rq-cam-guia.ok{border-color:#2fbf71;border-style:solid}
+  .rq-cam-st{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;background:rgba(0,0,0,.55);color:#fff;font-weight:800;font-size:.84rem;text-align:center}
   .rq-decl{display:flex;gap:8px;align-items:flex-start;font-size:.84rem;font-weight:600;line-height:1.4;margin-top:4px}
   .rq-decl input{margin-top:3px;width:18px;height:18px;flex-shrink:0}
   .rq-msg{margin-top:8px;font-size:.84rem;font-weight:700;text-align:center;min-height:1.2em}
@@ -725,7 +730,9 @@ function pdfRequisicao(q, assin){
     [ 'Recebedor: ' + (REQS.nome || '') + '  ·  Matrícula ' + REQS.mat,
       'Assinado em: ' + assin.em + ' (pelo portal Meus Equipamentos, com login do colaborador)',
       'Declaração: recebi os materiais listados acima em perfeitas condições de uso.',
-      'Código de verificação: ' + assin.codigo ].forEach((t, i) => doc.text(t, M + 36, y2 + 15 + i * 6, { maxWidth: W - 2 * M - 40 }));
+      'Código de verificação: ' + assin.codigo,
+      assin.verificacao ? 'Selfie: tirada ao vivo pela câmera · rosto detectado · prova de vida (piscada) confirmada.' : ''
+    ].filter(Boolean).forEach((t, i) => doc.text(t, M + 36, y2 + 14 + i * 5.6, { maxWidth: W - 2 * M - 40 }));
   }
   return doc;
 }
@@ -743,6 +750,23 @@ async function codigoVerificacao(q, em){
     const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
     return Array.from(new Uint8Array(h)).slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().replace(/(.{4})/g, '$1-').replace(/-$/, '');
   }catch(_){ return String(Date.now()); }
+}
+
+/* detector de rosto (MediaPipe Face Landmarker, do Google): roda no próprio celular, a imagem não sai do aparelho.
+   Dá os pontos do rosto (para ver se está centralizado) e o quanto cada olho está fechado (para a piscada). */
+let DETECTOR_ROSTO = null;
+function carregarDetectorRosto(){
+  if(DETECTOR_ROSTO) return DETECTOR_ROSTO;
+  const V = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+  const MODELO = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+  DETECTOR_ROSTO = import(V + '/vision_bundle.mjs').then(async m => {
+    const arquivos = await m.FilesetResolver.forVisionTasks(V + '/wasm');
+    const op = delegate => ({ baseOptions: { modelAssetPath: MODELO, delegate: delegate }, runningMode: 'VIDEO', numFaces: 2, outputFaceBlendshapes: true });
+    try{ return await m.FaceLandmarker.createFromOptions(arquivos, op('GPU')); }
+    catch(_){ return await m.FaceLandmarker.createFromOptions(arquivos, op('CPU')); }
+  });
+  DETECTOR_ROSTO.catch(() => { DETECTOR_ROSTO = null; });
+  return DETECTOR_ROSTO;
 }
 
 /* foto: reduz para no máximo 720 px e devolve JPEG */
@@ -800,16 +824,19 @@ function abrirRequisicao(i){
       : (avisoCancelada(q) ? '<div class="rq-aviso">' + avisoCancelada(q) + '</div>' : '') + '<div class="rq-passo"><h3>1. Sua assinatura</h3><p class="rq-ajuda">Assine com o dedo (ou o mouse) dentro do quadro.</p>'
       + '<canvas class="rq-canvas" aria-label="Quadro de assinatura"></canvas>'
       + '<div class="rq-linha"><button type="button" class="rq-mini" data-acao="limpar">Limpar</button></div></div>'
-      + '<div class="rq-passo"><h3>2. Selfie</h3><p class="rq-ajuda">Tire uma foto do seu rosto agora. Ela vai junto com a assinatura.</p>'
-      + '<label class="rq-foto-btn"><i class="fas fa-camera"></i> Tirar selfie<input type="file" accept="image/*" capture="user"></label>'
-      + '<img class="rq-foto" alt="Sua selfie" hidden></div>'
+      + '<div class="rq-passo"><h3>2. Selfie</h3><p class="rq-ajuda">A câmera abre aqui mesmo. Deixe o rosto dentro do círculo e pisque quando pedir: a foto é tirada sozinha.</p>'
+      + '<button type="button" class="rq-foto-btn" data-acao="camera"><i class="fas fa-camera"></i> Abrir câmera</button>'
+      + '<div class="rq-cam" hidden><video playsinline muted autoplay></video><div class="rq-cam-guia"></div><div class="rq-cam-st">Abrindo a câmera…</div></div>'
+      + '<img class="rq-foto" alt="Sua selfie" hidden>'
+      + '<div class="rq-linha"><button type="button" class="rq-mini" data-acao="refazer" hidden>Tirar de novo</button></div></div>'
       + '<div class="rq-passo"><label class="rq-decl"><input type="checkbox"> Declaro que recebi os materiais listados acima em perfeitas condições de uso.</label>'
       + '<button type="button" class="rq-btn forte" data-acao="assinar"><i class="fas fa-signature"></i> Assinar e enviar</button></div>')
     + '<div class="rq-msg" aria-live="polite"></div></div>';
   document.body.appendChild(ov);
   document.body.style.overflow = 'hidden';
   const msg = ov.querySelector('.rq-msg');
-  const fechar = () => { ov.remove(); document.body.style.overflow = ''; };
+  let pararCamera = () => {};
+  const fechar = () => { pararCamera(); ov.remove(); document.body.style.overflow = ''; };
   ov.addEventListener('click', e => { if(e.target === ov) fechar(); });
   ov.querySelector('.rq-fechar').addEventListener('click', fechar);
   let pdfAssinado = null;
@@ -834,20 +861,84 @@ function abrirRequisicao(i){
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => cv.addEventListener(t, () => { desenhando = false; }));
   ov.querySelector('[data-acao="limpar"]').addEventListener('click', ajustar);
 
-  /* selfie */
-  let foto = null;
-  const inp = ov.querySelector('.rq-foto-btn input'), prev = ov.querySelector('.rq-foto');
-  inp.addEventListener('change', async () => {
-    const f = inp.files && inp.files[0]; if(!f) return;
-    try{ foto = await reduzirFoto(f); prev.src = foto; prev.hidden = false; msg.textContent = ''; }
-    catch(_){ msg.className = 'rq-msg erro'; msg.textContent = 'Não deu para ler a foto. Tente de novo.'; }
-  });
+  /* selfie ao vivo: câmera dentro da página (sem galeria), rosto detectado e piscada confirmada (prova de vida) */
+  let foto = null, verificacao = null;
+  const prev = ov.querySelector('.rq-foto'), bCam = ov.querySelector('[data-acao="camera"]'), bRefazer = ov.querySelector('[data-acao="refazer"]');
+  const cam = ov.querySelector('.rq-cam'), video = cam.querySelector('video'), guia = cam.querySelector('.rq-cam-guia'), st = cam.querySelector('.rq-cam-st');
+  let fluxo = null, rodando = false;
+  pararCamera = () => { rodando = false; if(fluxo){ fluxo.getTracks().forEach(t => t.stop()); fluxo = null; } };
+  const tirarFoto = () => {
+    const w = video.videoWidth, h = video.videoHeight, esc = Math.min(1, 720 / Math.max(w, h));
+    const c = document.createElement('canvas'); c.width = Math.round(w * esc); c.height = Math.round(h * esc);
+    const g = c.getContext('2d'); g.translate(c.width, 0); g.scale(-1, 1); g.drawImage(video, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.82);
+  };
+  const abrirCamera = async () => {
+    foto = null; verificacao = null; prev.hidden = true; bRefazer.hidden = true; bCam.hidden = true; cam.hidden = false;
+    guia.classList.remove('ok'); st.textContent = 'Abrindo a câmera…'; msg.className = 'rq-msg'; msg.textContent = '';
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      cam.hidden = true; bCam.hidden = false; msg.className = 'rq-msg erro';
+      msg.textContent = 'Este navegador não abre a câmera. Use o Chrome (Android) ou o Safari (iPhone) atualizado.'; return;
+    }
+    try{ fluxo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false }); }
+    catch(e){
+      cam.hidden = true; bCam.hidden = false; msg.className = 'rq-msg erro';
+      msg.textContent = 'A câmera não foi liberada. Toque no cadeado ao lado do endereço do site, permita a Câmera e toque em Abrir câmera de novo.'; return;
+    }
+    video.srcObject = fluxo; try{ await video.play(); }catch(_){}
+    st.textContent = 'Preparando a verificação do rosto…';
+    let marcador;
+    try{ marcador = await carregarDetectorRosto(); }
+    catch(_){ pararCamera(); cam.hidden = true; bCam.hidden = false; msg.className = 'rq-msg erro'; msg.textContent = 'Não foi possível carregar a verificação do rosto. Confira a internet e toque em Abrir câmera de novo.'; return; }
+    // etapas: 'rosto' (um rosto, centralizado e perto) -> 'piscar' (olhos fecham e abrem) -> foto com os olhos abertos
+    let etapa = 'rosto', estavel = 0, fechou = false, ultimo = -1;
+    rodando = true;
+    const passo = () => {
+      if(!rodando) return;
+      if(video.readyState >= 2 && video.currentTime !== ultimo){
+        ultimo = video.currentTime;
+        let r = null; try{ r = marcador.detectForVideo(video, performance.now()); }catch(_){ r = null; }
+        const faces = (r && r.faceLandmarks) || [];
+        let bom = false, aberto = false, piscando = false;
+        if(faces.length === 1){
+          const xs = faces[0].map(p => p.x), ys = faces[0].map(p => p.y);
+          const minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs), minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+          const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, larg = maxX - minX;
+          bom = larg > 0.28 && larg < 0.95 && Math.abs(cx - 0.5) < 0.18 && cy > 0.22 && cy < 0.7;
+          const bs = r.faceBlendshapes && r.faceBlendshapes[0] ? r.faceBlendshapes[0].categories : [];
+          const val = n => { const c = bs.find(x => x.categoryName === n); return c ? c.score : 0; };
+          const piscada = Math.min(val('eyeBlinkLeft'), val('eyeBlinkRight'));
+          piscando = piscada > 0.5; aberto = Math.max(val('eyeBlinkLeft'), val('eyeBlinkRight')) < 0.3;
+        }
+        guia.classList.toggle('ok', bom);
+        if(faces.length > 1){ st.textContent = 'Só você na foto, por favor.'; estavel = 0; }
+        else if(!faces.length){ st.textContent = 'Não estou vendo um rosto. Olhe para a câmera.'; estavel = 0; }
+        else if(!bom){ st.textContent = 'Centralize o rosto dentro do círculo e aproxime o celular.'; estavel = 0; }
+        else if(etapa === 'rosto'){ estavel++; st.textContent = 'Rosto encontrado. Fique parado…'; if(estavel > 8){ etapa = 'piscar'; fechou = false; } }
+        else if(etapa === 'piscar'){
+          st.textContent = 'Agora pisque os olhos devagar.';
+          if(piscando) fechou = true;
+          else if(fechou && aberto){
+            foto = tirarFoto();
+            verificacao = { modo: 'camera ao vivo', rosto: true, piscada: true, em: new Date().toISOString() };
+            pararCamera(); cam.hidden = true; prev.src = foto; prev.hidden = false; bRefazer.hidden = false;
+            msg.className = 'rq-msg ok'; msg.textContent = 'Selfie verificada.';
+            return;
+          }
+        }
+      }
+      requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
+  };
+  bCam.addEventListener('click', abrirCamera);
+  bRefazer.addEventListener('click', abrirCamera);
 
   const btn = ov.querySelector('[data-acao="assinar"]'), decl = ov.querySelector('.rq-decl input');
   btn.addEventListener('click', async () => {
     msg.className = 'rq-msg erro';
     if(vazio){ msg.textContent = 'Faça sua assinatura no quadro.'; return; }
-    if(!foto){ msg.textContent = 'Tire a selfie antes de enviar.'; return; }
+    if(!foto || !verificacao){ msg.textContent = 'Tire a selfie pela câmera (Abrir câmera) antes de enviar.'; return; }
     if(!decl.checked){ msg.textContent = 'Marque a declaração de recebimento.'; return; }
     const ss = sessao(); if(!ss){ paraOLogin(); return; }
     btn.disabled = true; msg.className = 'rq-msg'; msg.textContent = 'Enviando…';
@@ -855,9 +946,9 @@ function abrirRequisicao(i){
       const agora = new Date(), p2 = n => String(n).padStart(2, '0');
       const em = p2(agora.getDate()) + '/' + p2(agora.getMonth() + 1) + '/' + agora.getFullYear() + ' às ' + p2(agora.getHours()) + ':' + p2(agora.getMinutes());
       const codigo = await codigoVerificacao(q, em);
-      const doc = pdfRequisicao(q, { img: cv.toDataURL('image/png'), foto: foto, em: em, codigo: codigo });
+      const doc = pdfRequisicao(q, { img: cv.toDataURL('image/png'), foto: foto, em: em, codigo: codigo, verificacao: verificacao });
       const pdf = doc.output('datauristring');
-      const r = await chamarPost({ acao:'assinarRequisicao', token: ss.token, num: q.num, pdf: pdf, foto: foto, codigo: codigo, navegador: navigator.userAgent });
+      const r = await chamarPost({ acao:'assinarRequisicao', token: ss.token, num: q.num, pdf: pdf, foto: foto, codigo: codigo, navegador: navigator.userAgent, verificacao: verificacao });
       if(!r){ throw new Error('rede'); }
       if(r.sessao === false){ paraOLogin(); return; }
       if(!r.ok){ msg.className = 'rq-msg erro'; msg.textContent = r.erro || 'Não foi possível enviar.'; if(r.jaAssinada){ q.assinada = true; renderRequisicoes(); } btn.disabled = !!r.jaAssinada; return; }
