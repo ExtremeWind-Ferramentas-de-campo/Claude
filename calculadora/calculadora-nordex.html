@@ -270,9 +270,6 @@
     <button class="tab active" data-tab="id"         onclick="goTab('id')"><i class="fas fa-clipboard-list"></i> Identificação</button>
     <button class="tab"        data-tab="estrutural" onclick="goTab('estrutural')"><i class="fas fa-layer-group"></i> Estrutural</button>
     <button class="tab"        data-tab="adesivo"    onclick="goTab('adesivo')"><i class="fas fa-droplet"></i> Adesivo G3</button>
-    <button class="tab"        data-tab="filler"     onclick="goTab('filler')"><i class="fas fa-fill-drip"></i> Filler</button>
-    <button class="tab"        data-tab="porefiller" onclick="goTab('porefiller')"><i class="fas fa-fill"></i> Pore Filler</button>
-    <button class="tab"        data-tab="pintura"    onclick="goTab('pintura')"><i class="fas fa-paint-roller"></i> Pintura</button>
     <button class="tab"        data-tab="hist"       onclick="goTab('hist')"><i class="fas fa-clock-rotate-left"></i> Histórico</button>
   </nav>
 
@@ -408,76 +405,9 @@
     </div>
   </section>
 
-  <!-- ══════════════════ FILLER ══════════════════ -->
-  <section class="panel" id="panel-filler">
-    <div class="card">
-      <div class="card-title"><span class="ico"><i class="fas fa-fill-drip"></i></span> Acabamento — Preenchimento (Filler)</div>
-      <div class="card-desc">Preenchimento de perfil antes da pintura.</div>
-      <div class="spec">
-        <div class="row"><span><b>Base:</b> BladeRep Profile Filler 3</span></div>
-        <div class="row"><span><b>Endurecedor:</b> BladeRep Hardener Filler 3</span><span><b>6 : 1</b></span></div>
-      </div>
-      <div class="field">
-        <label for="filler-base">Quantidade de Base <span class="hint">(g)</span></label>
-        <input type="text" id="filler-base" inputmode="decimal" placeholder="Ex: 6000">
-      </div>
-      <button class="btn btn-primary" onclick="calcFiller()"><i class="fas fa-calculator"></i> Calcular</button>
-      <div class="result" id="res-filler"></div>
-    </div>
-  </section>
-
-  <!-- ══════════════════ PORE FILLER 6 ══════════════════ -->
-  <section class="panel" id="panel-porefiller">
-    <div class="card">
-      <div class="card-title"><span class="ico"><i class="fas fa-fill"></i></span> Acabamento — Pore Filler 6</div>
-      <div class="card-desc">Fechamento de poros antes da pintura.</div>
-      <div class="spec">
-        <div class="row"><span><b>Base:</b> Pore Filler 6</span></div>
-        <div class="row"><span><b>Endurecedor:</b> Endurecedor Pore Filler 6</span><span><b>6 : 1</b></span></div>
-        <p class="note" style="margin:6px 0 0">6 partes de base para 1 parte de endurecedor.</p>
-      </div>
-      <div class="spec warn">
-        <p class="note" style="margin:0;color:var(--ink);font-size:.9rem"><i class="fas fa-triangle-exclamation" style="color:var(--amber)"></i> <b style="color:var(--amber)">ATENÇÃO</b><br>
-        O tempo de cura do Pore Filler é de <b>5 a 10 min</b> — é muito rápido.<br>
-        Faça <b>porções pequenas</b> e aplique logo, para não curar no pote.</p>
-      </div>
-      <div class="field">
-        <label for="porefiller-base">Quantidade de Base <span class="hint">(g)</span></label>
-        <input type="text" id="porefiller-base" inputmode="decimal" placeholder="Ex: 300">
-      </div>
-      <button class="btn btn-primary" onclick="calcPoreFiller()"><i class="fas fa-calculator"></i> Calcular</button>
-      <div class="result" id="res-porefiller"></div>
-    </div>
-  </section>
-
-  <!-- ══════════════════ PINTURA ══════════════════ -->
-  <section class="panel" id="panel-pintura">
-    <div class="card">
-      <div class="card-title"><span class="ico"><i class="fas fa-paint-roller"></i></span> Acabamento — Pintura (Top Coat 12)</div>
-      <div class="card-desc" id="pintura-desc">Pintura de acabamento.</div>
-      <div class="spec">
-        <div class="row"><span><b>Base:</b> <span id="pintura-produto">BladeRep TopCoat 12</span></span></div>
-        <div class="row"><span><b>Endurecedor:</b> BladeRep Hardener 12</span><span><b>4 : 1</b></span></div>
-        <div class="row"><span><b>Diluidor (opcional):</b> Thinner 12</span><span><b>10% da base</b></span></div>
-      </div>
-      <div class="field" id="pintura-cor-sbi-wrap" style="display:none">
-        <label for="pintura-cor-sbi">Cor do Top Coat SBI</label>
-        <select id="pintura-cor-sbi" onchange="atualizarProdutoPintura()">
-          <option value="RED">Top Coat 12 RED 3020</option>
-          <option value="RAL">Top Coat 12 RAL 3020 RED</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="pintura-base">Quantidade de Base <span class="hint">(g)</span></label>
-        <input type="text" id="pintura-base" inputmode="decimal" placeholder="Ex: 4000">
-      </div>
-      <label class="check" style="margin-bottom:14px">
-        <input type="checkbox" id="pintura-thinner"> Adicionar diluidor (Thinner 12 — 10% da base)
-      </label>
-      <button class="btn btn-primary" onclick="calcPintura()"><i class="fas fa-calculator"></i> Calcular</button>
-      <div class="result" id="res-pintura"></div>
-    </div>
-  </section>
+  <!-- 27/11/2026: Filler 3, Pore Filler 6 e Pintura (TopCoat 12 + endurecedor
+       + Thinner 12) retirados da calculadora — químicos de pintura/acabamento
+       não são mais calculados aqui. -->
 
   <!-- ══════════════════ HISTÓRICO ══════════════════ -->
   <section class="panel" id="panel-hist">
@@ -509,24 +439,20 @@
 const CFG = {
   cliente: 'Nordex',
   estruturalRatio: 0.30,   // endurecedor = 30% da resina (HEXION LR635 : LH635/LH637 = 100:30)
-  adesivoRatio:    0.45,   // Adesivo G3 (Epikote/Epikure) = 100:45
-  fillerRatio:     6,      // Filler 3 = 6:1 (endur = base/6)
-  poreFillerRatio: 6,      // Pore Filler 6 = 6:1 (endur = base/6) — cura 5–10 min
-  pinturaRatio:    4,      // TopCoat 12 = 4:1 (endur = base/4)
-  thinnerPct:      10      // Thinner 12 = 10% da base (opcional)
+  adesivoRatio:    0.45    // Adesivo G3 (Epikote/Epikure) = 100:45
 };
 
 const MODULOS_POR_TIPO = {
-  'Externo': ['estrutural','adesivo','filler','porefiller','pintura','hist'],
+  'Externo': ['estrutural','adesivo','hist'],
   'Interno': ['estrutural','adesivo','hist'],
   'LPS':     ['estrutural','hist'],
-  'SBI':     ['estrutural','adesivo','filler','porefiller','pintura','hist']
+  'SBI':     ['estrutural','adesivo','hist']
 };
 const NOTAS_TIPO = {
-  'Externo': 'Reparo externo: laminação + adesivo + acabamento (filler + pintura).',
-  'Interno': 'Reparo interno: laminação estrutural + adesivo, sem acabamento externo (filler/pintura).',
+  'Externo': 'Reparo externo: laminação + adesivo.',
+  'Interno': 'Reparo interno: laminação estrutural + adesivo.',
   'LPS':     'LPS: não usa tecido/núcleo nem acabamento — informe o peso da resina diretamente.',
-  'SBI':     'Reparo de SBI: laminação + adesivo + filler + pintura (Top coat 12 red 3020).'
+  'SBI':     'Reparo de SBI: laminação + adesivo.'
 };
 
 /* ══ ESTADO ══ */
@@ -562,7 +488,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     e.value = h.getFullYear()+'-'+z(h.getMonth()+1)+'-'+z(h.getDate()); } })();
   aplicarTema(localStorage.getItem('nordex_theme'));
   atualizarNotaTipo();
-  ['estrutural-resina','adesivo-resina','filler-base','porefiller-base','pintura-base','i-peso-nucleo','i-tecido-qtd']
+  ['estrutural-resina','adesivo-resina','i-peso-nucleo','i-tecido-qtd']
     .forEach(id=>{ const e=$(id); if(e) e.addEventListener('input',()=>onlyNum(e)); });
   // seleção visual dos segmentos (robusto, sem :has)
   document.querySelectorAll('.seg').forEach(seg=>{
@@ -668,11 +594,6 @@ function continuarId(){
   $('b-tecidos').style.display = TECIDOS.length?'inline-block':'none';
   $('b-tecidos').textContent = TECIDOS.length?('Tecidos: '+TECIDOS.map(t=>t.tecido).join(', ')):'';
   $('id-banner').style.display='flex';
-  // Pintura SBI muda o produto (2 cores possíveis, mesma proporção)
-  const sbi = ID.tipo==='SBI';
-  $('pintura-cor-sbi-wrap').style.display = sbi ? 'block' : 'none';
-  atualizarProdutoPintura();
-  $('pintura-desc').textContent = sbi ? 'Pintura de acabamento do SBI.' : 'Pintura de acabamento.';
   aplicarModulos();
   goTab(MODULOS_POR_TIPO[ID.tipo][0]);
   toast('Identificação salva','success');
@@ -699,44 +620,6 @@ function calcAdesivo(){
     ['Resina',resina,'g'],['Endurecedor',endur,'g'],['Mistura total',resina+endur,'g',true]
   ], {tipo:'Adesivo G3',base:resina,endur,adicional:0,total:resina+endur});
 }
-function calcFiller(){
-  const base=num(v('filler-base'));
-  if(base<=0){ toast('Informe a quantidade de base (g)','error'); return; }
-  const endur=base/CFG.fillerRatio;
-  renderResult('res-filler','Filler 3',[
-    ['Base',base,'g'],['Endurecedor',endur,'g'],['Mistura total',base+endur,'g',true]
-  ], {tipo:'Filler 3',base,endur,adicional:0,total:base+endur});
-}
-function calcPoreFiller(){
-  const base=num(v('porefiller-base'));
-  if(base<=0){ toast('Informe a quantidade de base (g)','error'); return; }
-  const endur=base/CFG.poreFillerRatio;
-  renderResult('res-porefiller','Pore Filler 6',[
-    ['Base',base,'g'],['Endurecedor',endur,'g'],['Mistura total',base+endur,'g',true]
-  ], {tipo:'Pore Filler 6',base,endur,adicional:0,total:base+endur});
-  toast('ATENÇÃO: Pore Filler cura em 5 a 10 min — faça porções pequenas!','error');
-}
-function atualizarProdutoPintura(){
-  const sbi = ID.tipo==='SBI';
-  if(!sbi){ $('pintura-produto').textContent='BladeRep TopCoat 12'; return; }
-  const cor = v('pintura-cor-sbi');
-  $('pintura-produto').textContent = cor==='RAL' ? 'TOP COAT 12 RAL 3020 RED' : 'TOP COAT 12 RED 3020';
-}
-function calcPintura(){
-  const base=num(v('pintura-base'));
-  if(base<=0){ toast('Informe a quantidade de base (g)','error'); return; }
-  const endur=base/CFG.pinturaRatio;
-  const thinner = $('pintura-thinner').checked ? base*CFG.thinnerPct/100 : 0;  // 10% da base
-  const total=base+endur+thinner;
-  const sbi = ID.tipo==='SBI';
-  const corSBI = sbi ? v('pintura-cor-sbi') : null; // 'RED' ou 'RAL' — mesma proporção, só muda a cor
-  const tipoRegistro = sbi ? (corSBI==='RAL' ? 'TopCoat SBI RAL' : 'TopCoat SBI RED') : 'TopCoat 12';
-  renderResult('res-pintura', sbi?'Top Coat SBI':'Top Coat 12',[
-    ['Base',base,'g'],['Endurecedor',endur,'g'],
-    ...(thinner>0?[['Thinner 12',thinner,'g']]:[]),['Mistura total',total,'g',true]
-  ], {tipo: tipoRegistro, base, endur, adicional:thinner, total});
-}
-
 function renderResult(elId,titulo,itens,consumo){
   const cells=itens.map(([k,val,un,isTotal])=>`
     <div class="rItem${isTotal?' total':''}"><span class="k">${k}</span>
@@ -774,6 +657,8 @@ function salvar(arg){
 const CATALOGO = {
   'Reparo Estrutural': { base:['Resina Laminação','HEXION LR635'],   endur:['Endurecedor Laminação','HEXION LH635/LH637'] },
   'Adesivo G3':         { base:['Resina Adesivo','Epikote MGS BPR 135G3'], endur:['Endurecedor Adesivo','Epikure MGS BPH 137GF'] },
+  /* Filler/TopCoat: não são mais calculados (27/11/2026). Ficam aqui só para
+     cálculos antigos ainda na fila de sincronização do celular. */
   'Filler 3':           { base:['Base Filler','BladeRep Profile Filler 3'], endur:['Endurecedor Filler','BladeRep Hardener Filler 3'] },
   'TopCoat 12':         { base:['Base Pintura','BladeRep TopCoat 12'], endur:['Endurecedor Pintura','BladeRep Hardener 12'], adicional:['Diluidor','Thinner 12'] },
   'TopCoat SBI RED':    { base:['Base Pintura SBI','TOP COAT 12 RED 3020'], endur:['Endurecedor Pintura SBI','HARDENER12 - ALEXIT - Mankiewicz - 3kg'], adicional:['Diluidor','Thinner 12'] },

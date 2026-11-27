@@ -273,12 +273,8 @@
   <nav class="nav" id="nav">
     <button class="tab active" data-tab="id"      onclick="goTab('id')"><i class="fas fa-clipboard-list"></i> Identificação</button>
     <button class="tab"        data-tab="lam"     onclick="goTab('lam')"><i class="fas fa-layer-group"></i> Laminação</button>
-    <button class="tab"        data-tab="massa"   onclick="goTab('massa')"><i class="fas fa-fill-drip"></i> Massa (Putty)</button>
-    <button class="tab"        data-tab="gel"     onclick="goTab('gel')"><i class="fas fa-paint-roller"></i> Gel Coat</button>
-    <button class="tab"        data-tab="topcoat" onclick="goTab('topcoat')"><i class="fas fa-spray-can"></i> Top Coat 12</button>
     <button class="tab"        data-tab="adesivo" onclick="goTab('adesivo')"><i class="fas fa-droplet"></i> Adesivo</button>
     <button class="tab"        data-tab="pbu"     onclick="goTab('pbu')"><i class="fas fa-ruler-combined"></i> Fita PBU</button>
-    <button class="tab"        data-tab="lm"      onclick="goTab('lm')"><i class="fas fa-wind"></i> Pá LM</button>
     <button class="tab"        data-tab="hist"    onclick="goTab('hist')"><i class="fas fa-clock-rotate-left"></i> Histórico</button>
   </nav>
 
@@ -401,70 +397,9 @@
     </div>
   </section>
 
-  <!-- ══════════════════ PAINEL: MASSA / PUTTY ══════════════════ -->
-  <section class="panel" id="panel-massa">
-    <div class="card">
-      <div class="card-title"><span class="ico"><i class="fas fa-fill-drip"></i></span> Massa de Acabamento (Putty)</div>
-      <div class="card-desc">Preenchimento e correção de superfície antes do gel coat.</div>
-      <div class="spec">
-        <div class="row"><span><b>Produto:</b> Crystic X401 — Scott Bader</span><span class="hint">RAL 7035</span></div>
-        <div class="row"><span><b>Catalisador:</b> MEKP</span><span id="massa-mekp-lbl"></span></div>
-        <span class="src" id="massa-src"></span>
-      </div>
-      <div class="field">
-        <label for="massa-base">Peso da base (massa) <span class="hint">(g)</span></label>
-        <input type="text" id="massa-base" inputmode="decimal" placeholder="Ex: 500">
-      </div>
-      <button class="btn btn-primary" onclick="calcMassa()"><i class="fas fa-calculator"></i> Calcular</button>
-      <div class="result" id="res-massa"></div>
-    </div>
-  </section>
-
-  <!-- ══════════════════ PAINEL: GEL COAT ══════════════════ -->
-  <section class="panel" id="panel-gel">
-    <div class="card">
-      <div class="card-title"><span class="ico"><i class="fas fa-paint-roller"></i></span> Gel Coat (Pintura)</div>
-      <div class="card-desc">Acabamento final aplicado a trincha.</div>
-      <div class="spec">
-        <div class="row"><span><b>Produto:</b> Crystic Gel Coat — Scott Bader</span><span class="hint">RAL 7035</span></div>
-        <div class="row"><span><b>Catalisador:</b> MEKP</span><span id="gel-mekp-lbl"></span></div>
-        <span class="src" id="gel-src"></span>
-      </div>
-      <div class="spec warn">
-        <div class="head" style="font-weight:700"><i class="fas fa-triangle-exclamation"></i> Aplicação</div>
-        <p class="note" style="margin-top:6px">Espessura úmida <b>200–275 µm</b> (usar pente de camada úmida). <b>3 demãos</b>: 1ª a −45° (sentido tip), 2ª a +45° (sentido raiz), 3ª a 90° (sentido BA). Intervalo mín. 20 min entre demãos. Cura total ~1 h; polir com lixa P220.</p>
-      </div>
-      <div class="field">
-        <label for="gel-base">Peso do gel coat (base) <span class="hint">(g)</span></label>
-        <input type="text" id="gel-base" inputmode="decimal" placeholder="Ex: 800">
-      </div>
-      <button class="btn btn-primary" onclick="calcGel()"><i class="fas fa-calculator"></i> Calcular</button>
-      <div class="result" id="res-gel"></div>
-    </div>
-  </section>
-
-  <!-- ══════════════════ PAINEL: TOP COAT 12 ══════════════════ -->
-  <section class="panel" id="panel-topcoat">
-    <div class="card">
-      <div class="card-title"><span class="ico"><i class="fas fa-spray-can"></i></span> Pintura — Top Coat 12 (Alexit)</div>
-      <div class="card-desc">Pintura de acabamento poliuretano (Mankiewicz Alexit).</div>
-      <div class="spec">
-        <div class="row"><span><b>Base:</b> Top Coat 12 — Alexit</span><span id="tc-ratio-lbl"></span></div>
-        <div class="row"><span><b>Endurecedor:</b> Hardener 12 — Alexit</span><span class="hint">1 parte p/ 4 de base</span></div>
-        <div class="row"><span><b>Diluente (opcional):</b> Thinner — Mankiewicz</span><span id="tc-thinner-lbl"></span></div>
-        <span class="src" id="tc-src"></span>
-      </div>
-      <div class="field">
-        <label for="tc-base">Peso da base (Top Coat 12) <span class="hint">(g)</span></label>
-        <input type="text" id="tc-base" inputmode="decimal" placeholder="Ex: 4000">
-      </div>
-      <label class="check" style="margin-bottom:14px">
-        <input type="checkbox" id="tc-thinner"> Adicionar Thinner (diluente — % sobre a mistura base + endurecedor)
-      </label>
-      <button class="btn btn-primary" onclick="calcTopcoat()"><i class="fas fa-calculator"></i> Calcular</button>
-      <div class="result" id="res-tc"></div>
-    </div>
-  </section>
+  <!-- 27/11/2026: Massa (Putty Crystic X401), Gel Coat Crystic e Top Coat 12
+       (+ Hardener 12 + Thinner) retirados — químicos de pintura/acabamento não
+       são mais calculados aqui. -->
 
   <!-- ══════════════════ PAINEL: ADESIVO ══════════════════ -->
   <section class="panel" id="panel-adesivo">
@@ -488,44 +423,7 @@
     </div>
   </section>
 
-  <!-- ══════════════════ PAINEL: PÁ LM ══════════════════ -->
-  <section class="panel" id="panel-lm">
-    <div class="card">
-      <div class="card-title"><span class="ico"><i class="fas fa-spray-can"></i></span> Pá LM — Top Coat 12</div>
-      <div class="card-desc">Pintura de acabamento em pás LM. Proporção em <b>peso</b>.</div>
-      <div class="spec">
-        <div class="row"><span><b>Base:</b> Top Coat 12</span><span id="lmtc-ratio-lbl"></span></div>
-        <div class="row"><span><b>Endurecedor:</b> Hardener 12</span><span class="hint">em peso</span></div>
-        <div class="row"><span><b>Diluente (opcional):</b> Thinner — Mankiewicz</span><span id="lmtc-thinner-lbl"></span></div>
-        <span class="src" id="lmtc-src"></span>
-      </div>
-      <div class="field">
-        <label for="lmtc-base">Peso da base (Top Coat 12) <span class="hint">(g)</span></label>
-        <input type="text" id="lmtc-base" inputmode="decimal" placeholder="Ex: 4000">
-      </div>
-      <label class="check" style="margin-bottom:14px">
-        <input type="checkbox" id="lmtc-thinner"> Adicionar Thinner (diluente — % sobre a mistura base + endurecedor)
-      </label>
-      <button class="btn btn-primary" onclick="calcLmTopcoat()"><i class="fas fa-calculator"></i> Calcular</button>
-      <div class="result" id="res-lmtc"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span class="ico"><i class="fas fa-fill-drip"></i></span> Pá LM — Filler 3</div>
-      <div class="card-desc">Massa de preenchimento (Putty Profile Filler 3) em pás LM. Proporção em <b>peso</b>.</div>
-      <div class="spec">
-        <div class="row"><span><b>Base:</b> Putty Profile Filler 3</span><span id="lmf-ratio-lbl"></span></div>
-        <div class="row"><span><b>Endurecedor:</b> Endurecedor Filler 3</span><span class="hint">em peso</span></div>
-        <span class="src" id="lmf-src"></span>
-      </div>
-      <div class="field">
-        <label for="lmf-base">Peso da base (Filler 3) <span class="hint">(g)</span></label>
-        <input type="text" id="lmf-base" inputmode="decimal" placeholder="Ex: 600">
-      </div>
-      <button class="btn btn-primary" onclick="calcLmFiller()"><i class="fas fa-calculator"></i> Calcular</button>
-      <div class="result" id="res-lmf"></div>
-    </div>
-  </section>
+  <!-- 27/11/2026: aba Pá LM retirada — tinha só Top Coat 12 e Filler 3. -->
 
   <!-- ══════════════════ PAINEL: FITA PBU ══════════════════ -->
   <section class="panel" id="panel-pbu">
@@ -602,19 +500,6 @@ const CFG = {
   mekpRange: '1–2%',
   parafinaPct: 2.0,          // parafina — % sobre a resina (última camada) [guia: 1–2%]
   parafinaRange: '1–2%',
-  // Massa Crystic X401
-  massaMekpPct: 2.0,         // % sobre a base [guia Putting Pro Filler 3: 1–2,5%]
-  massaRange: '1–2,5%',
-  // Gel Coat Crystic RAL 7035
-  gelMekpPct: 2.0,           // % sobre a base [poliéster: 1–3%]
-  gelRange: '1–3%',
-  // Top Coat 12 (Alexit / Mankiewicz) — pintura PU de acabamento
-  topcoatRatio: 4,           // base : endurecedor = 4 : 1
-  thinnerPct: 10,            // Thinner — % sobre a mistura (guia: 5–10%)
-  thinnerRange: '5–10% da mistura',
-  // Pá LM — proporções em PESO (base : endurecedor)
-  lmTopcoatRatio: 4,         // Top Coat 12 = 4 : 1
-  lmFillerRatio: 6,          // Filler 3 = 6 : 1
   // Adesivo SIKA 818 = SikaForce-818 L07 (2K POLIURETANO — NÃO é poliéster)
   // Comp. A (base) : Comp. B SikaForce-050 (endurecedor) = 100 : 45. Razão FIXA
   // de fábrica (estequiométrica) — não ajustar. Fonte: TDS Sika v.05.01 (11/2024).
@@ -648,16 +533,16 @@ const API = 'https://ew-dropbox-proxy.ew-fotos.workers.dev';
 
 /* Módulos visíveis por tipo de reparo */
 const MODULOS_POR_TIPO = {
-  'Reforço Externo BA': ['lam','massa','gel','topcoat','adesivo','lm','hist'],
-  'Reparo Externo':     ['lam','massa','gel','topcoat','adesivo','lm','hist'],
-  'Aplicação Fita PBU': ['massa','gel','topcoat','lm','pbu','hist'],
+  'Reforço Externo BA': ['lam','adesivo','hist'],
+  'Reparo Externo':     ['lam','adesivo','hist'],
+  'Aplicação Fita PBU': ['pbu','hist'],
   'Reparo Interno':     ['lam','adesivo','hist']
 };
 const NOTAS_TIPO = {
-  'Reforço Externo BA': 'Reforço externo do bordo de ataque (PR-57): laminação poliéster + acabamento. Ao final, aplicar a fita PBU (ver aba Fita PBU).',
-  'Reparo Externo':     'Reparo externo geral: laminação poliéster + acabamento (massa / gel coat / top coat) + adesivo, com os mesmos químicos do sistema.',
-  'Aplicação Fita PBU': 'Preparação de superfície, correção de pintura (massa/gel coat/top coat) e aplicação da fita PBU.',
-  'Reparo Interno':     'Reparo interno: laminação estrutural + adesivo, sem acabamento externo (massa/gel/pintura) — mesmo padrão dos reparos internos das calculadoras GE e Nordex.'
+  'Reforço Externo BA': 'Reforço externo do bordo de ataque (PR-57): laminação poliéster + adesivo. Ao final, aplicar a fita PBU (ver aba Fita PBU).',
+  'Reparo Externo':     'Reparo externo geral: laminação poliéster + adesivo, com os mesmos químicos do sistema.',
+  'Aplicação Fita PBU': 'Fluido de limpeza da superfície e aplicação da fita PBU (segmentos e PROMOTE).',
+  'Reparo Interno':     'Reparo interno: laminação estrutural + adesivo — mesmo padrão dos reparos internos das calculadoras GE e Nordex.'
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -688,7 +573,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   aplicarTema(localStorage.getItem('siemens_theme'));
   preencherSpecs();
   atualizarNotaTipo();
-  ['lam-fibra','massa-base','gel-base','tc-base','adesivo-base','lmtc-base','lmf-base','pbu-fluido','pbu-comp','i-peso-nucleo']
+  ['lam-fibra','adesivo-base','pbu-fluido','pbu-comp','i-peso-nucleo']
     .forEach(id=>{ const e=$(id); if(e) e.addEventListener('input',()=>onlyNum(e)); });
   document.querySelectorAll('input[name="tipo"]').forEach(r=>r.addEventListener('change',atualizarNotaTipo));
   document.querySelectorAll('.seg').forEach(seg=>{ seg.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>syncSeg(seg))); syncSeg(seg); });
@@ -709,18 +594,6 @@ function preencherSpecs(){
   $('lam-mekp-lbl').innerHTML  = `<b>${fmtPct(CFG.mekpPct)}</b> <span class="hint">(${CFG.mekpRange})</span>`;
   $('lam-par-lbl').innerHTML   = `<b>${fmtPct(CFG.parafinaPct)}</b> <span class="hint">(${CFG.parafinaRange})</span>`;
   $('lam-src').textContent     = 'Resina:tecido 1:1 e MEKP conforme PR-57 / guia de químicos.';
-  $('massa-mekp-lbl').innerHTML= `<b>${fmtPct(CFG.massaMekpPct)}</b> <span class="hint">(${CFG.massaRange})</span>`;
-  $('massa-src').textContent   = 'Catalisar conforme TDS do Crystic X401 / guia de químicos.';
-  $('gel-mekp-lbl').innerHTML  = `<b>${fmtPct(CFG.gelMekpPct)}</b> <span class="hint">(${CFG.gelRange})</span>`;
-  $('gel-src').textContent     = 'Catalisar conforme TDS do gel coat Crystic.';
-  $('tc-ratio-lbl').innerHTML  = `<b>${CFG.topcoatRatio} : 1</b>`;
-  $('tc-thinner-lbl').innerHTML= `<b>${CFG.thinnerPct}%</b> <span class="hint">(${CFG.thinnerRange})</span>`;
-  $('tc-src').textContent      = 'Top Coat 12 4:1 + Hardener 12; Thinner 5–10% da mistura (guia de químicos).';
-  $('lmtc-ratio-lbl').innerHTML= `<b>${CFG.lmTopcoatRatio} : 1</b>`;
-  $('lmtc-thinner-lbl').innerHTML = `<b>${CFG.thinnerPct}%</b> <span class="hint">(${CFG.thinnerRange})</span>`;
-  $('lmtc-src').textContent    = 'Top Coat 12 para pá LM: 4:1 em peso (base : endurecedor); Thinner 5–10% da mistura.';
-  $('lmf-ratio-lbl').innerHTML = `<b>${CFG.lmFillerRatio} : 1</b>`;
-  $('lmf-src').textContent     = 'Filler 3 para pá LM: 6:1 em peso (base : endurecedor).';
   $('adesivo-ratio-lbl').innerHTML = `<b>${CFG.adesivoRatioTxt}</b>`;
   $('adesivo-src').textContent = CFG.adesivoSrc;
   $('pbu-agua-pct').textContent= CFG.fluidoAgua+'%';
@@ -836,24 +709,6 @@ function calcLam(){
   ], {tipo:'Laminação',base:resina,endur:mekp,adicional:parafina,total});
 }
 
-function calcMassa(){
-  const base = num(v('massa-base'));
-  if(base<=0){ toast('Informe o peso da base (g)','error'); return; }
-  const cat = base * CFG.massaMekpPct/100;
-  renderResult('res-massa','Massa Crystic X401',[
-    ['Base (massa)',base,'g'], ['Catalisador (MEKP)',cat,'g'], ['Mistura total',base+cat,'g',true]
-  ], {tipo:'Massa Putty',base,endur:cat,adicional:0,total:base+cat});
-}
-
-function calcGel(){
-  const base = num(v('gel-base'));
-  if(base<=0){ toast('Informe o peso do gel coat (g)','error'); return; }
-  const cat = base * CFG.gelMekpPct/100;
-  renderResult('res-gel','Gel Coat Crystic',[
-    ['Gel coat (base)',base,'g'], ['Catalisador (MEKP)',cat,'g'], ['Mistura total',base+cat,'g',true]
-  ], {tipo:'Gel Coat',base,endur:cat,adicional:0,total:base+cat});
-}
-
 function calcAdesivo(){
   const base = num(v('adesivo-base'));
   if(base<=0){ toast('Informe o peso da base (g)','error'); return; }
@@ -861,42 +716,6 @@ function calcAdesivo(){
   renderResult('res-adesivo','Adesivo SIKA 818',[
     ['Base',base,'g'], ['Endurecedor',endur,'g'], ['Mistura total',base+endur,'g',true]
   ], {tipo:'Adesivo SIKA 818',base,endur,adicional:0,total:base+endur});
-}
-
-function calcTopcoat(){
-  const base = num(v('tc-base'));
-  if(base<=0){ toast('Informe o peso da base (g)','error'); return; }
-  const endur   = base / CFG.topcoatRatio;              // 4:1
-  const mistura = base + endur;
-  const usaThinner = $('tc-thinner').checked;
-  const thinner = usaThinner ? mistura * CFG.thinnerPct/100 : 0;  // % da mistura
-  const total = mistura + thinner;
-  renderResult('res-tc','Top Coat 12 (Alexit)',[
-    ['Base',base,'g'], ['Endurecedor (Hardener 12)',endur,'g'],
-    ...(usaThinner?[['Thinner',thinner,'g']]:[]), ['Mistura total',total,'g',true]
-  ], {tipo:'Top Coat 12',base,endur,adicional:thinner,total});
-}
-
-function calcLmTopcoat(){
-  const base = num(v('lmtc-base'));
-  if(base<=0){ toast('Informe o peso da base (g)','error'); return; }
-  const endur = base / CFG.lmTopcoatRatio;             // 4:1
-  const usaThinner = $('lmtc-thinner').checked;
-  const thinner = usaThinner ? (base+endur) * CFG.thinnerPct/100 : 0;
-  const total = base + endur + thinner;
-  renderResult('res-lmtc','Pá LM — Top Coat 12',[
-    ['Base',base,'g'], ['Endurecedor (Hardener 12)',endur,'g'],
-    ...(usaThinner?[['Thinner',thinner,'g']]:[]), ['Mistura total',total,'g',true]
-  ], {tipo:'LM Top Coat 12',base,endur,adicional:thinner,total});
-}
-
-function calcLmFiller(){
-  const base = num(v('lmf-base'));
-  if(base<=0){ toast('Informe o peso da base (g)','error'); return; }
-  const endur = base / CFG.lmFillerRatio;              // 6:1
-  renderResult('res-lmf','Pá LM — Filler 3',[
-    ['Base (Filler 3)',base,'g'], ['Endurecedor',endur,'g'], ['Mistura total',base+endur,'g',true]
-  ], {tipo:'LM Filler 3',base,endur,adicional:0,total:base+endur});
 }
 
 function calcFluido(){
@@ -972,6 +791,8 @@ function salvar(arg){
 
 const CATALOGO = {
   'Laminação':     { base:['Resina Laminação','POLYLITE M413'], endur:['Catalisador','MEKP Butanox M-50'], adicional:['Aditivo','Parafina'] },
+  /* Massa/Gel/Top Coat/LM: não são mais calculados (27/11/2026). Ficam aqui só
+     para cálculos antigos ainda na fila de sincronização do celular. */
   'Massa Putty':   { base:['Base Massa','Crystic X401'],         endur:['Catalisador Massa','MEKP'] },
   'Gel Coat':      { base:['Base Gel Coat','Crystic RAL 7035'],  endur:['Catalisador Gel Coat','MEKP'] },
   'Adesivo SIKA 818':{ base:['Base Adesivo','SikaForce-818 L07'], endur:['Endurecedor Adesivo','SikaForce-050 (comp. B)'] },

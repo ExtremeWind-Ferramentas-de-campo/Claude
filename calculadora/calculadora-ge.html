@@ -256,8 +256,6 @@
     <button class="tab"        data-tab="estrutural" onclick="goTab('estrutural')"><i class="fas fa-layer-group"></i> Estrutural</button>
     <button class="tab"        data-tab="nucleo"     onclick="goTab('nucleo')"><i class="fas fa-cube"></i> Núcleo</button>
     <button class="tab"        data-tab="adesivo"    onclick="goTab('adesivo')"><i class="fas fa-droplet"></i> Adesivo G3</button>
-    <button class="tab"        data-tab="filler"     onclick="goTab('filler')"><i class="fas fa-fill-drip"></i> Filler</button>
-    <button class="tab"        data-tab="pintura"    onclick="goTab('pintura')"><i class="fas fa-paint-roller"></i> Pintura</button>
     <button class="tab"        data-tab="hist"       onclick="goTab('hist')"><i class="fas fa-clock-rotate-left"></i> Histórico</button>
   </nav>
 
@@ -405,49 +403,9 @@
     </div>
   </section>
 
-  <!-- FILLER -->
-  <section class="panel" id="panel-filler">
-    <div class="card">
-      <div class="card-title"><span class="ico"><i class="fas fa-fill-drip"></i></span> Acabamento — Filler</div>
-      <div class="card-desc">Preenchedor de perfil.</div>
-      <div class="spec"><div class="row"><span><b>Base:</b> Alexit Profile Filler 3</span><span><b>100 : 17</b></span></div></div>
-      <div class="field">
-        <label for="filler-base">Quantidade de Base <span class="hint">(g)</span></label>
-        <input type="text" id="filler-base" inputmode="decimal" placeholder="Ex: 5000">
-      </div>
-      <button class="btn btn-primary" onclick="calcFiller()"><i class="fas fa-calculator"></i> Calcular</button>
-      <div class="result" id="res-filler"></div>
-    </div>
-  </section>
-
-  <!-- PINTURA -->
-  <section class="panel" id="panel-pintura">
-    <div class="card">
-      <div class="card-title"><span class="ico"><i class="fas fa-paint-roller"></i></span> Acabamento — Pintura (Top Coat 12)</div>
-      <div class="card-desc" id="pintura-desc">Revestimento final.</div>
-      <div class="spec">
-        <div class="row"><span><b>Base:</b> <span id="pintura-produto">Alexit Topcoat 12</span></span><span><b>100 : 25</b></span></div>
-        <div class="row"><span><b>Endurecedor:</b> HARDENER12 - ALEXIT</span></div>
-        <div class="row"><span><b>Thinner (opcional):</b> Mankiewicz</span><span><b>15% da mistura</b></span></div>
-      </div>
-      <div class="field" id="pintura-cor-sbi-wrap" style="display:none">
-        <label for="pintura-cor-sbi">Cor do Top Coat SBI</label>
-        <select id="pintura-cor-sbi" onchange="atualizarProdutoPintura()">
-          <option value="RED">Top Coat 12 RED 3020</option>
-          <option value="RAL">Top Coat 12 RAL 3020 RED</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="pintura-base">Quantidade de Base <span class="hint">(g)</span></label>
-        <input type="text" id="pintura-base" inputmode="decimal" placeholder="Ex: 4000">
-      </div>
-      <label class="check" style="margin-bottom:14px">
-        <input type="checkbox" id="pintura-thinner"> Adicionar Thinner (15% sobre a mistura Topcoat + Endurecedor)
-      </label>
-      <button class="btn btn-primary" onclick="calcPintura()"><i class="fas fa-calculator"></i> Calcular</button>
-      <div class="result" id="res-pintura"></div>
-    </div>
-  </section>
+  <!-- 27/11/2026: Filler e Pintura (Top Coat 12 + endurecedor + thinner)
+       retirados da calculadora — químicos de pintura/acabamento não são
+       mais calculados aqui. -->
 
   <!-- HISTÓRICO -->
   <section class="panel" id="panel-hist">
@@ -485,23 +443,20 @@ const CFG = {
   },
   nucleoRatio: 0.20,      // CH910 100:20
   aerosilPct: 1.8,        // Aerosil = 1,8% da mistura
-  adesivoRatio: 0.45,     // G3 100:45
-  fillerRatio: 0.17,      // Alexit Profile Filler 3 = 100:17 (endur = base*0,17)
-  pinturaRatio: 0.25,     // Alexit Topcoat 12 = 100:25 (endur = base*0,25)
-  thinnerPct: 15          // Thinner 15% sobre a mistura (base + endurecedor)
+  adesivoRatio: 0.45      // G3 100:45
 };
 
 const MODULOS_POR_TIPO = {
-  'Externo': ['estrutural','nucleo','adesivo','filler','pintura','hist'],
+  'Externo': ['estrutural','nucleo','adesivo','hist'],
   'Interno': ['estrutural','nucleo','adesivo','hist'],
   'LPS':     ['estrutural','hist'],
-  'SBI':     ['estrutural','nucleo','adesivo','filler','pintura','hist']
+  'SBI':     ['estrutural','nucleo','adesivo','hist']
 };
 const NOTAS_TIPO = {
-  'Externo': 'Reparo externo: laminação (+ núcleo, se afetado) + adesivo + acabamento (filler + pintura).',
+  'Externo': 'Reparo externo: laminação (+ núcleo, se afetado) + adesivo.',
   'Interno': 'Reparo interno: laminação (+ núcleo, se afetado) + adesivo, sem acabamento externo.',
   'LPS':     'LPS: informe o peso da resina diretamente (sem núcleo/tecido nem acabamento).',
-  'SBI':     'Reparo de SBI: laminação + adesivo + filler + pintura (Top coat 12 red 3020).'
+  'SBI':     'Reparo de SBI: laminação + adesivo.'
 };
 
 /* ══ ESTADO ══ */
@@ -537,7 +492,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     e.value = h.getFullYear()+'-'+z(h.getMonth()+1)+'-'+z(h.getDate()); } })();
   aplicarTema(localStorage.getItem('ge_theme'));
   atualizarNotaTipo();
-  ['estrutural-resina','nucleo-resina','adesivo-base','filler-base','pintura-base','i-peso-nucleo','i-tecido-qtd']
+  ['estrutural-resina','nucleo-resina','adesivo-base','i-peso-nucleo','i-tecido-qtd']
     .forEach(id=>{ const e=$(id); if(e) e.addEventListener('input',()=>onlyNum(e)); });
   document.querySelectorAll('.seg').forEach(seg=>{
     seg.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>syncSeg(seg)));
@@ -638,10 +593,6 @@ function continuarId(){
   $('b-nucleo').style.display=nucleo?'inline-block':'none'; $('b-nucleo').textContent=nucleo?('Núcleo: '+ID.matNucleo):'';
   $('b-tecidos').style.display=TECIDOS.length?'inline-block':'none'; $('b-tecidos').textContent=TECIDOS.length?('Tecidos: '+TECIDOS.map(t=>t.tecido).join(', ')):'';
   $('id-banner').style.display='flex';
-  const sbi = ID.tipo==='SBI';
-  $('pintura-cor-sbi-wrap').style.display = sbi ? 'block' : 'none';
-  atualizarProdutoPintura();
-  $('pintura-desc').textContent = sbi ? 'Revestimento final do SBI.' : 'Revestimento final.';
   aplicarModulos();
   goTab(MODULOS_POR_TIPO[ID.tipo][0]);
   toast('Identificação salva','success');
@@ -680,36 +631,6 @@ function calcAdesivo(){
     ['Base',base,'g'],['Endurecedor',endur,'g'],['Mistura total',base+endur,'g',true]
   ], {tipo:'Adesivo G3', matBase:'Adesivo de colagem G3', matEndur:'Endurecedor G3', base, endur, adicional:0, total:base+endur});
 }
-function calcFiller(){
-  const base=num(v('filler-base'));
-  if(base<=0){ toast('Informe a quantidade de base (g)','error'); return; }
-  const endur=base*CFG.fillerRatio;
-  renderResult('res-filler','Filler (Alexit Profile Filler 3)',[
-    ['Base',base,'g'],['Endurecedor',endur,'g'],['Mistura total',base+endur,'g',true]
-  ], {tipo:'Filler', matBase:'Alexit Profile Filler 3', matEndur:'Endurecedor Filler 3', base, endur, adicional:0, total:base+endur});
-}
-function atualizarProdutoPintura(){
-  const sbi = ID.tipo==='SBI';
-  if(!sbi){ $('pintura-produto').textContent='Alexit Topcoat 12'; return; }
-  const cor = v('pintura-cor-sbi');
-  $('pintura-produto').textContent = cor==='RAL' ? 'TOP COAT 12 RAL 3020 RED' : 'TOP COAT 12 RED 3020';
-}
-function calcPintura(){
-  const base=num(v('pintura-base'));
-  if(base<=0){ toast('Informe a quantidade de base (g)','error'); return; }
-  const endur=base*CFG.pinturaRatio;
-  const thinner = $('pintura-thinner').checked ? (base+endur)*CFG.thinnerPct/100 : 0;   // 15% da mistura
-  const total=base+endur+thinner;
-  const sbi = ID.tipo==='SBI';
-  const corSBI = sbi ? v('pintura-cor-sbi') : null;
-  const produto = sbi ? (corSBI==='RAL' ? 'TOP COAT 12 RAL 3020 RED' : 'TOP COAT 12 RED 3020') : 'Alexit Topcoat 12';
-  renderResult('res-pintura', sbi?'Top Coat SBI':'Top Coat 12 (Alexit)',[
-    ['Base',base,'g'],['Endurecedor',endur,'g'],
-    ...(thinner>0?[['Thinner',thinner,'g']]:[]),['Mistura total',total,'g',true]
-  ], {tipo: sbi?'Pintura SBI':'Top Coat 12', matBase:produto, matEndur:'HARDENER12 - ALEXIT - Mankiewicz', matAdic:'Thinner Mankiewicz',
-      base, endur, adicional:thinner, total});
-}
-
 function renderResult(elId,titulo,itens,consumo){
   const cells=itens.map(([k,val,un,isTotal])=>`
     <div class="rItem${isTotal?' total':''}"><span class="k">${k}</span>
