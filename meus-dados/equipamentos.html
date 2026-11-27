@@ -207,12 +207,7 @@
   .rq-foto-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--cor);color:var(--cor-forte);background:var(--card);border-radius:12px;padding:10px 14px;font-weight:800;font-size:.86rem;cursor:pointer}
   .rq-foto-btn input{display:none}
   .rq-foto{max-width:150px;max-height:200px;border-radius:12px;border:1px solid var(--card-line);display:block;margin-top:8px}
-  .rq-foto[hidden],.rq-cam[hidden],.rq-foto-btn[hidden],.rq-mini[hidden]{display:none}
-  .rq-cam{position:relative;width:min(100%,320px);aspect-ratio:3/4;margin-top:8px;border-radius:14px;overflow:hidden;background:#0b1a2a}
-  .rq-cam video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
-  .rq-cam-guia{position:absolute;left:50%;top:44%;width:62%;aspect-ratio:3/4;transform:translate(-50%,-50%);border:3px dashed rgba(255,255,255,.7);border-radius:50%;transition:border-color .2s}
-  .rq-cam-guia.ok{border-color:#2fbf71;border-style:solid}
-  .rq-cam-st{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;background:rgba(0,0,0,.55);color:#fff;font-weight:800;font-size:.84rem;text-align:center}
+  .rq-foto[hidden]{display:none}
   .rq-decl{display:flex;gap:8px;align-items:flex-start;font-size:.84rem;font-weight:600;line-height:1.4;margin-top:4px}
   .rq-decl input{margin-top:3px;width:18px;height:18px;flex-shrink:0}
   .rq-msg{margin-top:8px;font-size:.84rem;font-weight:700;text-align:center;min-height:1.2em}
@@ -731,9 +726,7 @@ function pdfRequisicao(q, assin){
     [ 'Recebedor: ' + (REQS.nome || '') + '  ·  Matrícula ' + REQS.mat,
       'Assinado em: ' + assin.em + ' (pelo portal Meus Equipamentos, com login do colaborador)',
       'Declaração: recebi os materiais listados acima em perfeitas condições de uso.',
-      'Código de verificação: ' + assin.codigo,
-      assin.verificacao ? 'Selfie: tirada ao vivo pela câmera · rosto detectado · prova de vida (piscada) confirmada.' : ''
-    ].filter(Boolean).forEach((t, i) => doc.text(t, M + 36, y2 + 14 + i * 5.6, { maxWidth: W - 2 * M - 40 }));
+      'Código de verificação: ' + assin.codigo ].forEach((t, i) => doc.text(t, M + 36, y2 + 15 + i * 6, { maxWidth: W - 2 * M - 40 }));
   }
   return doc;
 }
@@ -751,40 +744,6 @@ async function codigoVerificacao(q, em){
     const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
     return Array.from(new Uint8Array(h)).slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().replace(/(.{4})/g, '$1-').replace(/-$/, '');
   }catch(_){ return String(Date.now()); }
-}
-
-/* detector de rosto (face-api, script comum: funciona no Safari do iPhone): roda no próprio celular, a imagem não sai
-   do aparelho. Devolve, para cada rosto, o centro e a largura (proporção do vídeo) e a abertura média dos olhos
-   (EAR, pelos 68 pontos do rosto), usada para a piscada. */
-let DETECTOR_ROSTO = null;
-function carregarScript(src){
-  return new Promise((ok, falha) => { const s = document.createElement('script'); s.src = src; s.async = true; s.crossOrigin = 'anonymous';
-    s.onload = ok; s.onerror = () => falha(new Error('não carregou ' + src.split('/').pop())); document.head.appendChild(s); });
-}
-function carregarDetectorRosto(){
-  if(DETECTOR_ROSTO) return DETECTOR_ROSTO;
-  const V = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13';
-  DETECTOR_ROSTO = (async () => {
-    if(!window.faceapi) await carregarScript(V + '/dist/face-api.js');
-    const fa = window.faceapi;
-    try{ await fa.tf.setBackend('webgl'); await fa.tf.ready(); }
-    catch(_){ await fa.tf.setBackend('cpu'); await fa.tf.ready(); }
-    await fa.nets.tinyFaceDetector.loadFromUri(V + '/model');
-    await fa.nets.faceLandmark68Net.loadFromUri(V + '/model');
-    const op = new fa.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-    return { detectar: async video => {
-      const rs = await fa.detectAllFaces(video, op).withFaceLandmarks();
-      const W = video.videoWidth || 1, H = video.videoHeight || 1;
-      return rs.map(r => {
-        const b = r.detection.box, p = r.landmarks.positions;
-        const d = (a, c) => Math.hypot(p[a].x - p[c].x, p[a].y - p[c].y);
-        const ear = i => (d(i + 1, i + 5) + d(i + 2, i + 4)) / (2 * d(i, i + 3) || 1);
-        return { cx: (b.x + b.width / 2) / W, cy: (b.y + b.height / 2) / H, larg: b.width / W, olho: (ear(36) + ear(42)) / 2 };
-      });
-    } };
-  })();
-  DETECTOR_ROSTO.catch(() => { DETECTOR_ROSTO = null; });
-  return DETECTOR_ROSTO;
 }
 
 /* foto: reduz para no máximo 720 px e devolve JPEG */
@@ -842,19 +801,16 @@ function abrirRequisicao(i){
       : (avisoCancelada(q) ? '<div class="rq-aviso">' + avisoCancelada(q) + '</div>' : '') + '<div class="rq-passo"><h3>1. Sua assinatura</h3><p class="rq-ajuda">Assine com o dedo (ou o mouse) dentro do quadro.</p>'
       + '<canvas class="rq-canvas" aria-label="Quadro de assinatura"></canvas>'
       + '<div class="rq-linha"><button type="button" class="rq-mini" data-acao="limpar">Limpar</button></div></div>'
-      + '<div class="rq-passo"><h3>2. Selfie</h3><p class="rq-ajuda">A câmera abre aqui mesmo. Deixe o rosto dentro do círculo e pisque quando pedir: a foto é tirada sozinha.</p>'
-      + '<button type="button" class="rq-foto-btn" data-acao="camera"><i class="fas fa-camera"></i> Abrir câmera</button>'
-      + '<div class="rq-cam" hidden><video playsinline muted autoplay></video><div class="rq-cam-guia"></div><div class="rq-cam-st">Abrindo a câmera…</div></div>'
-      + '<img class="rq-foto" alt="Sua selfie" hidden>'
-      + '<div class="rq-linha"><button type="button" class="rq-mini" data-acao="refazer" hidden>Tirar de novo</button></div></div>'
+      + '<div class="rq-passo"><h3>2. Selfie</h3><p class="rq-ajuda">Tire uma foto do seu rosto agora. Ela vai junto com a assinatura.</p>'
+      + '<label class="rq-foto-btn"><i class="fas fa-camera"></i> Tirar selfie<input type="file" accept="image/*" capture="user"></label>'
+      + '<img class="rq-foto" alt="Sua selfie" hidden></div>'
       + '<div class="rq-passo"><label class="rq-decl"><input type="checkbox"> Declaro que recebi os materiais listados acima em perfeitas condições de uso.</label>'
       + '<button type="button" class="rq-btn forte" data-acao="assinar"><i class="fas fa-signature"></i> Assinar e enviar</button></div>')
     + '<div class="rq-msg" aria-live="polite"></div></div>';
   document.body.appendChild(ov);
   document.body.style.overflow = 'hidden';
   const msg = ov.querySelector('.rq-msg');
-  let pararCamera = () => {};
-  const fechar = () => { pararCamera(); ov.remove(); document.body.style.overflow = ''; };
+  const fechar = () => { ov.remove(); document.body.style.overflow = ''; };
   ov.addEventListener('click', e => { if(e.target === ov) fechar(); });
   ov.querySelector('.rq-fechar').addEventListener('click', fechar);
   let pdfAssinado = null;
@@ -879,79 +835,20 @@ function abrirRequisicao(i){
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => cv.addEventListener(t, () => { desenhando = false; }));
   ov.querySelector('[data-acao="limpar"]').addEventListener('click', ajustar);
 
-  /* selfie ao vivo: câmera dentro da página (sem galeria), rosto detectado e piscada confirmada (prova de vida) */
-  let foto = null, verificacao = null;
-  const prev = ov.querySelector('.rq-foto'), bCam = ov.querySelector('[data-acao="camera"]'), bRefazer = ov.querySelector('[data-acao="refazer"]');
-  const cam = ov.querySelector('.rq-cam'), video = cam.querySelector('video'), guia = cam.querySelector('.rq-cam-guia'), st = cam.querySelector('.rq-cam-st');
-  let fluxo = null, rodando = false;
-  pararCamera = () => { rodando = false; if(fluxo){ fluxo.getTracks().forEach(t => t.stop()); fluxo = null; } };
-  const tirarFoto = () => {
-    const w = video.videoWidth, h = video.videoHeight, esc = Math.min(1, 720 / Math.max(w, h));
-    const c = document.createElement('canvas'); c.width = Math.round(w * esc); c.height = Math.round(h * esc);
-    const g = c.getContext('2d'); g.translate(c.width, 0); g.scale(-1, 1); g.drawImage(video, 0, 0, c.width, c.height);
-    return c.toDataURL('image/jpeg', 0.82);
-  };
-  const abrirCamera = async () => {
-    foto = null; verificacao = null; prev.hidden = true; bRefazer.hidden = true; bCam.hidden = true; cam.hidden = false;
-    guia.classList.remove('ok'); st.textContent = 'Abrindo a câmera…'; msg.className = 'rq-msg'; msg.textContent = '';
-    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-      cam.hidden = true; bCam.hidden = false; msg.className = 'rq-msg erro';
-      msg.textContent = 'Este navegador não abre a câmera. Use o Chrome (Android) ou o Safari (iPhone) atualizado.'; return;
-    }
-    try{ fluxo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false }); }
-    catch(e){
-      cam.hidden = true; bCam.hidden = false; msg.className = 'rq-msg erro';
-      msg.textContent = 'A câmera não foi liberada. Toque no cadeado ao lado do endereço do site, permita a Câmera e toque em Abrir câmera de novo.'; return;
-    }
-    video.srcObject = fluxo; try{ await video.play(); }catch(_){}
-    st.textContent = 'Preparando a verificação do rosto…';
-    let marcador;
-    try{ marcador = await carregarDetectorRosto(); }
-    catch(e){ pararCamera(); cam.hidden = true; bCam.hidden = false; msg.className = 'rq-msg erro';
-      msg.textContent = 'Não foi possível carregar a verificação do rosto. Confira a internet e toque em Abrir câmera de novo. (Detalhe para o almoxarifado: ' + String((e && (e.message || e.name)) || e).slice(0, 160) + ')'; return; }
-    // etapas: 'rosto' (um rosto, centralizado e perto; mede a abertura normal dos olhos) -> 'piscar' (olhos fecham
-    // bem abaixo do normal e abrem de novo) -> foto com os olhos abertos
-    let etapa = 'rosto', estavel = 0, fechou = false, base = 0;
-    rodando = true;
-    const passo = async () => {
-      if(!rodando) return;
-      let faces = [];
-      if(video.readyState >= 2){ try{ faces = await marcador.detectar(video); }catch(_){ faces = []; } }
-      if(!rodando) return;
-      const f = faces.length === 1 ? faces[0] : null;
-      const bom = !!f && f.larg > 0.22 && f.larg < 0.9 && Math.abs(f.cx - 0.5) < 0.2 && f.cy > 0.2 && f.cy < 0.75;
-      guia.classList.toggle('ok', bom);
-      if(faces.length > 1){ st.textContent = 'Só você na foto, por favor.'; estavel = 0; }
-      else if(!faces.length){ st.textContent = 'Não estou vendo um rosto. Olhe para a câmera.'; estavel = 0; }
-      else if(!bom){ st.textContent = 'Centralize o rosto dentro do círculo e aproxime o celular.'; estavel = 0; }
-      else if(etapa === 'rosto'){
-        estavel++; base = Math.max(base, f.olho); st.textContent = 'Rosto encontrado. Fique parado…';
-        if(estavel > 5 && base > 0.15){ etapa = 'piscar'; fechou = false; }
-      }
-      else if(etapa === 'piscar'){
-        st.textContent = 'Agora pisque os olhos devagar.';
-        if(f.olho < base * 0.72) fechou = true;
-        else if(fechou && f.olho > base * 0.88){
-          foto = tirarFoto();
-          verificacao = { modo: 'camera ao vivo', rosto: true, piscada: true, em: new Date().toISOString() };
-          pararCamera(); cam.hidden = true; prev.src = foto; prev.hidden = false; bRefazer.hidden = false;
-          msg.className = 'rq-msg ok'; msg.textContent = 'Selfie verificada.';
-          return;
-        }
-        else base = Math.max(base * 0.995, f.olho); // acompanha a abertura normal enquanto espera a piscada
-      }
-      setTimeout(passo, 60);
-    };
-    setTimeout(passo, 60);
-  };
-  bCam.addEventListener('click', abrirCamera);
-  bRefazer.addEventListener('click', abrirCamera);
+  /* selfie */
+  let foto = null;
+  const inp = ov.querySelector('.rq-foto-btn input'), prev = ov.querySelector('.rq-foto');
+  inp.addEventListener('change', async () => {
+    const f = inp.files && inp.files[0]; if(!f) return;
+    try{ foto = await reduzirFoto(f); prev.src = foto; prev.hidden = false; msg.textContent = ''; }
+    catch(_){ msg.className = 'rq-msg erro'; msg.textContent = 'Não deu para ler a foto. Tente de novo.'; }
+  });
 
   const btn = ov.querySelector('[data-acao="assinar"]'), decl = ov.querySelector('.rq-decl input');
   btn.addEventListener('click', async () => {
     msg.className = 'rq-msg erro';
     if(vazio){ msg.textContent = 'Faça sua assinatura no quadro.'; return; }
-    if(!foto || !verificacao){ msg.textContent = 'Tire a selfie pela câmera (Abrir câmera) antes de enviar.'; return; }
+    if(!foto){ msg.textContent = 'Tire a selfie antes de enviar.'; return; }
     if(!decl.checked){ msg.textContent = 'Marque a declaração de recebimento.'; return; }
     const ss = sessao(); if(!ss){ paraOLogin(); return; }
     btn.disabled = true; msg.className = 'rq-msg'; msg.textContent = 'Enviando…';
@@ -959,9 +856,9 @@ function abrirRequisicao(i){
       const agora = new Date(), p2 = n => String(n).padStart(2, '0');
       const em = p2(agora.getDate()) + '/' + p2(agora.getMonth() + 1) + '/' + agora.getFullYear() + ' às ' + p2(agora.getHours()) + ':' + p2(agora.getMinutes());
       const codigo = await codigoVerificacao(q, em);
-      const doc = pdfRequisicao(q, { img: cv.toDataURL('image/png'), foto: foto, em: em, codigo: codigo, verificacao: verificacao });
+      const doc = pdfRequisicao(q, { img: cv.toDataURL('image/png'), foto: foto, em: em, codigo: codigo });
       const pdf = doc.output('datauristring');
-      const r = await chamarPost({ acao:'assinarRequisicao', token: ss.token, num: q.num, pdf: pdf, foto: foto, codigo: codigo, navegador: navigator.userAgent, verificacao: verificacao });
+      const r = await chamarPost({ acao:'assinarRequisicao', token: ss.token, num: q.num, pdf: pdf, foto: foto, codigo: codigo, navegador: navigator.userAgent });
       if(!r){ throw new Error('rede'); }
       if(r.sessao === false){ paraOLogin(); return; }
       if(!r.ok){ msg.className = 'rq-msg erro'; msg.textContent = r.erro || 'Não foi possível enviar.'; if(r.jaAssinada){ q.assinada = true; renderRequisicoes(); } btn.disabled = !!r.jaAssinada; return; }
