@@ -207,6 +207,7 @@
   .rq-foto-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--cor);color:var(--cor-forte);background:var(--card);border-radius:12px;padding:10px 14px;font-weight:800;font-size:.86rem;cursor:pointer}
   .rq-foto-btn input{display:none}
   .rq-foto{max-width:150px;max-height:200px;border-radius:12px;border:1px solid var(--card-line);display:block;margin-top:8px}
+  .rq-foto[hidden],.rq-cam[hidden],.rq-foto-btn[hidden],.rq-mini[hidden]{display:none}
   .rq-cam{position:relative;width:min(100%,320px);aspect-ratio:3/4;margin-top:8px;border-radius:14px;overflow:hidden;background:#0b1a2a}
   .rq-cam video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
   .rq-cam-guia{position:absolute;left:50%;top:44%;width:62%;aspect-ratio:3/4;transform:translate(-50%,-50%);border:3px dashed rgba(255,255,255,.7);border-radius:50%;transition:border-color .2s}
@@ -762,8 +763,11 @@ function carregarDetectorRosto(){
   DETECTOR_ROSTO = import(V + '/vision_bundle.mjs').then(async m => {
     const arquivos = await m.FilesetResolver.forVisionTasks(V + '/wasm');
     const op = delegate => ({ baseOptions: { modelAssetPath: MODELO, delegate: delegate }, runningMode: 'VIDEO', numFaces: 2, outputFaceBlendshapes: true });
-    try{ return await m.FaceLandmarker.createFromOptions(arquivos, op('GPU')); }
-    catch(_){ return await m.FaceLandmarker.createFromOptions(arquivos, op('CPU')); }
+    // iPhone/iPad (WebKit): a placa de vídeo costuma falhar no Safari; começa pelo processador
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const ordem = ios ? ['CPU', 'GPU'] : ['GPU', 'CPU'];
+    try{ return await m.FaceLandmarker.createFromOptions(arquivos, op(ordem[0])); }
+    catch(_){ return await m.FaceLandmarker.createFromOptions(arquivos, op(ordem[1])); }
   });
   DETECTOR_ROSTO.catch(() => { DETECTOR_ROSTO = null; });
   return DETECTOR_ROSTO;
@@ -889,7 +893,8 @@ function abrirRequisicao(i){
     st.textContent = 'Preparando a verificação do rosto…';
     let marcador;
     try{ marcador = await carregarDetectorRosto(); }
-    catch(_){ pararCamera(); cam.hidden = true; bCam.hidden = false; msg.className = 'rq-msg erro'; msg.textContent = 'Não foi possível carregar a verificação do rosto. Confira a internet e toque em Abrir câmera de novo.'; return; }
+    catch(e){ pararCamera(); cam.hidden = true; bCam.hidden = false; msg.className = 'rq-msg erro';
+      msg.textContent = 'Não foi possível carregar a verificação do rosto. Confira a internet e toque em Abrir câmera de novo. (Detalhe para o almoxarifado: ' + String((e && (e.message || e.name)) || e).slice(0, 160) + ')'; return; }
     // etapas: 'rosto' (um rosto, centralizado e perto) -> 'piscar' (olhos fecham e abrem) -> foto com os olhos abertos
     let etapa = 'rosto', estavel = 0, fechou = false, ultimo = -1;
     rodando = true;
