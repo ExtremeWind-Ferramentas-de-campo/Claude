@@ -753,22 +753,36 @@ async function codigoVerificacao(q, em){
   }catch(_){ return String(Date.now()); }
 }
 
-/* detector de rosto (MediaPipe Face Landmarker, do Google): roda no próprio celular, a imagem não sai do aparelho.
-   Dá os pontos do rosto (para ver se está centralizado) e o quanto cada olho está fechado (para a piscada). */
+/* detector de rosto (face-api, script comum: funciona no Safari do iPhone): roda no próprio celular, a imagem não sai
+   do aparelho. Devolve, para cada rosto, o centro e a largura (proporção do vídeo) e a abertura média dos olhos
+   (EAR, pelos 68 pontos do rosto), usada para a piscada. */
 let DETECTOR_ROSTO = null;
+function carregarScript(src){
+  return new Promise((ok, falha) => { const s = document.createElement('script'); s.src = src; s.async = true; s.crossOrigin = 'anonymous';
+    s.onload = ok; s.onerror = () => falha(new Error('não carregou ' + src.split('/').pop())); document.head.appendChild(s); });
+}
 function carregarDetectorRosto(){
   if(DETECTOR_ROSTO) return DETECTOR_ROSTO;
-  const V = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
-  const MODELO = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
-  DETECTOR_ROSTO = import(V + '/vision_bundle.mjs').then(async m => {
-    const arquivos = await m.FilesetResolver.forVisionTasks(V + '/wasm');
-    const op = delegate => ({ baseOptions: { modelAssetPath: MODELO, delegate: delegate }, runningMode: 'VIDEO', numFaces: 2, outputFaceBlendshapes: true });
-    // iPhone/iPad (WebKit): a placa de vídeo costuma falhar no Safari; começa pelo processador
-    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const ordem = ios ? ['CPU', 'GPU'] : ['GPU', 'CPU'];
-    try{ return await m.FaceLandmarker.createFromOptions(arquivos, op(ordem[0])); }
-    catch(_){ return await m.FaceLandmarker.createFromOptions(arquivos, op(ordem[1])); }
-  });
+  const V = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13';
+  DETECTOR_ROSTO = (async () => {
+    if(!window.faceapi) await carregarScript(V + '/dist/face-api.js');
+    const fa = window.faceapi;
+    try{ await fa.tf.setBackend('webgl'); await fa.tf.ready(); }
+    catch(_){ await fa.tf.setBackend('cpu'); await fa.tf.ready(); }
+    await fa.nets.tinyFaceDetector.loadFromUri(V + '/model');
+    await fa.nets.faceLandmark68Net.loadFromUri(V + '/model');
+    const op = new fa.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+    return { detectar: async video => {
+      const rs = await fa.detectAllFaces(video, op).withFaceLandmarks();
+      const W = video.videoWidth || 1, H = video.videoHeight || 1;
+      return rs.map(r => {
+        const b = r.detection.box, p = r.landmarks.positions;
+        const d = (a, c) => Math.hypot(p[a].x - p[c].x, p[a].y - p[c].y);
+        const ear = i => (d(i + 1, i + 5) + d(i + 2, i + 4)) / (2 * d(i, i + 3) || 1);
+        return { cx: (b.x + b.width / 2) / W, cy: (b.y + b.height / 2) / H, larg: b.width / W, olho: (ear(36) + ear(42)) / 2 };
+      });
+    } };
+  })();
   DETECTOR_ROSTO.catch(() => { DETECTOR_ROSTO = null; });
   return DETECTOR_ROSTO;
 }
@@ -895,46 +909,40 @@ function abrirRequisicao(i){
     try{ marcador = await carregarDetectorRosto(); }
     catch(e){ pararCamera(); cam.hidden = true; bCam.hidden = false; msg.className = 'rq-msg erro';
       msg.textContent = 'Não foi possível carregar a verificação do rosto. Confira a internet e toque em Abrir câmera de novo. (Detalhe para o almoxarifado: ' + String((e && (e.message || e.name)) || e).slice(0, 160) + ')'; return; }
-    // etapas: 'rosto' (um rosto, centralizado e perto) -> 'piscar' (olhos fecham e abrem) -> foto com os olhos abertos
-    let etapa = 'rosto', estavel = 0, fechou = false, ultimo = -1;
+    // etapas: 'rosto' (um rosto, centralizado e perto; mede a abertura normal dos olhos) -> 'piscar' (olhos fecham
+    // bem abaixo do normal e abrem de novo) -> foto com os olhos abertos
+    let etapa = 'rosto', estavel = 0, fechou = false, base = 0;
     rodando = true;
-    const passo = () => {
+    const passo = async () => {
       if(!rodando) return;
-      if(video.readyState >= 2 && video.currentTime !== ultimo){
-        ultimo = video.currentTime;
-        let r = null; try{ r = marcador.detectForVideo(video, performance.now()); }catch(_){ r = null; }
-        const faces = (r && r.faceLandmarks) || [];
-        let bom = false, aberto = false, piscando = false;
-        if(faces.length === 1){
-          const xs = faces[0].map(p => p.x), ys = faces[0].map(p => p.y);
-          const minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs), minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
-          const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, larg = maxX - minX;
-          bom = larg > 0.28 && larg < 0.95 && Math.abs(cx - 0.5) < 0.18 && cy > 0.22 && cy < 0.7;
-          const bs = r.faceBlendshapes && r.faceBlendshapes[0] ? r.faceBlendshapes[0].categories : [];
-          const val = n => { const c = bs.find(x => x.categoryName === n); return c ? c.score : 0; };
-          const piscada = Math.min(val('eyeBlinkLeft'), val('eyeBlinkRight'));
-          piscando = piscada > 0.5; aberto = Math.max(val('eyeBlinkLeft'), val('eyeBlinkRight')) < 0.3;
-        }
-        guia.classList.toggle('ok', bom);
-        if(faces.length > 1){ st.textContent = 'Só você na foto, por favor.'; estavel = 0; }
-        else if(!faces.length){ st.textContent = 'Não estou vendo um rosto. Olhe para a câmera.'; estavel = 0; }
-        else if(!bom){ st.textContent = 'Centralize o rosto dentro do círculo e aproxime o celular.'; estavel = 0; }
-        else if(etapa === 'rosto'){ estavel++; st.textContent = 'Rosto encontrado. Fique parado…'; if(estavel > 8){ etapa = 'piscar'; fechou = false; } }
-        else if(etapa === 'piscar'){
-          st.textContent = 'Agora pisque os olhos devagar.';
-          if(piscando) fechou = true;
-          else if(fechou && aberto){
-            foto = tirarFoto();
-            verificacao = { modo: 'camera ao vivo', rosto: true, piscada: true, em: new Date().toISOString() };
-            pararCamera(); cam.hidden = true; prev.src = foto; prev.hidden = false; bRefazer.hidden = false;
-            msg.className = 'rq-msg ok'; msg.textContent = 'Selfie verificada.';
-            return;
-          }
-        }
+      let faces = [];
+      if(video.readyState >= 2){ try{ faces = await marcador.detectar(video); }catch(_){ faces = []; } }
+      if(!rodando) return;
+      const f = faces.length === 1 ? faces[0] : null;
+      const bom = !!f && f.larg > 0.22 && f.larg < 0.9 && Math.abs(f.cx - 0.5) < 0.2 && f.cy > 0.2 && f.cy < 0.75;
+      guia.classList.toggle('ok', bom);
+      if(faces.length > 1){ st.textContent = 'Só você na foto, por favor.'; estavel = 0; }
+      else if(!faces.length){ st.textContent = 'Não estou vendo um rosto. Olhe para a câmera.'; estavel = 0; }
+      else if(!bom){ st.textContent = 'Centralize o rosto dentro do círculo e aproxime o celular.'; estavel = 0; }
+      else if(etapa === 'rosto'){
+        estavel++; base = Math.max(base, f.olho); st.textContent = 'Rosto encontrado. Fique parado…';
+        if(estavel > 5 && base > 0.15){ etapa = 'piscar'; fechou = false; }
       }
-      requestAnimationFrame(passo);
+      else if(etapa === 'piscar'){
+        st.textContent = 'Agora pisque os olhos devagar.';
+        if(f.olho < base * 0.72) fechou = true;
+        else if(fechou && f.olho > base * 0.88){
+          foto = tirarFoto();
+          verificacao = { modo: 'camera ao vivo', rosto: true, piscada: true, em: new Date().toISOString() };
+          pararCamera(); cam.hidden = true; prev.src = foto; prev.hidden = false; bRefazer.hidden = false;
+          msg.className = 'rq-msg ok'; msg.textContent = 'Selfie verificada.';
+          return;
+        }
+        else base = Math.max(base * 0.995, f.olho); // acompanha a abertura normal enquanto espera a piscada
+      }
+      setTimeout(passo, 60);
     };
-    requestAnimationFrame(passo);
+    setTimeout(passo, 60);
   };
   bCam.addEventListener('click', abrirCamera);
   bRefazer.addEventListener('click', abrirCamera);
