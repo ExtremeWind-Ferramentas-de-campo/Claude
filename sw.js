@@ -17,7 +17,7 @@
    IMPORTANTE: ao atualizar arquivos do app, incremente o número do CACHE
    abaixo — é o que descarta o cache antigo e força a atualização.
    ───────────────────────────────────────────────────────────── */
-const CACHE = 'ew-site-v80';
+const CACHE = 'ew-site-v81';
 
 const CORE = [
   './',
@@ -102,11 +102,7 @@ self.addEventListener('activate', e => {
 const SEM_CACHE = [
   'https://ew-dropbox-proxy.ew-fotos.workers.dev',
   'https://script.google.com',
-  'https://script.googleusercontent.com',
-  // detector de rosto da selfie (MediaPipe): arquivos grandes, vão direto à rede
-  'https://cdn.jsdelivr.net/npm/@mediapipe',
-  'https://storage.googleapis.com/mediapipe-models',
-  'https://cdn.jsdelivr.net/npm/@vladmandic/face-api'
+  'https://script.googleusercontent.com'
 ];
 
 self.addEventListener('fetch', e => {
